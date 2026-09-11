@@ -1,0 +1,32 @@
+<div class="form-container">
+  <h2>Registrar Movimiento</h2>
+  <form (ngSubmit)="guardar()" class="form-grid">
+    <label for="fecha">Fecha:</label>
+   <input
+  type="date"
+  [(ngModel)]="movimiento.fecha"
+  name="fecha"
+  required
+  pattern="\d{4}-\d{2}-\d{2}"
+/>
+
+    <label for="monto">Monto:</label>
+    <input type="number" [(ngModel)]="movimiento.monto" name="monto" required />
+
+    <label for="tipo">Tipo:</label>
+    <select [(ngModel)]="movimiento.tipo" name="tipo" required>
+      <option value="Ingreso">Ingreso</option>
+      <option value="Gasto">Gasto</option>
+    </select>
+
+    <label for="categoria">Categoría:</label>
+    <input type="text" [(ngModel)]="movimiento.categoria" name="categoria" required />
+
+    <label for="descripcion">Descripción:</label>
+    <input type="text" [(ngModel)]="movimiento.descripcion" name="descripcion" />
+
+    <button type="submit">Guardar</button>
+  </form>
+
+</div>
+  <app-lista-movimientos></app-lista-movimientos>

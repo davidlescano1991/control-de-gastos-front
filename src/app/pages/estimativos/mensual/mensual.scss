@@ -1,0 +1,396 @@
+.pantalla-mensual {
+  display: flex;
+  background-color: #fdfdfd;
+  align-items: flex-start;
+  min-width: 0;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 8%;
+  background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-right: 1px solid #dee2e6;
+}
+
+.sidebar button {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border: none;
+  background-color: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  color: #495057;
+  border-radius: 8px;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+  position: relative;
+}
+
+.sidebar button:hover {
+  background-color: #e2e6ea;
+  color: #212529;
+}
+
+.sidebar button.active {
+  background-color: #6e4dba;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.sidebar button.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 70%;
+  background-color: #ffffff;
+  border-radius: 2px;
+}
+
+/* Nueva estructura de contenido */
+.contenido-dos-columnas {
+  display: grid;
+  grid-template-columns: minmax(320px, 40%) minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+  padding: 1.5rem;
+  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: visible;
+}
+.col-derecha-scroll {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-y: visible;
+  padding-right: 0;
+  box-sizing: border-box;
+}
+.contenido-derecho {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.col-izquierda {
+  min-width: 0;
+  max-width: none;
+  overflow-y: visible;
+}
+.saldo {
+  color: #ab01d5ff !important;
+  font-weight: bold;
+}
+.saldoUSD {
+  color: rgb(29, 123, 0) !important;
+  font-weight: bold;
+}
+.deuda {
+  color: #f92858ff !important;
+  font-weight: bold;
+}
+.deudaReal {
+  color: rgb(154, 17, 49) !important;
+  font-weight: bold;
+}
+
+.positivo,
+td.positivo,
+.deuda-verde,
+td.deuda-verde {
+  color: green !important;
+}
+
+.negativo,
+td.negativo,
+.deuda-roja,
+td.deuda-roja {
+  color: red !important;
+}
+
+.neutro,
+.deuda-neutro,
+td.deuda-neutro {
+  color: inherit !important;
+}
+.col-derecha {
+  min-width: 0;
+  max-width: none;
+}
+
+.sticky-grafico {
+  position: sticky;
+  top: 30px;
+  align-self: flex-start;
+  z-index: 10;
+}
+
+.card-header-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f1f5f9;
+
+  h3 {
+    margin: 0 12px;
+    font-size: 20px;
+    font-weight: 700;
+    color: #1e293b;
+    letter-spacing: -0.3px;
+    text-align: center;
+    flex: 1;
+  }
+}
+
+.btn-header-action {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #475569;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s ease-in-out;
+
+  &:hover {
+    background: #f1f5f9;
+    color: #1565c0;
+    border-color: #1565c0;
+    box-shadow: 0 3px 8px rgba(21, 101, 192, 0.15);
+    transform: translateY(-1px);
+  }
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Entidades */
+.movimientos-wrapper {
+  padding: 20px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  overflow: visible;
+  h2 {
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 24px;
+    color: #2c3e50;
+  }
+}
+
+.contenedor-entidad {
+  margin-bottom: 20px;
+}
+
+app-master-galicia,
+app-grafico-visa,
+app-visa,
+app-naranja,
+app-bancor {
+  min-width: 0;
+}
+.tabla-fechas {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  table-layout: auto;
+  /* let the table define its own width; wrapper handles scrolling */
+  min-width: 360px;
+  thead {
+    th {
+      text-align: center;
+      padding: 4px 6px;
+      color: #ffffff;
+      font-weight: 600;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      background-color: #bb00be;
+      white-space: normal;
+      line-height: 1.1;
+    }
+  }
+
+  tbody {
+    tr {
+      &:nth-child(even) {
+        background-color: #f8f7fb;
+      }
+
+      &.fila-no-laborable,
+      &.fila-fin-de-semana,
+      &.fila-feriado {
+        background-color: #ede9f5;
+
+        td {
+          background-color: #ede9f5;
+          border-bottom: 1px solid #dcd5e7;
+        }
+
+        td.columna-resaltada {
+          background-color: #dbd3e6;
+        }
+
+        &:hover {
+          background-color: #e4ddf0;
+
+          td {
+            background-color: #e4ddf0;
+          }
+
+          td.columna-resaltada {
+            background-color: #cfc5dc;
+          }
+        }
+      }
+
+      td {
+        padding: 5px 6px;
+        border-bottom: 1px solid #f1f1f1;
+        color: #2d3436;
+        vertical-align: middle;
+        word-break: break-word;
+        white-space: normal;
+      }
+
+      td:first-child {
+        text-align: left;
+      }
+
+      td.texto-derecha {
+        text-align: right;
+      }
+    }
+  }
+
+  @media (max-width: 700px) {
+    font-size: 13px;
+    thead th {
+      font-size: 13px;
+    }
+    td {
+      white-space: normal;
+    }
+    min-width: 100%;
+  }
+}
+
+.tabla-wrapper {
+  overflow-x: auto;
+  max-width: 100%;
+  border-radius: 8px;
+  padding-bottom: 6px;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Forzar anchos mínimos por columna para evitar que fechas/números se partan */
+.tabla-fechas th:first-child,
+.tabla-fechas td:first-child {
+  min-width: 90px;
+  white-space: nowrap;
+}
+.tabla-fechas th:nth-child(2),
+.tabla-fechas td:nth-child(2) {
+  min-width: 100px;
+  white-space: nowrap;
+}
+.tabla-fechas th:nth-child(3),
+.tabla-fechas td:nth-child(3) {
+  min-width: 90px;
+  white-space: nowrap;
+}
+.tabla-fechas th:nth-child(4),
+.tabla-fechas td:nth-child(4) {
+  min-width: 100px;
+  white-space: nowrap;
+}
+.tabla-fechas th:nth-child(5),
+.tabla-fechas td:nth-child(5) {
+  min-width: 100px;
+  white-space: nowrap;
+}
+.tabla-fechas th:nth-child(6),
+.tabla-fechas td:nth-child(6) {
+  min-width: 100px;
+  white-space: nowrap;
+}
+.columna-resaltada {
+  background-color: #dedede;
+}
+.texto-derecha {
+  text-align: right;
+}
+.texto-centro {
+  text-align: center;
+}
+/* Responsive */
+@media (max-width: 700px) {
+  .pantalla-mensual {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-around;
+    padding: 0.5rem 1rem;
+    border-right: none;
+    border-bottom: 1px solid #dee2e6;
+    overflow-x: auto;
+  }
+
+  .sidebar button {
+    flex: 1;
+    font-size: 14px;
+    padding: 0.5rem;
+    white-space: nowrap;
+    border-radius: 0;
+    border-bottom: 2px solid transparent;
+  }
+
+  .sidebar button.active {
+    background-color: #6e4dba;
+    color: #ffffff;
+    border-bottom-color: transparent;
+  }
+
+  .sidebar button.active::before {
+    display: none;
+  }
+
+  .contenido-dos-columnas {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 1rem;
+  }
+
+  .col-derecha {
+    max-width: 100%;
+    position: static;
+  }
+
+  .sticky-grafico {
+    position: static;
+  }
+}

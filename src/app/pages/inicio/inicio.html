@@ -1,0 +1,104 @@
+<div class="movimientos-wrapper" *ngIf="anios && anios.length > 0">
+  <h2>Movimientos financieros</h2>
+
+  <app-selector-anio-delorean
+    [anios]="anios"
+    [anioSeleccionado]="anioSeleccionado()"
+    (indiceCambiado)="seleccionarAnio($event)"
+  ></app-selector-anio-delorean>
+
+  <ng-container *ngTemplateOutlet="contenidoPagina; context: { anio: anioSeleccionado() }"></ng-container>
+</div>
+
+<!-- Plantilla reutilizable del contenido de la página -->
+<ng-template #contenidoPagina let-anio="anio">
+  <!-- Mensajes de estado -->
+  @if (isCargando() && mensajeEstado()) {
+    <mat-card class="alert-card warning">
+      <mat-card-content>
+        @for (msg of [mensajeEstado()]; track msg) {
+          <div class="msg-animated">{{ msg }}</div>
+        }
+      </mat-card-content>
+    </mat-card>
+  }
+  <!-- Gráfico de progreso de días del año -->
+  <div class="contenedor-dias-restantes">
+    <app-grafico-dias-restantes-anual [anioSeleccionado]="anioSeleccionado()"></app-grafico-dias-restantes-anual>
+  </div>
+
+  <!-- Contenedor responsivo -->
+  <mat-card-content
+    class="contenedor-dos-columnas"
+    [class.col-izq-contraida]="colIzquierdaContraida()"
+    [class.col-der-contraida]="colDerechaContraida()"
+  >
+    <!-- Columna Izquierda -->
+    <div class="col-izquierda" [class.is-collapsed-horiz]="colIzquierdaContraida()">
+      @if (!colIzquierdaContraida()) {
+        @if (anio === anioSeleccionado() && resumenPorDia().length > 0) {
+          <app-lista-saldo-diario
+            [anio]="anio"
+            [resumenPorDiaUSD]="resumenConDolar()"
+            [isColIzquierdaContraida]="colIzquierdaContraida()"
+            (toggleHorizontalCollapse)="toggleColIzquierdaHorizontal()"
+          >
+          </app-lista-saldo-diario>
+        }
+      } @else {
+        <div class="franja-colapsada" (click)="toggleColIzquierdaHorizontal()" title="Expandir componente izquierdo">
+          <button type="button" class="btn-franja-expand">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+          <span class="texto-vertical">Totales Diarios</span>
+        </div>
+      }
+    </div>
+
+    <!-- Columna Derecha -->
+    <div class="col-derecha" [class.is-collapsed-horiz]="colDerechaContraida()">
+      @if (!colDerechaContraida()) {
+        @if (anio === anioSeleccionado()) {
+          @if (resumenPorDia().length > 0) {
+            <app-movimientos
+              [anio]="anio"
+              [resumenPorDia]="resumenPorDia()"
+              [isColDerechaContraida]="colDerechaContraida()"
+              (toggleHorizontalCollapse)="toggleColDerechaHorizontal()"
+            >
+            </app-movimientos>
+          }
+          <app-movimientos-usd
+            [anio]="anio"
+            [resumen]="resumenConDolar()"
+            [isColDerechaContraida]="colDerechaContraida()"
+            (toggleHorizontalCollapse)="toggleColDerechaHorizontal()"
+          >
+          </app-movimientos-usd>
+        }
+      } @else {
+        <div class="franja-colapsada" (click)="toggleColDerechaHorizontal()" title="Expandir componente derecho">
+          <button type="button" class="btn-franja-expand">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+          <span class="texto-vertical">Gráficos Diarios</span>
+        </div>
+      }
+    </div>
+  </mat-card-content>
+
+  <!-- Gráfico -->
+  <mat-card-content>
+    <app-grafico-movimientos-historicos
+      [isCargando]="isCargando()"
+      [datosHistoricosDiarios]="datosHistoricosDiarios()"
+    >
+    </app-grafico-movimientos-historicos>
+
+    <app-grafico-movimientos-historicos-usd
+      [isCargando]="isCargando()"
+      [datosHistoricosDiarios]="datosHistoricosDiarios()"
+    >
+    </app-grafico-movimientos-historicos-usd>
+  </mat-card-content>
+</ng-template>

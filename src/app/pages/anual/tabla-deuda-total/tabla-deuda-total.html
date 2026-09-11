@@ -1,0 +1,157 @@
+<div [class.is-collapsed]="isCollapsed()">
+  <div *ngIf="isCargando || !datos || datos.length === 0; else lista" class="spinner-wrapper">
+    <mat-spinner diameter="40" strokeWidth="4" color="primary"></mat-spinner>
+  </div>
+  <ng-template #lista>
+    <div class="tabla-wrapper">
+      <table class="tabla-deuda-total" aria-label="Deuda Total a Pagar">
+        <thead>
+          <tr>
+            <th colspan="100" class="header-deuda-total">
+              <div class="card-header-wrapper" style="margin-bottom: 0;">
+                <span>Deuda total a pagar</span>
+                <button
+                  type="button"
+                  class="btn-collapse-card"
+                  [class.collapsed]="isCollapsed()"
+                  (click)="toggleCollapse()"
+                  [title]="isCollapsed() ? 'Expandir Deuda Total' : 'Contraer Deuda Total'"
+                >
+                  <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
+                    <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+                  </svg>
+                </button>
+              </div>
+            </th>
+          </tr>
+          <tr class="sub-header-row" *ngIf="!isCollapsed()">
+            <th class="col-header-mes">Mes</th>
+            <th class="col-header-tarjetas texto-derecha">Tarjetas</th>
+            <th class="col-header-prestamos texto-derecha">Préstamos</th>
+            <th class="col-header-total texto-derecha">Deuda Total</th>
+            <th class="col-header-total-usd texto-derecha">Deuda Total USD</th>
+          </tr>
+        </thead>
+        <tbody *ngIf="!isCollapsed()">
+          <tr *ngFor="let item of datos; let i = index" [ngClass]="obtenerEstadoMes(item.mes, i)">
+            <td class="col-mes">
+              <strong class="mes-label">{{ formatearMes(item.mes) }}</strong>
+            </td>
+
+            <!-- Columna Tarjetas con Popover -->
+            <td class="col-tarjetas texto-derecha font-medium cell-with-popover">
+              {{ item.subtotalTarjetas | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+
+              <div
+                class="custom-popover"
+                [class.popover-down]="i < 4"
+                [class.popover-up]="i >= 4"
+                *ngIf="item.desgloseTarjetas && item.desgloseTarjetas.length > 0"
+              >
+                <div class="popover-header">💳 Tarjetas restantes (<strong>{{ formatearMes(item.mes) }}</strong>)</div>
+                <div class="popover-body">
+                  <div class="popover-item" *ngFor="let d of item.desgloseTarjetas">
+                    <span class="item-desc font-bold">• {{ d.nombre }}</span>
+                    <span class="item-monto font-bold">{{ d.monto | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+                  </div>
+                </div>
+                <div class="popover-footer">
+                  <span class="item-desc font-bold">Total Tarjetas:</span>
+                  <span class="item-monto font-bold">{{ item.subtotalTarjetas | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+                </div>
+              </div>
+            </td>
+
+            <!-- Columna Préstamos con Popover -->
+            <td class="col-prestamos texto-derecha font-medium cell-with-popover">
+              <span *ngIf="item.totalPrestamos > 0">
+                {{ item.totalPrestamos | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+              </span>
+              <span *ngIf="item.totalPrestamos === 0" class="celda-vacia-guion">-</span>
+
+              <div
+                class="custom-popover"
+                [class.popover-down]="i < 4"
+                [class.popover-up]="i >= 4"
+                *ngIf="item.desglosePrestamos && item.desglosePrestamos.length > 0"
+              >
+                <div class="popover-header">🏦 Préstamos restantes (<strong>{{ formatearMes(item.mes) }}</strong>)</div>
+                <div class="popover-body">
+                  <div class="popover-item" *ngFor="let d of item.desglosePrestamos">
+                    <span class="item-desc font-bold">
+                      • {{ d.nombre }}
+                      <small *ngIf="d.cuotas" class="item-cuotas">({{ d.cuotas }} cuota{{ d.cuotas > 1 ? 's' : '' }})</small>
+                    </span>
+                    <span class="item-monto font-bold">{{ d.monto | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+                  </div>
+                </div>
+                <div class="popover-footer">
+                  <span class="item-desc font-bold">Total Préstamos:</span>
+                  <span class="item-monto font-bold">{{ item.totalPrestamos | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+                </div>
+              </div>
+            </td>
+
+            <!-- Columna Deuda Total con Popover -->
+            <td class="col-deuda-total texto-derecha font-bold cell-with-popover">
+              {{ item.deudaTotal | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+
+              <div
+                class="custom-popover"
+                [class.popover-down]="i < 4"
+                [class.popover-up]="i >= 4"
+              >
+                <div class="popover-header">💰 Deuda Total (<strong>{{ formatearMes(item.mes) }}</strong>)</div>
+                <div class="popover-body">
+                  <div class="popover-item">
+                    <span class="item-desc font-bold">• Tarjetas restantes:</span>
+                    <span class="item-monto font-bold">{{ item.subtotalTarjetas | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+                  </div>
+                  <div class="popover-item">
+                    <span class="item-desc font-bold">• Préstamos restantes:</span>
+                    <span class="item-monto font-bold">{{ item.totalPrestamos | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+                  </div>
+                </div>
+                <div class="popover-footer">
+                  <span class="item-desc font-bold">Total:</span>
+                  <span class="item-monto font-bold">{{ item.deudaTotal | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+                </div>
+              </div>
+            </td>
+
+            <!-- Columna Deuda Total USD con Popover -->
+            <td class="col-deuda-usd texto-derecha font-bold cell-with-popover">
+              <span *ngIf="item.deudaTotalUSD != null && item.deudaTotalUSD > 0">
+                {{ item.deudaTotalUSD | currency: 'USD' : 'symbol' : '1.2-2' : 'en-US' }}
+              </span>
+              <span *ngIf="!item.deudaTotalUSD || item.deudaTotalUSD === 0" class="celda-vacia-guion">-</span>
+
+              <div
+                class="custom-popover"
+                [class.popover-down]="i < 4"
+                [class.popover-up]="i >= 4"
+                *ngIf="item.cotizacionUSD"
+              >
+                <div class="popover-header">💵 Deuda USD (<strong>{{ formatearMes(item.mes) }}</strong>)</div>
+                <div class="popover-body">
+                  <div class="popover-item">
+                    <span class="item-desc font-bold">• Deuda en ARS:</span>
+                    <span class="item-monto font-bold">{{ item.deudaTotal | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+                  </div>
+                  <div class="popover-item">
+                    <span class="item-desc font-bold">• Cotización Dólar:</span>
+                    <span class="item-monto font-bold">{{ item.cotizacionUSD | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+                  </div>
+                </div>
+                <div class="popover-footer">
+                  <span class="item-desc font-bold">Total USD:</span>
+                  <span class="item-monto font-bold">{{ item.deudaTotalUSD | currency: 'USD' : 'symbol' : '1.2-2' : 'en-US' }}</span>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </ng-template>
+</div>

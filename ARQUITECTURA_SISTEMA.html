@@ -1,0 +1,2112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arquitectura & Modelo de Datos - Control de Gastos 2.0</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #090d16;
+      --bg-surface: #0f172a;
+      --bg-card: rgba(15, 23, 42, 0.85);
+      --bg-card-hover: rgba(30, 41, 59, 0.95);
+      --border-subtle: rgba(148, 163, 184, 0.12);
+      --border-glow: rgba(59, 130, 246, 0.45);
+      
+      --accent-blue: #3b82f6;
+      --accent-indigo: #6366f1;
+      --accent-cyan: #06b6d4;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --accent-purple: #a855f7;
+
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 90% 60%, rgba(99, 102, 241, 0.08) 0%, transparent 45%),
+        linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+    }
+
+    header {
+      padding: 2.25rem 2rem 1.5rem;
+      max-width: 1450px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1px solid var(--border-subtle);
+      position: relative;
+    }
+
+    .badge-hero {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #60a5fa;
+      font-size: 0.775rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 0.6rem;
+    }
+
+    .badge-hero span.dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #38bdf8;
+      box-shadow: 0 0 10px #38bdf8;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    h1 {
+      font-size: 2.15rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #ffffff 35%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.4rem;
+    }
+
+    p.subtitle {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      max-width: 800px;
+      line-height: 1.5;
+    }
+
+    /* TABS DE NAVEGACIÓN PRINCIPAL */
+    .tab-nav {
+      max-width: 1450px;
+      margin: 1.5rem auto 0;
+      padding: 0 2rem;
+      display: flex;
+      gap: 1rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .tab-btn {
+      padding: 0.85rem 1.4rem;
+      font-size: 0.9rem;
+      font-weight: 700;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+      color: #f1f5f9;
+    }
+
+    .tab-btn.active {
+      color: #38bdf8;
+    }
+
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: #38bdf8;
+      border-radius: 3px 3px 0 0;
+      box-shadow: 0 0 12px #38bdf8;
+    }
+
+    .tab-badge {
+      font-size: 0.7rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    main {
+      max-width: 1450px;
+      margin: 1.75rem auto 4rem;
+      padding: 0 1.5rem;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ================================================= */
+    /* VISTA 1: CAPAS ARQUITECTÓNICAS                   */
+    /* ================================================= */
+    .tier-card {
+      position: relative;
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 1.75rem;
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+      transition: all 0.3s ease;
+    }
+
+    .tier-card:hover {
+      border-color: var(--border-glow);
+    }
+
+    .tier-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+    }
+
+    .tier-title-group {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .tier-number {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 0.9rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .tier-1 .tier-number { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .tier-2 .tier-number { background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.3); }
+    .tier-3 .tier-number { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+    .tier-4 .tier-number { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+
+    .tier-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+
+    .tier-subtitle {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 0.15rem;
+    }
+
+    .tier-tag {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.3rem 0.75rem;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-secondary);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .nodes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .node {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      border-radius: 14px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+
+    .node:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(99, 102, 241, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .node-top {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .node-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      flex-shrink: 0;
+    }
+
+    .icon-front { background: rgba(224, 34, 78, 0.15); border: 1px solid rgba(224, 34, 78, 0.3); }
+    .icon-shield { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .icon-jwt { background: rgba(217, 70, 239, 0.15); border: 1px solid rgba(217, 70, 239, 0.3); }
+    .icon-sse { background: rgba(236, 72, 153, 0.15); border: 1px solid rgba(236, 72, 153, 0.3); }
+    .icon-api { background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); }
+    .icon-prisma { background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .icon-pg { background: rgba(51, 103, 145, 0.2); border: 1px solid rgba(51, 103, 145, 0.4); }
+    .icon-sheets { background: rgba(16, 157, 89, 0.15); border: 1px solid rgba(16, 157, 89, 0.3); }
+
+    .node-title-group h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+
+    .node-title-group span {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .node-desc {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    .node-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: auto;
+    }
+
+    .tag {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .tag.highlight { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.25); color: #93c5fd; }
+    .tag.live { background: rgba(236, 72, 153, 0.1); border-color: rgba(236, 72, 153, 0.25); color: #f472b6; }
+    .tag.success { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.25); color: #6ee7b7; }
+
+    .flow-connector {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0;
+    }
+
+    .flow-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border-subtle);
+      padding: 0.45rem 1rem;
+      border-radius: 999px;
+      font-size: 0.775rem;
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    .flow-pill .arrow { color: #38bdf8; font-weight: 800; }
+    .flow-pill.sse-pill { border-color: rgba(236, 72, 153, 0.3); color: #f472b6; background: rgba(236, 72, 153, 0.08); }
+    .flow-pill.sse-pill .arrow { color: #ec4899; }
+
+    /* ================================================= */
+    /* VISTA 2: MODELO ENTIDAD-RELACIÓN (ER) INTERACTIVO */
+    /* ================================================= */
+    .er-intro {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 1.25rem 1.5rem;
+    }
+
+    .er-formula-banner {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 12px;
+      padding: 0.85rem 1.25rem;
+    }
+
+    .er-formula-banner .f-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #34d399;
+    }
+
+    .er-formula-banner .f-math {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.875rem;
+      color: #f8fafc;
+    }
+
+    .er-canvas {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2rem;
+      position: relative;
+    }
+
+    @media (max-width: 1024px) {
+      .er-canvas { grid-template-columns: 1fr; }
+    }
+
+    .table-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .table-card:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+      box-shadow: 0 15px 35px -5px rgba(56, 189, 248, 0.12);
+    }
+
+    .table-card.highlighted {
+      border-color: #38bdf8;
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.35);
+      transform: scale(1.01);
+    }
+
+    .table-card.relation-target {
+      border-color: #ec4899;
+      box-shadow: 0 0 25px rgba(236, 72, 153, 0.35);
+      transform: scale(1.01);
+    }
+
+    .table-header {
+      padding: 1rem 1.25rem;
+      background: rgba(30, 41, 59, 0.6);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .table-title-group {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .table-icon {
+      font-size: 1.15rem;
+    }
+
+    .table-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+
+    .table-schema-name {
+      font-size: 0.725rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .table-relation-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.25rem 0.55rem;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .badge-rel-1n {
+      background: rgba(56, 189, 248, 0.12);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .badge-rel-n1 {
+      background: rgba(236, 72, 153, 0.12);
+      color: #f472b6;
+      border: 1px solid rgba(236, 72, 153, 0.3);
+    }
+
+    .table-fields {
+      padding: 0.5rem 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 28px 180px 140px 1fr;
+      align-items: center;
+      padding: 0.55rem 1.25rem;
+      font-size: 0.8rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      transition: background 0.15s ease;
+      cursor: pointer;
+    }
+
+    .field-row:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .field-key {
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+    }
+
+    .key-pk { color: #f59e0b; title: "Primary Key"; }
+    .key-fk { color: #ec4899; title: "Foreign Key"; }
+    .key-uq { color: #38bdf8; title: "Unique"; }
+
+    .field-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .field-name.highlight-fk {
+      color: #f472b6;
+      text-decoration: underline;
+    }
+
+    .field-type {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+
+    .field-comment {
+      font-size: 0.775rem;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .field-comment strong {
+      color: #34d399;
+      font-weight: 600;
+    }
+
+    /* CARD DE EXPLICACIÓN DE RELACIÓN */
+    .relation-detail-box {
+      grid-column: span 2;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 16px;
+      padding: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 2rem;
+    }
+
+    @media (max-width: 1024px) {
+      .relation-detail-box { grid-column: span 1; flex-direction: column; align-items: flex-start; }
+    }
+
+    .rel-flow-display {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+    }
+
+    .rel-box {
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #f1f5f9;
+      font-weight: 700;
+    }
+
+    .rel-box.source { border-color: #38bdf8; color: #38bdf8; }
+    .rel-box.target { border-color: #ec4899; color: #f472b6; }
+
+    .rel-line-symbol {
+      color: #94a3b8;
+      font-weight: 700;
+    }
+
+    /* MODAL DE DETALLE LATERAL */
+    #detail-drawer {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      width: 400px;
+      max-width: calc(100vw - 3rem);
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      border-radius: 18px;
+      padding: 1.5rem;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75);
+      display: none;
+      z-index: 100;
+      animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .drawer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .drawer-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .drawer-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.35rem;
+      cursor: pointer;
+      padding: 0.25rem;
+      line-height: 1;
+    }
+
+    .drawer-close:hover { color: #fff; }
+
+    .drawer-phase {
+      display: inline-block;
+      font-size: 0.725rem;
+      font-weight: 700;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      background: rgba(99, 102, 241, 0.2);
+      color: #a5b4fc;
+      margin-bottom: 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .drawer-body {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .drawer-files {
+      margin-top: 1rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.1);
+      font-size: 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: #38bdf8;
+    }
+
+    /* FOOTER */
+    footer {
+      max-width: 1450px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 3rem;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    .footer-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .footer-status span.status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+
+    /* ================================================= */
+    /* VISTA TOPOLÓGICA DE NUBES (ESTILO CLOUD ARCHITECTURE) */
+    /* ================================================= */
+    .cloud-viewport-container {
+      position: relative;
+      width: 100%;
+      background: var(--canvas-bg, #f8fafc);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      box-shadow: 0 12px 40px -10px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: background 0.3s ease;
+    }
+
+    .cloud-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.85rem 1.25rem;
+      background: rgba(15, 23, 42, 0.95);
+      border-bottom: 1px solid var(--border-subtle);
+      flex-wrap: wrap;
+      gap: 1rem;
+      z-index: 10;
+    }
+
+    .toolbar-title-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .toolbar-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-tool {
+      padding: 0.45rem 0.85rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 8px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(255, 255, 255, 0.05);
+      color: #e2e8f0;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s ease;
+    }
+
+    .btn-tool:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: #38bdf8;
+      color: #fff;
+    }
+
+    .btn-tool.active-tool {
+      background: #38bdf8;
+      color: #090d16;
+      border-color: #38bdf8;
+      font-weight: 700;
+    }
+
+    .cloud-canvas-area {
+      position: relative;
+      width: 100%;
+      height: 840px;
+      cursor: grab;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .cloud-canvas-area:active {
+      cursor: grabbing;
+    }
+
+    /* Temas del Canvas: Pizarra Blanca (como la imagen) y Modo Noche */
+    .theme-whiteboard {
+      --canvas-bg: #f8fafc;
+      --cloud-stroke: #64748b;
+      --cloud-fill: #ffffff;
+      --cloud-title-color: #0f172a;
+      --cloud-badge-bg: #e2e8f0;
+      --cloud-badge-color: #334155;
+      --card-bg: #ffffff;
+      --card-border: #cbd5e1;
+      --card-title: #0f172a;
+      --card-desc: #475569;
+      --tag-bg: #f1f5f9;
+      --tag-color: #334155;
+      --line-label-bg: #ffffff;
+      --line-label-border: #94a3b8;
+      --line-label-text: #0f172a;
+    }
+
+    .theme-darkcloud {
+      --canvas-bg: #090d16;
+      --cloud-stroke: #475569;
+      --cloud-fill: #0f172a;
+      --cloud-title-color: #f8fafc;
+      --cloud-badge-bg: rgba(56, 189, 248, 0.15);
+      --cloud-badge-color: #38bdf8;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --card-title: #f8fafc;
+      --card-desc: #94a3b8;
+      --tag-bg: rgba(255, 255, 255, 0.06);
+      --tag-color: #cbd5e1;
+      --line-label-bg: #0f172a;
+      --line-label-border: #475569;
+      --line-label-text: #f8fafc;
+    }
+
+    /* Animación del pulso de SSE */
+    @keyframes sseDashPulse {
+      to {
+        stroke-dashoffset: -40;
+      }
+    }
+
+    .sse-animated-line {
+      stroke-dasharray: 8 6;
+      animation: sseDashPulse 1.2s linear infinite;
+    }
+
+    /* Leyenda inferior de flujos */
+    .topology-legend {
+      padding: 0.85rem 1.5rem;
+      background: rgba(15, 23, 42, 0.9);
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 0.8rem;
+    }
+
+    .legend-items {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #94a3b8;
+    }
+
+    .legend-color-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
+    .node-interactive {
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .node-interactive:hover rect.card-bg-rect {
+      filter: drop-shadow(0 6px 14px rgba(56, 189, 248, 0.35));
+      stroke: #38bdf8;
+      stroke-width: 2;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <div class="badge-hero">
+        <span class="dot"></span>
+        Arquitectura Cloud &middot; API 2.0 &middot; Modelo de Datos
+      </div>
+      <h1>Control de Gastos &mdash; Sistema &amp; Base de Datos</h1>
+      <p class="subtitle">
+        Visualizador integral del sistema: flujo de micro-servicios, streaming en tiempo real (SSE) y diagrama de entidad-relación con cálculo automático de gastos diarios e intereses.
+      </p>
+    </div>
+
+    <div class="legend-container" style="background: rgba(15,23,42,0.6); padding: 0.85rem 1.25rem; border-radius: 12px; border: 1px solid var(--border-subtle);">
+      <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.4rem;">Convención de Claves</div>
+      <div style="display: flex; gap: 1rem; font-size: 0.775rem; font-family: 'JetBrains Mono', monospace;">
+        <span style="color: #f59e0b;">🔑 PK (Primaria)</span>
+        <span style="color: #ec4899;">🔗 FK (Foránea)</span>
+        <span style="color: #38bdf8;">⚡ UQ (Única)</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- PESTAÑAS DE NAVEGACIÓN -->
+  <nav class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('tab-cloud-topology', this)">
+      <span>☁️ Mapa Topológico de Nubes (Estilo Cloud)</span>
+      <span class="tab-badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; font-weight: 700;">Recomendado</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('tab-er', this)">
+      <span>🗄️ Modelo de Tablas &amp; Relaciones (ER)</span>
+      <span class="tab-badge">4 Tablas</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('tab-arch', this)">
+      <span>🌐 Arquitectura en Capas &amp; Servicios</span>
+      <span class="tab-badge">4 Capas</span>
+    </button>
+  </nav>
+
+  <main>
+
+    <!-- ============================================================= -->
+    <!-- TAB 0: MAPA TOPOLÓGICO DE NUBES (ESTILO CLOUD ARCHITECTURE)    -->
+    <!-- ============================================================= -->
+    <div id="tab-cloud-topology" class="tab-content active">
+
+      <div class="cloud-viewport-container theme-whiteboard" id="cloud-container">
+        <!-- BARRA DE HERRAMIENTAS DEL DIAGRAMA -->
+        <div class="cloud-toolbar">
+          <div class="toolbar-title-group">
+            <span style="font-size: 1.25rem;">☁️</span>
+            <div>
+              <div class="toolbar-title">Mapa General del Sistema &middot; Arquitectura Híbrida Cloud 2.0</div>
+              <div style="font-size: 0.75rem; color: #94a3b8;">Haz clic en cualquier componente o flecha para inspeccionar su función, costo y código</div>
+            </div>
+          </div>
+
+          <div class="toolbar-actions">
+            <!-- Selector de Tema -->
+            <div style="display: flex; gap: 0.35rem; background: rgba(0,0,0,0.25); padding: 0.25rem; border-radius: 8px;">
+              <button class="btn-tool active-tool" id="btn-theme-white" onclick="toggleCanvasTheme('white')">
+                ☀️ Pizarra Blanca
+              </button>
+              <button class="btn-tool" id="btn-theme-dark" onclick="toggleCanvasTheme('dark')">
+                🌙 Modo Noche
+              </button>
+            </div>
+
+            <div style="width: 1px; height: 20px; background: rgba(148, 163, 184, 0.2);"></div>
+
+            <!-- Controles de Zoom -->
+            <button class="btn-tool" onclick="zoomIn()" title="Acercar">🔍 +</button>
+            <span id="zoom-level-text" style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #94a3b8; min-width: 42px; text-align: center;">100%</span>
+            <button class="btn-tool" onclick="zoomOut()" title="Alejar">🔍 -</button>
+            <button class="btn-tool" onclick="resetZoom()" title="Reiniciar Zoom y Posición">⟲ Reset</button>
+          </div>
+        </div>
+
+        <!-- ÁREA CANVAS SVG INTERACTIVO -->
+        <div class="cloud-canvas-area" id="canvas-area" onmousedown="startPan(event)" onmousemove="doPan(event)" onmouseup="endPan()" onmouseleave="endPan()" onwheel="handleWheel(event)">
+          <svg id="cloud-svg" width="100%" height="100%" viewBox="0 0 1760 1140" style="display: block;">
+            <defs>
+              <!-- Filtro de sombra suave para tarjetas de servicio -->
+              <filter id="shadow-node" x="-10%" y="-10%" width="120%" height="130%">
+                <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.12"/>
+              </filter>
+              
+              <!-- Filtro de resplandor para nube -->
+              <filter id="shadow-cloud" x="-5%" y="-5%" width="110%" height="110%">
+                <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#64748b" flood-opacity="0.1"/>
+              </filter>
+
+              <!-- Marcadores de Flechas (Cabezas de flecha) -->
+              <marker id="arrow-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#3b82f6"/>
+              </marker>
+              <marker id="arrow-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981"/>
+              </marker>
+              <marker id="arrow-purple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#8b5cf6"/>
+              </marker>
+              <marker id="arrow-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b"/>
+              </marker>
+              <marker id="arrow-emerald" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#059669"/>
+              </marker>
+              <marker id="arrow-slate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#64748b"/>
+              </marker>
+            </defs>
+
+            <!-- GRUPO TRANSFORMABLE PARA ZOOM Y PAN -->
+            <g id="viewport-group" transform="translate(0, 0) scale(1)">
+
+              <!-- ======================================================= -->
+              <!-- NUBE 1: GITHUB & CI/CD (TOP-LEFT)                       -->
+              <!-- ======================================================= -->
+              <g id="cloud-github" class="cloud-group">
+                <!-- Silueta de nube con arcos suaves -->
+                <path d="M 180,100 A 60,60 0 0,1 280,60 A 85,85 0 0,1 450,55 A 85,85 0 0,1 590,75 A 65,65 0 0,1 700,140 A 70,70 0 0,1 730,250 A 75,75 0 0,1 710,370 A 70,70 0 0,1 630,460 A 85,85 0 0,1 480,500 A 90,90 0 0,1 300,490 A 75,75 0 0,1 170,450 A 70,70 0 0,1 100,350 A 70,70 0 0,1 110,220 A 65,65 0 0,1 180,100 Z" 
+                      fill="var(--cloud-fill)" stroke="var(--cloud-stroke)" stroke-width="2.5" filter="url(#shadow-cloud)"/>
+                
+                <!-- Encabezado de Nube -->
+                <text x="210" y="115" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="20" fill="var(--cloud-title-color)">GitHub Cloud &middot; CI/CD</text>
+                <rect x="440" y="97" width="180" height="24" rx="12" fill="var(--cloud-badge-bg)"/>
+                <text x="455" y="113" font-family="'JetBrains Mono', monospace" font-weight="700" font-size="11" fill="var(--cloud-badge-color)">Repos &middot; Actions ($0)</text>
+
+                <!-- Nodo 1.1: Repo Backend -->
+                <g class="node-interactive" onclick="showDetail('Repositorio Backend: control-de-gastos-api', 'GitHub', 'Repositorio oficial que aloja la API 2.0 en TypeScript, Dockerfile, migraciones Prisma y configuración de Cloud Run.', 'https://github.com/davidlescano1991/control-de-gastos-api.git')">
+                  <rect x="150" y="150" width="240" height="74" rx="10" fill="var(--card-bg)" stroke="var(--card-border)" stroke-width="1.5" class="card-bg-rect"/>
+                  <text x="170" y="180" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="14" fill="var(--card-title)">📦 control-de-gastos-api</text>
+                  <text x="170" y="202" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="var(--card-desc)">Node.js + Express 5 + Docker</text>
+                  <rect x="320" y="190" width="60" height="18" rx="4" fill="rgba(139, 92, 246, 0.15)"/>
+                  <text x="328" y="203" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" fill="#8b5cf6">BACKEND</text>
+                </g>
+
+                <!-- Nodo 1.2: Repo Frontend -->
+                <g class="node-interactive" onclick="showDetail('Repositorio Frontend: control-gastos-front', 'GitHub', 'Repositorio con el código fuente de la aplicación Angular 20, componentes reactivos, RxJS y gráficos Chart.js.', 'control-gastos-front')">
+                  <rect x="420" y="150" width="240" height="74" rx="10" fill="var(--card-bg)" stroke="var(--card-border)" stroke-width="1.5" class="card-bg-rect"/>
+                  <text x="440" y="180" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="14" fill="var(--card-title)">🎨 control-gastos-front</text>
+                  <text x="440" y="202" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="var(--card-desc)">Angular 20 + Signals + RxJS</text>
+                  <rect x="585" y="190" width="65" height="18" rx="4" fill="rgba(244, 63, 94, 0.15)"/>
+                  <text x="592" y="203" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" fill="#f43f5e">FRONTEND</text>
+                </g>
+
+                <!-- Nodo 1.3: GitHub Actions CI/CD -->
+                <g class="node-interactive" onclick="showDetail('GitHub Actions (CI/CD Automático)', 'DevOps', 'Automatización de despliegue: compila la imagen Docker de la API al hacer push y la envía a Google Cloud, y compila Angular hacia GitHub Pages.', '.github/workflows/deploy.yml')">
+                  <rect x="250" y="260" width="310" height="85" rx="12" fill="var(--card-bg)" stroke="var(--card-border)" stroke-width="1.5" class="card-bg-rect"/>
+                  <text x="275" y="295" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="15" fill="var(--card-title)">⚙️ GitHub Actions (CI/CD)</text>
+                  <text x="275" y="318" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="var(--card-desc)">Compilación automática al pushear a main</text>
+                  <rect x="475" y="307" width="70" height="20" rx="4" fill="rgba(16, 185, 129, 0.15)"/>
+                  <text x="484" y="321" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" fill="#10b981">AUTO-CI</text>
+                </g>
+
+                <!-- Nodo 1.4: GitHub Pages Hosting -->
+                <g class="node-interactive" onclick="showDetail('GitHub Pages (Hosting Web)', 'Fase 5', 'Alojamiento gratuito para la SPA Angular compilada. Sin costo mensual ($0) y con certificado HTTPS automático.', 'https://davidlescano1991.github.io/control-gastos-front')">
+                  <rect x="250" y="380" width="310" height="75" rx="10" fill="var(--card-bg)" stroke="var(--card-border)" stroke-width="1.5" class="card-bg-rect"/>
+                  <text x="275" y="412" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="14" fill="var(--card-title)">🚀 GitHub Pages (Hosting $0)</text>
+                  <text x="275" y="432" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="var(--card-desc)">Sirve los archivos HTML/JS/CSS al navegador</text>
+                  <rect x="495" y="420" width="50" height="18" rx="4" fill="rgba(56, 189, 248, 0.15)"/>
+                  <text x="502" y="433" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" fill="#38bdf8">WEB $0</text>
+                </g>
+              </g>
+
+              <!-- ======================================================= -->
+              <!-- NUBE 2: GOOGLE CLOUD PLATFORM (TOP-RIGHT)               -->
+              <!-- ======================================================= -->
+              <g id="cloud-gcp" class="cloud-group">
+                <!-- Silueta de nube GCP -->
+                <path d="M 920,95 A 65,65 0 0,1 1030,55 A 95,95 0 0,1 1240,45 A 95,95 0 0,1 1440,50 A 80,80 0 0,1 1580,80 A 75,75 0 0,1 1680,165 A 75,75 0 0,1 1700,290 A 85,85 0 0,1 1670,420 A 75,75 0 0,1 1570,510 A 90,90 0 0,1 1390,550 A 95,95 0 0,1 1170,550 A 85,85 0 0,1 1000,515 A 75,75 0 0,1 890,430 A 75,75 0 0,1 860,300 A 75,75 0 0,1 870,185 A 65,65 0 0,1 920,95 Z" 
+                      fill="var(--cloud-fill)" stroke="var(--cloud-stroke)" stroke-width="2.5" filter="url(#shadow-cloud)"/>
+                
+                <!-- Encabezado de Nube -->
+                <text x="960" y="105" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="21" fill="var(--cloud-title-color)">Google Cloud Platform (GCP)</text>
+                <rect x="1300" y="87" width="220" height="26" rx="13" fill="var(--cloud-badge-bg)"/>
+                <text x="1318" y="104" font-family="'JetBrains Mono', monospace" font-weight="700" font-size="11" fill="var(--cloud-badge-color)">Producción &middot; Escalado a 0 ($0)</text>
+
+                <!-- Nodo 2.1: Google Cloud Run (API 2.0 Contenedor Docker) -->
+                <g class="node-interactive" onclick="showDetail('Google Cloud Run (API 2.0)', 'Fase 3 &amp; Fase 5', 'Ejecuta el contenedor Docker de la API Express con TypeScript. Se escala a CERO cuando no hay uso para que el costo sea $0. Integra seguridad JWT, Guards de Rol ADMIN/LECTOR y el broadcaster SSE.', 'Google Cloud Run / Docker')">
+                  <rect x="900" y="145" width="340" height="205" rx="14" fill="var(--card-bg)" stroke="var(--card-border)" stroke-width="2" class="card-bg-rect"/>
+                  <text x="925" y="180" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="16" fill="var(--card-title)">🚀 Google Cloud Run</text>
+                  <text x="1105" y="180" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" fill="#38bdf8">API 2.0 (Docker)</text>
+
+                  <!-- Mini módulos internos -->
+                  <rect x="920" y="200" width="300" height="32" rx="6" fill="rgba(59, 130, 246, 0.08)" stroke="rgba(59, 130, 246, 0.25)"/>
+                  <text x="935" y="221" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" font-weight="600" fill="var(--card-title)">🔐 Auth: Login &middot; JWT &middot; Guard ADMIN/LECTOR</text>
+
+                  <rect x="920" y="240" width="300" height="32" rx="6" fill="rgba(16, 185, 129, 0.08)" stroke="rgba(16, 185, 129, 0.25)"/>
+                  <text x="935" y="261" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" font-weight="600" fill="var(--card-title)">📡 Canal SSE Tiempo Real (/api/events/sub)</text>
+
+                  <rect x="920" y="280" width="300" height="32" rx="6" fill="rgba(139, 92, 246, 0.08)" stroke="rgba(139, 92, 246, 0.25)"/>
+                  <text x="935" y="301" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" font-weight="600" fill="var(--card-title)">💼 CRUD: Movimientos, Estimaciones &amp; Híbrido</text>
+
+                  <rect x="920" y="320" width="120" height="18" rx="4" fill="rgba(245, 158, 11, 0.15)"/>
+                  <text x="928" y="333" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" fill="#f59e0b">min-instances: 0</text>
+                  <text x="1055" y="333" font-family="'JetBrains Mono', monospace" font-size="10" fill="var(--card-desc)">2M peticiones/mes $0</text>
+                </g>
+
+                <!-- Nodo 2.2: Google Cloud SQL (PostgreSQL 16) -->
+                <g class="node-interactive" onclick="showDetail('Google Cloud SQL (PostgreSQL 16)', 'Fase 1 &amp; Fase 5', 'Base de datos relacional administrada en Google Cloud. Guarda las 4 tablas principales estructuradas en Prisma ORM. Nivel de costo mínimo db-f1-micro cubierto por créditos.', 'Cloud SQL PostgreSQL')">
+                  <rect x="1300" y="145" width="320" height="205" rx="14" fill="var(--card-bg)" stroke="var(--card-border)" stroke-width="2" class="card-bg-rect"/>
+                  <text x="1325" y="180" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="16" fill="var(--card-title)">🐘 Cloud SQL (PostgreSQL)</text>
+                  <text x="1545" y="180" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" fill="#10b981">v16</text>
+
+                  <rect x="1320" y="200" width="280" height="28" rx="6" fill="rgba(16, 185, 129, 0.08)"/>
+                  <text x="1335" y="219" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="600" fill="var(--card-title)">👤 users (Roles &amp; Bcrypt)</text>
+
+                  <rect x="1320" y="235" width="280" height="28" rx="6" fill="rgba(16, 185, 129, 0.08)"/>
+                  <text x="1335" y="254" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="600" fill="var(--card-title)">💳 movements (Gastos / Ingresos)</text>
+
+                  <rect x="1320" y="270" width="280" height="28" rx="6" fill="rgba(16, 185, 129, 0.08)"/>
+                  <text x="1335" y="289" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="600" fill="var(--card-title)">⚙️ monthly_estimate_configs (I1, J1)</text>
+
+                  <rect x="1320" y="305" width="280" height="28" rx="6" fill="rgba(16, 185, 129, 0.08)"/>
+                  <text x="1335" y="324" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="600" fill="var(--card-title)">📅 daily_estimates (Día por día)</text>
+                </g>
+
+                <!-- Nodo 2.3: Artifact Registry -->
+                <g class="node-interactive" onclick="showDetail('Artifact Registry (Docker Hub en GCP)', 'Fase 5', 'Almacén privado y seguro donde GitHub Actions deposita las imágenes Docker compiladas de la API listas para correr.', 'GCP Artifact Registry')">
+                  <rect x="940" y="385" width="260" height="80" rx="10" fill="var(--card-bg)" stroke="var(--card-border)" stroke-width="1.5" class="card-bg-rect"/>
+                  <text x="965" y="418" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="14" fill="var(--card-title)">🐳 Artifact Registry</text>
+                  <text x="965" y="440" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="var(--card-desc)">Imágenes Docker de la API</text>
+                  <rect x="1115" y="428" width="70" height="18" rx="4" fill="rgba(59, 130, 246, 0.15)"/>
+                  <text x="1122" y="441" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" fill="#3b82f6">REGISTRY</text>
+                </g>
+
+                <!-- Nodo 2.4: Cloud Billing Alerts -->
+                <g class="node-interactive" onclick="showDetail('Cloud Billing &amp; Alertas de Costos', 'Fase 5 - Subpaso 5.2', 'Presupuesto con alertas automáticas por correo electrónico al 50%, 90% y 100% para asegurar que los consumos permanezcan en $0.', 'Google Cloud Billing')">
+                  <rect x="1300" y="385" width="280" height="80" rx="10" fill="var(--card-bg)" stroke="var(--card-border)" stroke-width="1.5" class="card-bg-rect"/>
+                  <text x="1325" y="418" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="14" fill="var(--card-title)">💰 Alertas de Presupuesto</text>
+                  <text x="1325" y="440" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="var(--card-desc)">Alertas al 50%, 90% y 100% por mail</text>
+                  <rect x="1490" y="428" width="75" height="18" rx="4" fill="rgba(245, 158, 11, 0.15)"/>
+                  <text x="1497" y="441" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" fill="#f59e0b">CONTROL $0</text>
+                </g>
+              </g>
+
+              <!-- ======================================================= -->
+              <!-- NUBE 3: CLIENTE & FRONTEND ANGULAR (BOTTOM-LEFT)        -->
+              <!-- ======================================================= -->
+              <g id="cloud-front" class="cloud-group">
+                <!-- Silueta de nube Frontend -->
+                <path d="M 180,630 A 65,65 0 0,1 300,580 A 85,85 0 0,1 480,570 A 80,80 0 0,1 640,600 A 70,70 0 0,1 730,680 A 75,75 0 0,1 750,810 A 80,80 0 0,1 730,950 A 75,75 0 0,1 630,1050 A 85,85 0 0,1 460,1090 A 85,85 0 0,1 280,1080 A 75,75 0 0,1 150,1020 A 75,75 0 0,1 100,900 A 75,75 0 0,1 110,760 A 70,70 0 0,1 180,630 Z" 
+                      fill="var(--cloud-fill)" stroke="var(--cloud-stroke)" stroke-width="2.5" filter="url(#shadow-cloud)"/>
+                
+                <!-- Encabezado de Nube -->
+                <text x="210" y="625" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="20" fill="var(--cloud-title-color)">Cliente &middot; Frontend Angular 20</text>
+                <rect x="520" y="607" width="160" height="24" rx="12" fill="var(--cloud-badge-bg)"/>
+                <text x="535" y="623" font-family="'JetBrains Mono', monospace" font-weight="700" font-size="11" fill="var(--cloud-badge-color)">Navegador Web / SPA</text>
+
+                <!-- Actores: David y Lector -->
+                <g class="node-interactive" onclick="showDetail('Usuario David (Rol ADMIN)', 'Fase 2', 'Rol Administrador con permisos totales de escritura: cargar movimientos, editar configuración de meses y disparar eventos de tiempo real.', 'src/middlewares/role.guard.ts')">
+                  <rect x="150" y="660" width="240" height="80" rx="10" fill="var(--card-bg)" stroke="var(--card-border)" stroke-width="1.5" class="card-bg-rect"/>
+                  <text x="175" y="695" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="15" fill="var(--card-title)">👑 David (ADMIN)</text>
+                  <text x="175" y="718" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="var(--card-desc)">Crear, Modificar &amp; Eliminar</text>
+                  <rect x="315" y="707" width="60" height="18" rx="4" fill="rgba(245, 158, 11, 0.15)"/>
+                  <text x="323" y="720" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" fill="#f59e0b">ACCESO TOTAL</text>
+                </g>
+
+                <g class="node-interactive" onclick="showDetail('Invitado / Familia (Rol LECTOR)', 'Fase 2', 'Rol de solo lectura. Puede ver tablas y gráficos actualizados en vivo, pero cualquier intento de crear o modificar datos es rechazado con 403 Forbidden.', 'src/middlewares/role.guard.ts')">
+                  <rect x="420" y="660" width="240" height="80" rx="10" fill="var(--card-bg)" stroke="var(--card-border)" stroke-width="1.5" class="card-bg-rect"/>
+                  <text x="445" y="695" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="15" fill="var(--card-title)">👁️ Invitado (LECTOR)</text>
+                  <text x="445" y="718" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="var(--card-desc)">Solo visualización (GET)</text>
+                  <rect x="580" y="707" width="65" height="18" rx="4" fill="rgba(56, 189, 248, 0.15)"/>
+                  <text x="589" y="720" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" fill="#38bdf8">READ ONLY</text>
+                </g>
+
+                <!-- Nodo 3.2: SPA Angular 20 -->
+                <g class="node-interactive" onclick="showDetail('Aplicación Angular 20 (Single Page App)', 'Frontend', 'Interfaz web moderna con Angular Signals. Vistas /mensual (gastos por entidad), /estimativo (saldo diario restando I1 y sumando J1) y /anual.', 'control-gastos-front')">
+                  <rect x="150" y="775" width="510" height="120" rx="12" fill="var(--card-bg)" stroke="var(--card-border)" stroke-width="2" class="card-bg-rect"/>
+                  <text x="180" y="810" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="17" fill="var(--card-title)">💻 Aplicación Angular 20 en Navegador</text>
+                  <text x="180" y="835" font-family="'Plus Jakarta Sans', sans-serif" font-size="12" fill="var(--card-desc)">Dashboards reactivos, tablas de saldos y gráficos interactivos con Chart.js</text>
+                  
+                  <rect x="180" y="855" width="130" height="24" rx="6" fill="rgba(244, 63, 94, 0.1)"/>
+                  <text x="195" y="871" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" fill="#f43f5e">Angular Signals</text>
+
+                  <rect x="325" y="855" width="120" height="24" rx="6" fill="rgba(59, 130, 246, 0.1)"/>
+                  <text x="340" y="871" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" fill="#3b82f6">Chart.js Pro</text>
+
+                  <rect x="460" y="855" width="180" height="24" rx="6" fill="rgba(16, 185, 129, 0.1)"/>
+                  <text x="475" y="871" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" fill="#10b981">Actualización Instantánea</text>
+                </g>
+
+                <!-- Conectores Internos de Angular -->
+                <!-- Nodo 3.3: Interceptor JWT -->
+                <g class="node-interactive" onclick="showDetail('Auth Interceptor (JWT)', 'Fase 2 &amp; Fase 5', 'Inyecta automáticamente la cabecera Authorization: Bearer <token> en todas las llamadas hacia Cloud Run tras iniciar sesión.', 'control-gastos-front/src/app/interceptors/auth.interceptor.ts')">
+                  <rect x="160" y="930" width="220" height="85" rx="10" fill="var(--card-bg)" stroke="var(--card-border)" stroke-width="1.5" class="card-bg-rect"/>
+                  <text x="180" y="960" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="13" fill="var(--card-title)">🔑 Auth Interceptor</text>
+                  <text x="180" y="980" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="var(--card-desc)">Inyecta Token Bearer</text>
+                  <rect x="180" y="990" width="80" height="16" rx="4" fill="rgba(245, 158, 11, 0.15)"/>
+                  <text x="188" y="1002" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" fill="#f59e0b">HTTP CLIENT</text>
+                </g>
+
+                <!-- Nodo 3.4: Receptor SSE -->
+                <g class="node-interactive" onclick="showDetail('SseService (Receptor de Eventos)', 'Fase 3 &amp; Fase 5', 'Abre el canal persistente EventSource hacia /api/events/sub. Al recibir DATA_UPDATED refresca los datos en milisegundos sin llamadas repetitivas.', 'control-gastos-front/src/app/services/sse.service.ts')">
+                  <rect x="420" y="930" width="230" height="85" rx="10" fill="var(--card-bg)" stroke="var(--card-border)" stroke-width="1.5" class="card-bg-rect"/>
+                  <text x="440" y="960" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="13" fill="var(--card-title)">📡 SseService (Receptor)</text>
+                  <text x="440" y="980" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="var(--card-desc)">EventSource nativo</text>
+                  <rect x="440" y="990" width="90" height="16" rx="4" fill="rgba(16, 185, 129, 0.15)"/>
+                  <text x="448" y="1002" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" fill="#10b981">TIEMPO REAL</text>
+                </g>
+              </g>
+
+              <!-- ======================================================= -->
+              <!-- NUBE 4: ENTORNO LOCAL (PC DE DAVID) (BOTTOM-CENTER)    -->
+              <!-- ======================================================= -->
+              <g id="cloud-local" class="cloud-group">
+                <!-- Silueta de nube Local -->
+                <path d="M 870,690 A 60,60 0 0,1 990,640 A 80,80 0 0,1 1170,640 A 65,65 0 0,1 1290,700 A 70,70 0 0,1 1340,810 A 75,75 0 0,1 1320,940 A 70,70 0 0,1 1230,1040 A 80,80 0 0,1 1060,1080 A 75,75 0 0,1 910,1050 A 70,70 0 0,1 820,960 A 70,70 0 0,1 800,830 A 65,65 0 0,1 870,690 Z" 
+                      fill="var(--cloud-fill)" stroke="var(--cloud-stroke)" stroke-width="2.5" filter="url(#shadow-cloud)"/>
+                
+                <!-- Encabezado de Nube -->
+                <text x="890" y="685" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="19" fill="var(--cloud-title-color)">Entorno Local (Tu PC)</text>
+                <rect x="1130" y="667" width="150" height="24" rx="12" fill="var(--cloud-badge-bg)"/>
+                <text x="1145" y="683" font-family="'JetBrains Mono', monospace" font-weight="700" font-size="11" fill="var(--cloud-badge-color)">Pruebas &amp; Aprendizaje</text>
+
+                <!-- Nodo 4.1: Docker PostgreSQL Local -->
+                <g class="node-interactive" onclick="showDetail('Docker Compose (PostgreSQL 16 Local)', 'Fase 1', 'Servidor PostgreSQL 16 corriendo en contenedor Docker en tu propia PC. Escucha en puerto 5432 con volumen persistente para no perder datos al apagar la máquina.', 'docker-compose.yml')">
+                  <rect x="830" y="730" width="230" height="85" rx="10" fill="var(--card-bg)" stroke="var(--card-border)" stroke-width="1.5" class="card-bg-rect"/>
+                  <text x="850" y="760" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="14" fill="var(--card-title)">🐳 PostgreSQL Local</text>
+                  <text x="850" y="782" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="var(--card-desc)">Docker Container en :5432</text>
+                  <rect x="850" y="790" width="80" height="16" rx="4" fill="rgba(56, 189, 248, 0.15)"/>
+                  <text x="858" y="802" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" fill="#38bdf8">PUERTO 5432</text>
+                </g>
+
+                <!-- Nodo 4.2: Node.js API Local -->
+                <g class="node-interactive" onclick="showDetail('Node.js API Local (Puerto 3000)', 'Fase 2 &amp; Fase 3', 'La API 2.0 corriendo en tu máquina con tsx watch src/index.ts. Permite probar cambios al instante antes de subirlos a la nube.', 'src/index.ts / .env')">
+                  <rect x="1080" y="730" width="220" height="85" rx="10" fill="var(--card-bg)" stroke="var(--card-border)" stroke-width="1.5" class="card-bg-rect"/>
+                  <text x="1100" y="760" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="14" fill="var(--card-title)">⚡ API Local (Node.js)</text>
+                  <text x="1100" y="782" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="var(--card-desc)">npm run dev en :3000</text>
+                  <rect x="1100" y="790" width="80" height="16" rx="4" fill="rgba(16, 185, 129, 0.15)"/>
+                  <text x="1108" y="802" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" fill="#10b981">PUERTO 3000</text>
+                </g>
+
+                <!-- Nodo 4.3: Prisma Studio -->
+                <g class="node-interactive" onclick="showDetail('Prisma Studio (Visor Visual de Base de Datos)', 'Fase 1', 'Panel visual web que corre en http://localhost:5555 para explorar, crear y modificar registros de PostgreSQL con interfaz gráfica moderna.', 'npx prisma studio')">
+                  <rect x="830" y="850" width="230" height="85" rx="10" fill="var(--card-bg)" stroke="var(--card-border)" stroke-width="1.5" class="card-bg-rect"/>
+                  <text x="850" y="880" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="14" fill="var(--card-title)">💎 Prisma Studio</text>
+                  <text x="850" y="902" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="var(--card-desc)">Explorador web en :5555</text>
+                  <rect x="850" y="910" width="85" height="16" rx="4" fill="rgba(168, 85, 247, 0.15)"/>
+                  <text x="858" y="922" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" fill="#a855f7">STUDIO :5555</text>
+                </g>
+
+                <!-- Nodo 4.4: Terminal PowerShell -->
+                <g class="node-interactive" onclick="showDetail('Terminal de PowerShell / curl', 'Metodología Didáctica', 'Aquí ejecutas tus pruebas manuales (curl, Invoke-RestMethod) paso a paso para aprender qué hace cada comando y validar tu entorno.', 'PowerShell')">
+                  <rect x="1080" y="850" width="220" height="85" rx="10" fill="var(--card-bg)" stroke="var(--card-border)" stroke-width="1.5" class="card-bg-rect"/>
+                  <text x="1100" y="880" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="14" fill="var(--card-title)">💻 Terminal PowerShell</text>
+                  <text x="1100" y="902" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="var(--card-desc)">Pruebas manuales paso a paso</text>
+                  <rect x="1100" y="910" width="70" height="16" rx="4" fill="rgba(100, 116, 139, 0.15)"/>
+                  <text x="1108" y="922" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="700" fill="#64748b">CURL &amp; REST</text>
+                </g>
+              </g>
+
+              <!-- ======================================================= -->
+              <!-- NUBE 5: HISTÓRICO GOOGLE SHEETS (BOTTOM-RIGHT)          -->
+              <!-- ======================================================= -->
+              <g id="cloud-sheets" class="cloud-group">
+                <!-- Silueta de nube Google Sheets -->
+                <path d="M 1440,690 A 50,50 0 0,1 1520,650 A 65,65 0 0,1 1650,670 A 65,65 0 0,1 1700,770 A 70,70 0 0,1 1680,900 A 65,65 0 0,1 1600,1010 A 70,70 0 0,1 1460,1010 A 65,65 0 0,1 1380,920 A 65,65 0 0,1 1380,780 A 55,55 0 0,1 1440,690 Z" 
+                      fill="var(--cloud-fill)" stroke="var(--cloud-stroke)" stroke-width="2.5" filter="url(#shadow-cloud)"/>
+                
+                <!-- Encabezado de Nube -->
+                <text x="1440" y="685" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="18" fill="var(--cloud-title-color)">Google Sheets</text>
+                <rect x="1565" y="667" width="105" height="24" rx="12" fill="var(--cloud-badge-bg)"/>
+                <text x="1578" y="683" font-family="'JetBrains Mono', monospace" font-weight="700" font-size="11" fill="var(--cloud-badge-color)">Histórico</text>
+
+                <!-- Nodo 5.1: Sheets API -->
+                <g class="node-interactive" onclick="showDetail('Google Sheets API v4 (Conector Híbrido)', 'Fase 4 - Paso 4.3', 'Servicio que permite a la API 2.0 consultar hojas de cálculo de años previos (2024, 2025) y devolver la misma estructura JSON que PostgreSQL.', 'src/services/sheets.service.ts')">
+                  <rect x="1400" y="740" width="260" height="95" rx="10" fill="var(--card-bg)" stroke="var(--card-border)" stroke-width="1.5" class="card-bg-rect"/>
+                  <text x="1420" y="772" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="14" fill="var(--card-title)">📊 Google Sheets API</text>
+                  <text x="1420" y="795" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="var(--card-desc)">Conector para años &lt; 2026</text>
+                  <rect x="1420" y="805" width="105" height="18" rx="4" fill="rgba(16, 185, 129, 0.15)"/>
+                  <text x="1428" y="818" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" fill="#10b981">CONECTOR HÍBRIDO</text>
+                </g>
+
+                <!-- Nodo 5.2: Hojas de cálculo -->
+                <g class="node-interactive" onclick="showDetail('Hojas de Cálculo Históricas (2024 - 2025)', 'Legacy', 'Tus libros originales de Google Sheets que contienen los años pasados. No necesitas migrarlos a la fuerza; la API los lee de forma transparente.', 'Google Drive')">
+                  <rect x="1400" y="865" width="260" height="95" rx="10" fill="var(--card-bg)" stroke="var(--card-border)" stroke-width="1.5" class="card-bg-rect"/>
+                  <text x="1420" y="897" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="14" fill="var(--card-title)">📑 Hojas 2024 &middot; 2025</text>
+                  <text x="1420" y="920" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="var(--card-desc)">Datos históricos de respaldo</text>
+                  <rect x="1420" y="930" width="90" height="18" rx="4" fill="rgba(100, 116, 139, 0.15)"/>
+                  <text x="1428" y="943" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" fill="#64748b">SOLO LECTURA</text>
+                </g>
+              </g>
+
+              <!-- ======================================================= -->
+              <!-- FLECHAS Y LÍNEAS DE FLUJO INTER-NUBE                    -->
+              <!-- ======================================================= -->
+
+              <!-- 1. CI/CD: Actions -> Artifact Registry -->
+              <path d="M 560,302 C 720,302 780,415 940,415" fill="none" stroke="#8b5cf6" stroke-width="2.5" marker-end="url(#arrow-purple)" class="flow-line"/>
+              <g class="flow-tag" onclick="showDetail('Pipeline CI/CD a Artifact Registry', 'DevOps', 'GitHub Actions compila la imagen Docker de la API y la deposita en Artifact Registry de Google Cloud.', '.github/workflows/deploy.yml')">
+                <rect x="680" y="340" width="160" height="26" rx="6" fill="var(--line-label-bg)" stroke="#8b5cf6" stroke-width="1.2"/>
+                <text x="692" y="357" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" fill="#8b5cf6">Docker Build &amp; Push</text>
+              </g>
+
+              <!-- 2. Artifact Registry -> Cloud Run -->
+              <path d="M 1070,385 L 1070,355" fill="none" stroke="#8b5cf6" stroke-width="2" marker-end="url(#arrow-purple)"/>
+              <g class="flow-tag">
+                <rect x="1080" y="360" width="95" height="18" rx="4" fill="var(--line-label-bg)" stroke="#8b5cf6" stroke-width="1"/>
+                <text x="1086" y="373" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" fill="#8b5cf6">Deploy API</text>
+              </g>
+
+              <!-- 3. Actions -> GitHub Pages -->
+              <path d="M 405,345 L 405,375" fill="none" stroke="#8b5cf6" stroke-width="2" marker-end="url(#arrow-purple)"/>
+              <g class="flow-tag">
+                <rect x="415" y="350" width="115" height="18" rx="4" fill="var(--line-label-bg)" stroke="#8b5cf6" stroke-width="1"/>
+                <text x="421" y="363" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" fill="#8b5cf6">Deploy Front ($0)</text>
+              </g>
+
+              <!-- 4. GitHub Pages -> Navegador Angular -->
+              <path d="M 405,455 L 405,770" fill="none" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrow-blue)" stroke-dasharray="6 4"/>
+              <g class="flow-tag" onclick="showDetail('Carga Inicial de la Web', 'HTTP GET', 'El usuario abre la web en su navegador y GitHub Pages le entrega la aplicación Angular compilada ($0 costo).', 'GitHub Pages')">
+                <rect x="330" y="525" width="155" height="26" rx="6" fill="var(--line-label-bg)" stroke="#3b82f6" stroke-width="1.2"/>
+                <text x="340" y="542" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" fill="#3b82f6">Descarga SPA (Angular)</text>
+              </g>
+
+              <!-- 5. Actores -> Navegador Angular -->
+              <path d="M 270,740 L 270,770" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow-slate)"/>
+              <path d="M 540,740 L 540,770" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow-slate)"/>
+
+              <!-- 6. Angular -> Cloud Run: Login & Peticiones HTTP -->
+              <path d="M 270,930 C 270,890 850,300 895,240" fill="none" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arrow-blue)" class="flow-line"/>
+              <g class="flow-tag" onclick="showDetail('Flujo de Autenticación y Peticiones', 'Fase 2', '1. David envía email/password a POST /api/auth/login. 2. Cloud Run valida en PostgreSQL y retorna JWT. 3. Toda petición posterior viaja con el Header Authorization: Bearer <token>.', 'src/controllers/auth.controller.ts')">
+                <rect x="610" y="470" width="220" height="30" rx="6" fill="var(--line-label-bg)" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow-node)"/>
+                <text x="622" y="490" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" fill="#3b82f6">1. HTTP + JWT Bearer Token</text>
+              </g>
+
+              <!-- 7. Angular <-> Cloud Run: CANAL SSE EN TIEMPO REAL (Línea animada) -->
+              <path d="M 535,930 C 535,840 880,350 915,260" fill="none" stroke="#10b981" stroke-width="3" marker-end="url(#arrow-green)" class="sse-animated-line flow-line"/>
+              <g class="flow-tag" onclick="showDetail('Canal SSE en Tiempo Real', 'Fase 3 (En Curso)', 'Streaming persistente sin polling. Cuando David guarda un gasto, Cloud Run dispara DATA_UPDATED y Angular actualiza las tablas y gráficos en milisegundos.', 'src/services/sse.service.ts')">
+                <rect x="640" y="600" width="230" height="32" rx="6" fill="var(--line-label-bg)" stroke="#10b981" stroke-width="1.8" filter="url(#shadow-node)"/>
+                <text x="652" y="621" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="800" fill="#10b981">⚡ 2. Canal SSE: DATA_UPDATED</text>
+              </g>
+
+              <!-- 8. Cloud Run -> Cloud SQL: Prisma ORM SQL -->
+              <path d="M 1240,245 L 1295,245" fill="none" stroke="#f59e0b" stroke-width="3" marker-end="url(#arrow-amber)"/>
+              <g class="flow-tag" onclick="showDetail('Consultas Tipadas Prisma ORM', 'Fase 1', 'Cloud Run se comunica con PostgreSQL mediante Prisma Client. Mapea consultas tipadas en TypeScript sin escribir SQL manual.', 'prisma/schema.prisma')">
+                <rect x="1225" y="215" width="85" height="22" rx="4" fill="var(--line-label-bg)" stroke="#f59e0b" stroke-width="1.2"/>
+                <text x="1232" y="230" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" fill="#f59e0b">Prisma (SQL)</text>
+              </g>
+
+              <!-- 9. Cloud Run -> Google Sheets: Conector Híbrido -->
+              <path d="M 1240,310 C 1320,350 1460,650 1480,735" fill="none" stroke="#059669" stroke-width="2" marker-end="url(#arrow-emerald)" stroke-dasharray="5 5"/>
+              <g class="flow-tag" onclick="showDetail('Conector Híbrido Google Sheets', 'Fase 4 - Paso 4.3', 'Si el usuario consulta años previos a 2026, Cloud Run pide los datos a Google Sheets API y los entrega con el mismo JSON que PostgreSQL.', 'src/services/sheets.service.ts')">
+                <rect x="1350" y="520" width="170" height="26" rx="6" fill="var(--line-label-bg)" stroke="#059669" stroke-width="1.2"/>
+                <text x="1360" y="537" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" fill="#059669">Lectura Híbrida (&lt; 2026)</text>
+              </g>
+
+              <!-- 10. PC Local -> Docker PostgreSQL & API Local -->
+              <path d="M 1130,850 L 980,818" fill="none" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow-slate)" stroke-dasharray="4 3"/>
+              <path d="M 1190,850 L 1190,820" fill="none" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow-slate)" stroke-dasharray="4 3"/>
+
+            </g>
+          </svg>
+        </div>
+
+        <!-- LEYENDA INFORMATIVA INFERIOR -->
+        <div class="topology-legend">
+          <div class="legend-items">
+            <span style="font-weight: 700; color: #f8fafc; font-size: 0.85rem;">Convención de Flujos:</span>
+            <div class="legend-item">
+              <span class="legend-color-dot" style="background: #3b82f6;"></span>
+              <span>HTTP REST + JWT Bearer</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color-dot" style="background: #10b981;"></span>
+              <span>⚡ Canal SSE en Tiempo Real (Push)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color-dot" style="background: #8b5cf6;"></span>
+              <span>Despliegue CI/CD (GitHub Actions)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color-dot" style="background: #f59e0b;"></span>
+              <span>Persistencia SQL (Prisma ORM)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color-dot" style="background: #059669;"></span>
+              <span>Conector Híbrido (Google Sheets)</span>
+            </div>
+          </div>
+
+          <div style="color: #64748b; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;">
+            Tip: Arrastra con el ratón para moverte &middot; Rueda para zoom
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- TAB 1: MODELO ENTIDAD-RELACIÓN (ER) DE LA BASE DE DATOS        -->
+    <!-- ============================================================= -->
+    <div id="tab-er" class="tab-content">
+
+      <!-- BANNER EXPLICATIVO DE LA FÓRMULA DE GOOGLE SHEETS -->
+      <div class="er-intro">
+        <div>
+          <h3 style="font-size: 1.1rem; font-weight: 700; color: #fff; margin-bottom: 0.25rem;">
+            Estructura Relacional en PostgreSQL (Prisma ORM)
+          </h3>
+          <p style="font-size: 0.85rem; color: var(--text-secondary);">
+            Haz clic en las etiquetas de relación (1:N) o en los nombres de tabla para resaltar sus dependencias.
+          </p>
+        </div>
+
+        <div class="er-formula-banner">
+          <div>
+            <div class="f-label">Fórmula Diaria Automatizada</div>
+            <div class="f-math">SaldoAyer - gastoFijoDiario(I1) + ingresoInteres(J1)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CANVAS CON LAS 4 TABLAS -->
+      <div class="er-canvas">
+
+        <!-- TABLA 1: USERS -->
+        <div class="table-card" id="card-users" onclick="highlightRelation('users', 'movements')">
+          <div class="table-header">
+            <div class="table-title-group">
+              <span class="table-icon">👤</span>
+              <div>
+                <div class="table-name">users</div>
+                <div class="table-schema-name">Modelo User &middot; Prioridad #1</div>
+              </div>
+            </div>
+            <span class="table-relation-badge badge-rel-1n" title="1 Usuario tiene N Movimientos">1 : N &rarr; movements</span>
+          </div>
+
+          <div class="table-fields">
+            <div class="field-row" onclick="showFieldDetail('id (User)', 'String (UUID)', 'Clave primaria autogenerada única para cada usuario.', 'PK')">
+              <span class="field-key key-pk">🔑</span>
+              <span class="field-name">id</span>
+              <span class="field-type">UUID</span>
+              <span class="field-comment">Identificador único</span>
+            </div>
+            <div class="field-row" onclick="showFieldDetail('email', 'String', 'Correo electrónico único para inicio de sesión.', 'UQ')">
+              <span class="field-key key-uq">⚡</span>
+              <span class="field-name">email</span>
+              <span class="field-type">VARCHAR(255)</span>
+              <span class="field-comment">Email único (@unique)</span>
+            </div>
+            <div class="field-row" onclick="showFieldDetail('passwordHash', 'String', 'Contraseña encriptada con algoritmo irreversible Bcrypt.', 'HASH')">
+              <span class="field-key">🔒</span>
+              <span class="field-name">passwordHash</span>
+              <span class="field-type">VARCHAR(255)</span>
+              <span class="field-comment">Hash Bcrypt seguro</span>
+            </div>
+            <div class="field-row" onclick="showFieldDetail('nombre', 'String?', 'Nombre visual o alias del usuario.', 'OPT')">
+              <span class="field-key">⚪</span>
+              <span class="field-name">nombre</span>
+              <span class="field-type">VARCHAR(100)?</span>
+              <span class="field-comment">Nombre opcional</span>
+            </div>
+            <div class="field-row" onclick="showFieldDetail('role', 'Enum Role', 'ADMIN (David, permisos completos) o LECTOR (solo lectura GET).', 'ENUM')">
+              <span class="field-key" style="color: #c084fc;">👑</span>
+              <span class="field-name">role</span>
+              <span class="field-type">Role ENUM</span>
+              <span class="field-comment">ADMIN | LECTOR (def: LECTOR)</span>
+            </div>
+            <div class="field-row">
+              <span class="field-key">⏱️</span>
+              <span class="field-name">createdAt</span>
+              <span class="field-type">TIMESTAMP</span>
+              <span class="field-comment">Fecha de registro</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TABLA 2: MOVEMENTS -->
+        <div class="table-card" id="card-movements" onclick="highlightRelation('users', 'movements')">
+          <div class="table-header">
+            <div class="table-title-group">
+              <span class="table-icon">💳</span>
+              <div>
+                <div class="table-name">movements</div>
+                <div class="table-schema-name">Modelo Movement &middot; Gastos e Ingresos</div>
+              </div>
+            </div>
+            <span class="table-relation-badge badge-rel-n1" title="N Movimientos pertenecen a 1 Usuario">N : 1 &larr; users</span>
+          </div>
+
+          <div class="table-fields">
+            <div class="field-row" onclick="showFieldDetail('id (Movement)', 'UUID', 'Clave primaria autogenerada del movimiento.', 'PK')">
+              <span class="field-key key-pk">🔑</span>
+              <span class="field-name">id</span>
+              <span class="field-type">UUID</span>
+              <span class="field-comment">Identificador único</span>
+            </div>
+            <div class="field-row" onclick="showFieldDetail('fecha', 'DateTime', 'Fecha en la que se realizó el gasto o ingreso.', 'REQ')">
+              <span class="field-key">📅</span>
+              <span class="field-name">fecha</span>
+              <span class="field-type">TIMESTAMP</span>
+              <span class="field-comment">Fecha de operación</span>
+            </div>
+            <div class="field-row">
+              <span class="field-key">🗓️</span>
+              <span class="field-name">year / mes</span>
+              <span class="field-type">INT / INT</span>
+              <span class="field-comment">Índices de búsqueda rápida (2026, 8)</span>
+            </div>
+            <div class="field-row">
+              <span class="field-key">🏷️</span>
+              <span class="field-name">tipo</span>
+              <span class="field-type">VARCHAR(20)</span>
+              <span class="field-comment">"GASTO" o "INGRESO"</span>
+            </div>
+            <div class="field-row">
+              <span class="field-key">🏦</span>
+              <span class="field-name">entidad</span>
+              <span class="field-type">VARCHAR(100)?</span>
+              <span class="field-comment">"Visa Bancor", "Mastercard", "Naranja"</span>
+            </div>
+            <div class="field-row">
+              <span class="field-key">💰</span>
+              <span class="field-name">monto / moneda</span>
+              <span class="field-type">DECIMAL(12,2)</span>
+              <span class="field-comment">Importe exacto (ARS / USD)</span>
+            </div>
+            <div class="field-row" onclick="showFieldDetail('userId', 'UUID?', 'Clave foránea opcional que apunta a users.id.', 'FK')">
+              <span class="field-key key-fk">🔗</span>
+              <span class="field-name highlight-fk">userId</span>
+              <span class="field-type">UUID? &rarr; users.id</span>
+              <span class="field-comment">FK hacia la tabla users</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TABLA 3: MONTHLY ESTIMATE CONFIG -->
+        <div class="table-card" id="card-monthly_estimate_configs" onclick="highlightRelation('monthly_estimate_configs', 'daily_estimates')">
+          <div class="table-header">
+            <div class="table-title-group">
+              <span class="table-icon">⚙️</span>
+              <div>
+                <div class="table-name">monthly_estimate_configs</div>
+                <div class="table-schema-name">Fila 1 Google Sheets: Parámetros del Mes</div>
+              </div>
+            </div>
+            <span class="table-relation-badge badge-rel-1n" title="1 Configuración genera N filas diarias">1 : N &rarr; daily_estimates</span>
+          </div>
+
+          <div class="table-fields">
+            <div class="field-row" onclick="showFieldDetail('id (MonthlyConfig)', 'UUID', 'Identificador de la configuración mensual.', 'PK')">
+              <span class="field-key key-pk">🔑</span>
+              <span class="field-name">id</span>
+              <span class="field-type">UUID</span>
+              <span class="field-comment">Identificador único</span>
+            </div>
+            <div class="field-row">
+              <span class="field-key key-uq">⚡</span>
+              <span class="field-name">year / mes</span>
+              <span class="field-type">INT / INT</span>
+              <span class="field-comment">Único por mes: ej. [2026, 8]</span>
+            </div>
+            <div class="field-row" onclick="showFieldDetail('saldoInicial', 'Decimal', 'Saldo con el que arranca el día 1 del mes (ej. $406.776,19).', 'MONEY')">
+              <span class="field-key">💵</span>
+              <span class="field-name">saldoInicial</span>
+              <span class="field-type">DECIMAL(12,2)</span>
+              <span class="field-comment">Saldo al arrancar el mes</span>
+            </div>
+            <div class="field-row" onclick="showFieldDetail('gastoFijoDiario (Celda I1)', 'Decimal', 'Cantidad fija presupuestada que se le resta automáticamente a cada día (ej. $9.800).', 'PARAM')">
+              <span class="field-key" style="color: #f43f5e;">📉</span>
+              <span class="field-name" style="color: #fca5a5;">gastoFijoDiario</span>
+              <span class="field-type">DECIMAL(12,2)</span>
+              <span class="field-comment"><strong>Celda I1: $9.800 a restar/día</strong></span>
+            </div>
+            <div class="field-row" onclick="showFieldDetail('ingresoInteresDiario (Celda J1)', 'Decimal', 'Ingresos generados por intereses diarios que amortiguan los gastos (ej. $800 a sumar cada día).', 'PARAM')">
+              <span class="field-key" style="color: #34d399;">📈</span>
+              <span class="field-name" style="color: #86efac;">ingresoInteresDiario</span>
+              <span class="field-type">DECIMAL(12,2)</span>
+              <span class="field-comment"><strong>Celda J1: $800 interés a sumar/día</strong></span>
+            </div>
+            <div class="field-row">
+              <span class="field-key">🔴</span>
+              <span class="field-name">deudaInicial</span>
+              <span class="field-type">DECIMAL(12,2)</span>
+              <span class="field-comment">Deuda proyectada (ej. $813.792,90)</span>
+            </div>
+            <div class="field-row">
+              <span class="field-key">🎯</span>
+              <span class="field-name">presupuestoTotal</span>
+              <span class="field-type">DECIMAL(12,2)?</span>
+              <span class="field-comment"><strong>Celda L1: Presupuesto ($217.000)</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TABLA 4: DAILY ESTIMATES -->
+        <div class="table-card" id="card-daily_estimates" onclick="highlightRelation('monthly_estimate_configs', 'daily_estimates')">
+          <div class="table-header">
+            <div class="table-title-group">
+              <span class="table-icon">📊</span>
+              <div>
+                <div class="table-name">daily_estimates</div>
+                <div class="table-schema-name">Tabla Día por Día &middot; Real vs Estimado</div>
+              </div>
+            </div>
+            <span class="table-relation-badge badge-rel-n1" title="N filas diarias pertenecen a 1 configuración mensual">N : 1 &larr; monthly_estimate_configs</span>
+          </div>
+
+          <div class="table-fields">
+            <div class="field-row" onclick="showFieldDetail('id (DailyEstimate)', 'UUID', 'Clave primaria de la fila del día.', 'PK')">
+              <span class="field-key key-pk">🔑</span>
+              <span class="field-name">id</span>
+              <span class="field-type">UUID</span>
+              <span class="field-comment">Identificador único</span>
+            </div>
+            <div class="field-row" onclick="showFieldDetail('configId', 'UUID', 'Clave foránea que vincula con monthly_estimate_configs. Si se borra el mes, se borran sus días (Cascade).', 'FK')">
+              <span class="field-key key-fk">🔗</span>
+              <span class="field-name highlight-fk">configId</span>
+              <span class="field-type">UUID &rarr; configs.id</span>
+              <span class="field-comment">FK hacia monthly_estimate_configs</span>
+            </div>
+            <div class="field-row">
+              <span class="field-key key-uq">⚡</span>
+              <span class="field-name">dia / fecha</span>
+              <span class="field-type">INT / TIMESTAMP</span>
+              <span class="field-comment">Día del mes (1..31) y fecha ISO</span>
+            </div>
+            <div class="field-row" onclick="showFieldDetail('saldoPesos (Proyectado)', 'Decimal', 'Saldo estimado calculado día a día. Aplica la fórmula: SaldoAyer - gastoFijoDiario(I1) + ingresoInteresDiario(J1).', 'CALC')">
+              <span class="field-key" style="color: #38bdf8;">🧮</span>
+              <span class="field-name" style="color: #7dd3fc;">saldoPesos</span>
+              <span class="field-type">DECIMAL(12,2)</span>
+              <span class="field-comment"><strong>Fórmula: SaldoAyer - I1 + J1</strong></span>
+            </div>
+            <div class="field-row" onclick="showFieldDetail('real (Saldo Real)', 'Decimal?', 'El dinero real que tienes disponible en cuentas/bancos ese día. Es el campo editable desde la app.', 'EDIT')">
+              <span class="field-key" style="color: #34d399;">✍️</span>
+              <span class="field-name" style="color: #86efac;">real</span>
+              <span class="field-type">DECIMAL(12,2)?</span>
+              <span class="field-comment"><strong>Saldo Real (editable desde la App)</strong></span>
+            </div>
+            <div class="field-row">
+              <span class="field-key" style="color: #f43f5e;">⚠️</span>
+              <span class="field-name">deuda / deudaReal</span>
+              <span class="field-type">DECIMAL(12,2)</span>
+              <span class="field-comment">Deuda proyectada vs Deuda real</span>
+            </div>
+            <div class="field-row">
+              <span class="field-key">⚖️</span>
+              <span class="field-name">diferenciaSaldo</span>
+              <span class="field-type">DECIMAL(12,2)?</span>
+              <span class="field-comment">Diferencia: real - saldoPesos</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CAJA DE DETALLE DE RELACIÓN INTERACTIVA -->
+        <div class="relation-detail-box" id="rel-banner">
+          <div>
+            <div style="font-size: 0.75rem; font-weight: 700; color: #a5b4fc; text-transform: uppercase; margin-bottom: 0.3rem;">
+              Relación Seleccionada
+            </div>
+            <h4 id="rel-title" style="font-size: 1.05rem; font-weight: 700; color: #fff;">
+              monthly_estimate_configs &longleftrightarrow; daily_estimates
+            </h4>
+            <p id="rel-desc" style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">
+              Una configuración mensual (parámetros I1 y J1) genera en cascada las ~31 filas diarias donde se calcula el saldo y se compara contra el saldo real.
+            </p>
+          </div>
+
+          <div class="rel-flow-display">
+            <div class="rel-box source" id="rel-box-source">monthly_estimate_configs (1)</div>
+            <span class="rel-line-symbol">&mdash;&mdash;[ 1 : N Cascade ]&mdash;&mdash;&gt;</span>
+            <div class="rel-box target" id="rel-box-target">daily_estimates (N)</div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- TAB 2: ARQUITECTURA EN CAPAS (SERVICIOS Y STREAMING)          -->
+    <!-- ============================================================= -->
+    <div id="tab-arch" class="tab-content">
+
+      <!-- CAPA 1: PRESENTACIÓN (FRONTEND) -->
+      <section class="tier-card tier-1">
+        <div class="tier-header">
+          <div class="tier-title-group">
+            <div class="tier-number">01</div>
+            <div>
+              <h3 class="tier-title">Capa de Cliente &amp; Presentación (Frontend)</h3>
+              <p class="tier-subtitle">Aplicación Single Page en Angular 20 desplegada en GitHub Pages ($0 de infraestructura)</p>
+            </div>
+          </div>
+          <span class="tier-tag">Client-Side &middot; SPA</span>
+        </div>
+
+        <div class="nodes-grid">
+          <div class="node" onclick="showDetail('Vistas Angular (/mensual, /estimativo, /anual)', 'Fase 5 - Subpaso 5.3', 'Tablas dinámicas de gastos, gráficos comparativos con Chart.js, termómetros interactivos de avance de días y cálculo de tendencias reales vs estimadas.', 'control-gastos-front/src/app/')">
+            <div class="node-top">
+              <div class="node-icon icon-front">⚡</div>
+              <div class="node-title-group">
+                <h4>Vistas &amp; Dashboards</h4>
+                <span>Angular Signals &amp; UI</span>
+              </div>
+            </div>
+            <p class="node-desc">Muestra tablas de saldo diario, análisis de tarjetas y proyecciones presupuestarias.</p>
+            <div class="node-tags">
+              <span class="tag highlight">Angular 20</span>
+              <span class="tag">Chart.js</span>
+              <span class="tag">GitHub Pages</span>
+            </div>
+          </div>
+
+          <div class="node" onclick="showDetail('Interceptor HTTP &amp; Autenticación', 'Fase 2 &amp; Fase 5', 'Inyecta automáticamente el token JWT firmado en la cabecera Authorization: Bearer <token> para todas las peticiones que viajan hacia la API.', 'control-gastos-front/src/app/interceptors/')">
+            <div class="node-top">
+              <div class="node-icon icon-jwt">🔑</div>
+              <div class="node-title-group">
+                <h4>Auth Interceptor</h4>
+                <span>Token Injection</span>
+              </div>
+            </div>
+            <p class="node-desc">Garantiza que toda solicitud de lectura o escritura vaya con la identidad del usuario.</p>
+            <div class="node-tags">
+              <span class="tag highlight">JWT Bearer</span>
+              <span class="tag">HttpInterceptorFn</span>
+            </div>
+          </div>
+
+          <div class="node" onclick="showDetail('Servicio de Escucha SSE en Tiempo Real', 'Fase 3 &amp; Fase 5', 'Reemplaza el polling de cada 12 segundos con un canal nativo EventSource. Escucha eventos DATA_UPDATED y refresca los componentes en milisegundos sin recargar la web.', 'control-gastos-front/src/app/services/sse.service.ts')">
+            <div class="node-top">
+              <div class="node-icon icon-sse">📡</div>
+              <div class="node-title-group">
+                <h4>SseService (EventSource)</h4>
+                <span>Receptor en Tiempo Real</span>
+              </div>
+            </div>
+            <p class="node-desc">0 peticiones si nadie cambia datos. Actualización instantánea en cuanto el Admin guarda un gasto.</p>
+            <div class="node-tags">
+              <span class="tag live">Server-Sent Events</span>
+              <span class="tag">RxJS Subject</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONECTOR 1 -> 2 -->
+      <div class="flow-connector">
+        <div class="flow-pill">
+          <span>1. Carga Inicial &amp; Login (POST/GET con JWT)</span>
+          <span class="arrow">↓</span>
+        </div>
+        <div class="flow-pill sse-pill">
+          <span>4. Notificación Instantánea DATA_UPDATED (0 peticiones innecesarias)</span>
+          <span class="arrow">↑</span>
+        </div>
+      </div>
+
+      <!-- CAPA 2: SEGURIDAD Y CONTROL DE ACCESO (PRIORIDAD #1) -->
+      <section class="tier-card tier-2">
+        <div class="tier-header">
+          <div class="tier-title-group">
+            <div class="tier-number">02</div>
+            <div>
+              <h3 class="tier-title">Capa de Seguridad, Roles &amp; Guards (Prioridad #1)</h3>
+              <p class="tier-subtitle">Blindaje de la API antes de permitir cualquier operación de lectura o mutación</p>
+            </div>
+          </div>
+          <span class="tier-tag">Security Gateway</span>
+        </div>
+
+        <div class="nodes-grid">
+          <div class="node" onclick="showDetail('Módulo de Login y Token JWT', 'Fase 2 - Paso 2.1', 'Verifica credenciales del usuario con Bcrypt.compare(). Emite token JWT firmado con algoritmo seguro que transporta userId, email y role (ADMIN o LECTOR).', 'src/controllers/auth.controller.ts\nsrc/services/auth.service.ts')">
+            <div class="node-top">
+              <div class="node-icon icon-jwt">🔐</div>
+              <div class="node-title-group">
+                <h4>POST /api/auth/login</h4>
+                <span>Auth Service &amp; Bcrypt</span>
+              </div>
+            </div>
+            <p class="node-desc">Valida contraseñas con hash seguro y genera la credencial digital cifrada.</p>
+            <div class="node-tags">
+              <span class="tag highlight">bcryptjs</span>
+              <span class="tag">jsonwebtoken</span>
+              <span class="tag">Fase 2.1</span>
+            </div>
+          </div>
+
+          <div class="node" onclick="showDetail('Auth Middleware (Validador de Token)', 'Fase 2 - Paso 2.2', 'Intercepta cada petición entrante, extrae el Bearer Token, comprueba su firma y vigencia. Si el token no existe o venció, frena la petición con 401 Unauthorized.', 'src/middlewares/auth.middleware.ts')">
+            <div class="node-top">
+              <div class="node-icon icon-shield">🛡️</div>
+              <div class="node-title-group">
+                <h4>Auth Middleware</h4>
+                <span>Validador de Firma</span>
+              </div>
+            </div>
+            <p class="node-desc">Protege las rutas privadas impidiendo accesos anónimos sin autenticar.</p>
+            <div class="node-tags">
+              <span class="tag">JWT Verify</span>
+              <span class="tag">HTTP 401</span>
+            </div>
+          </div>
+
+          <div class="node" onclick="showDetail('Role Guard (ADMIN vs LECTOR)', 'Fase 2 - Paso 2.2', 'Si el usuario es LECTOR, solo le permite operaciones de consulta GET. Si intenta crear, editar o borrar (POST, PUT, DELETE), responde de inmediato 403 Forbidden. Solo ADMIN tiene permisos de escritura.', 'src/middlewares/role.guard.ts')">
+            <div class="node-top">
+              <div class="node-icon icon-shield">👑</div>
+              <div class="node-title-group">
+                <h4>Role Guard</h4>
+                <span>ADMIN vs LECTOR</span>
+              </div>
+            </div>
+            <p class="node-desc">Separa privilegios: David puede editar; los invitados o lectores solo pueden visualizar.</p>
+            <div class="node-tags">
+              <span class="tag highlight">ADMIN (Full)</span>
+              <span class="tag">LECTOR (GET Only)</span>
+              <span class="tag">HTTP 403</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONECTOR 2 -> 3 -->
+      <div class="flow-connector">
+        <div class="flow-pill">
+          <span>Petición autorizada con rol validado</span>
+          <span class="arrow">↓</span>
+        </div>
+      </div>
+
+      <!-- CAPA 3: APLICACIÓN, NEGOCIO & STREAMING -->
+      <section class="tier-card tier-3">
+        <div class="tier-header">
+          <div class="tier-title-group">
+            <div class="tier-number">03</div>
+            <div>
+              <h3 class="tier-title">Capa de Aplicación &amp; Eventos (Backend API 2.0)</h3>
+              <p class="tier-subtitle">Node.js + Express + TypeScript empaquetado en Docker y desplegado en Google Cloud Run</p>
+            </div>
+          </div>
+          <span class="tier-tag">Cloud Run &middot; Docker</span>
+        </div>
+
+        <div class="nodes-grid">
+          <div class="node" onclick="showDetail('Canal Server-Sent Events (SSE)', 'Fase 3 - Paso 3.1 & 3.2', 'Mantiene la conexión abierta vía GET /api/events/sub. Cuando un ADMIN crea un gasto en PostgreSQL, la API emite broadcast({ event: DATA_UPDATED, year: 2026 }) a todos los frontends conectados.', 'src/services/sse.service.ts\nsrc/controllers/events.controller.ts')">
+            <div class="node-top">
+              <div class="node-icon icon-sse">📣</div>
+              <div class="node-title-group">
+                <h4>Canal SSE (Broadcast)</h4>
+                <span>GET /api/events/sub</span>
+              </div>
+            </div>
+            <p class="node-desc">Streaming unidireccional nativo que notifica cambios instantáneos al frontend.</p>
+            <div class="node-tags">
+              <span class="tag live">text/event-stream</span>
+              <span class="tag">DATA_UPDATED</span>
+              <span class="tag">Fase 3</span>
+            </div>
+          </div>
+
+          <div class="node" onclick="showDetail('Controladores CRUD y Estimativos', 'Fase 4 - Paso 4.1', 'Rutas para movimientos, configuración mensual y cálculo automático de saldos diarios restando gastos fijos (I1) y sumando intereses (J1).', 'src/controllers/movimientos.controller.ts\nsrc/controllers/estimaciones.controller.ts')">
+            <div class="node-top">
+              <div class="node-icon icon-api">💼</div>
+              <div class="node-title-group">
+                <h4>Controladores &amp; Rutas</h4>
+                <span>/api/movimientos &middot; /api/estimaciones</span>
+              </div>
+            </div>
+            <p class="node-desc">Administra gastos por entidad, proyecciones diarias y totales presupuestarios.</p>
+            <div class="node-tags">
+              <span class="tag highlight">Express 5</span>
+              <span class="tag">TypeScript</span>
+              <span class="tag">Fase 4.1</span>
+            </div>
+          </div>
+
+          <div class="node" onclick="showDetail('Conector Híbrido Google Sheets', 'Fase 4 - Paso 4.3', 'Si se solicitan datos de años previos que aún no se migraron (ej. 2024 o 2025), la API consulta Google Sheets y los devuelve con exactamente el mismo formato JSON que PostgreSQL.', 'src/services/sheets.service.ts')">
+            <div class="node-top">
+              <div class="node-icon icon-sheets">📑</div>
+              <div class="node-title-group">
+                <h4>Conector Híbrido</h4>
+                <span>Google Sheets API</span>
+              </div>
+            </div>
+            <p class="node-desc">Permite consultar el histórico antiguo sin tener que migrar todas las hojas a la vez.</p>
+            <div class="node-tags">
+              <span class="tag">Años 2024-2025</span>
+              <span class="tag">Fase 4.3</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONECTOR 3 -> 4 -->
+      <div class="flow-connector">
+        <div class="flow-pill">
+          <span>Persistencia y Consultas Tipadas (SQL)</span>
+          <span class="arrow">↓</span>
+        </div>
+      </div>
+
+      <!-- CAPA 4: PERSISTENCIA Y BASE DE DATOS -->
+      <section class="tier-card tier-4">
+        <div class="tier-header">
+          <div class="tier-title-group">
+            <div class="tier-number">04</div>
+            <div>
+              <h3 class="tier-title">Capa de Datos &amp; Persistencia</h3>
+              <p class="tier-subtitle">PostgreSQL 16 en Google Cloud SQL (Prod) / Docker (Local) gestionado mediante Prisma ORM</p>
+            </div>
+          </div>
+          <span class="tier-tag">PostgreSQL 16 &middot; Prisma</span>
+        </div>
+
+        <div class="nodes-grid">
+          <div class="node" onclick="showDetail('Prisma ORM &amp; Migraciones', 'Fase 1 - Paso 1.2', 'Mapea la base de datos con tipado seguro en TypeScript. Maneja migraciones automáticas y consultas optimizadas sin escribir SQL a mano.', 'prisma/schema.prisma\nprisma/migrations/')">
+            <div class="node-top">
+              <div class="node-icon icon-prisma">💎</div>
+              <div class="node-title-group">
+                <h4>Prisma ORM</h4>
+                <span>Object Relational Mapping</span>
+              </div>
+            </div>
+            <p class="node-desc">Traduce código TypeScript a sentencias SQL y autogenera el cliente de base de datos.</p>
+            <div class="node-tags">
+              <span class="tag success">@prisma/client</span>
+              <span class="tag">Migraciones</span>
+              <span class="tag">Fase 1.2</span>
+            </div>
+          </div>
+
+          <div class="node" onclick="showDetail('PostgreSQL 16 (Base de Datos)', 'Fase 1 - Paso 1.1 y Fase 5', 'PostgreSQL 16 con las 4 tablas: users, movements, monthly_estimate_configs y daily_estimates.', 'docker-compose.yml\nGoogle Cloud SQL')">
+            <div class="node-top">
+              <div class="node-icon icon-pg">🐘</div>
+              <div class="node-title-group">
+                <h4>PostgreSQL 16</h4>
+                <span>Cloud SQL / Docker Local</span>
+              </div>
+            </div>
+            <p class="node-desc">Almacén relacional con cálculo de gastos fijos diarios, intereses y transacciones.</p>
+            <div class="node-tags">
+              <span class="tag success">users</span>
+              <span class="tag success">movements</span>
+              <span class="tag success">monthly_configs</span>
+              <span class="tag success">daily_estimates</span>
+            </div>
+          </div>
+
+          <div class="node" onclick="showDetail('Hojas de Cálculo Google Sheets (Histórico)', 'Fase 4 - Paso 4.3', 'Libro de cálculo histórico original. Permanece disponible para lectura transparente de años anteriores mientras se opera el presente en PostgreSQL.', 'Google Sheets API')">
+            <div class="node-top">
+              <div class="node-icon icon-sheets">📊</div>
+              <div class="node-title-group">
+                <h4>Google Sheets</h4>
+                <span>Histórico de Respaldo</span>
+              </div>
+            </div>
+            <p class="node-desc">Fuente secundaria consultada únicamente si se solicitan años previos a 2026.</p>
+            <div class="node-tags">
+              <span class="tag">Legacy Storage</span>
+              <span class="tag">Read Only</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- DRAWER INTERACTIVO CON DETALLES -->
+  <aside id="detail-drawer">
+    <div class="drawer-header">
+      <h3 class="drawer-title" id="drawer-title">Componente</h3>
+      <button class="drawer-close" onclick="closeDetail()">&times;</button>
+    </div>
+    <span class="drawer-phase" id="drawer-phase">Fase X</span>
+    <p class="drawer-body" id="drawer-desc">Descripción...</p>
+    <div class="drawer-files" id="drawer-files">Archivos: ...</div>
+  </aside>
+
+  <footer>
+    <div class="footer-status">
+      <span class="status-indicator"></span>
+      <span>PostgreSQL Local en Docker: <strong>Puerto 5432</strong></span>
+    </div>
+    <div>Control de Gastos 2.0 &bull; Arquitectura Cloud &amp; Real-time</div>
+  </footer>
+
+  <script>
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      
+      if (btn) {
+        btn.classList.add('active');
+      } else if (window.event && window.event.currentTarget) {
+        window.event.currentTarget.classList.add('active');
+      }
+      const target = document.getElementById(tabId);
+      if (target) {
+        target.classList.add('active');
+      }
+    }
+
+    function showDetail(title, phase, desc, files) {
+      document.getElementById('drawer-title').innerText = title;
+      document.getElementById('drawer-phase').innerText = phase;
+      document.getElementById('drawer-desc').innerText = desc;
+      document.getElementById('drawer-files').innerText = 'Archivos / Referencia: ' + files;
+      document.getElementById('detail-drawer').style.display = 'block';
+    }
+
+    function showFieldDetail(field, type, desc, keyType) {
+      document.getElementById('drawer-title').innerText = 'Campo: ' + field;
+      document.getElementById('drawer-phase').innerText = 'Tipo: ' + type + ' | ' + keyType;
+      document.getElementById('drawer-desc').innerText = desc;
+      document.getElementById('drawer-files').innerText = 'Ubicación: prisma/schema.prisma';
+      document.getElementById('detail-drawer').style.display = 'block';
+    }
+
+    function highlightRelation(sourceId, targetId) {
+      document.querySelectorAll('.table-card').forEach(card => {
+        card.classList.remove('highlighted', 'relation-target');
+      });
+
+      const sourceCard = document.getElementById('card-' + sourceId);
+      const targetCard = document.getElementById('card-' + targetId);
+
+      if (sourceCard && targetCard) {
+        sourceCard.classList.add('highlighted');
+        targetCard.classList.add('relation-target');
+
+        // Actualizar banner
+        const banner = document.getElementById('rel-banner');
+        if (banner) {
+          document.getElementById('rel-title').innerText = sourceId + ' ──( 1 : N )──> ' + targetId;
+          document.getElementById('rel-box-source').innerText = sourceId + ' (1)';
+          document.getElementById('rel-box-target').innerText = targetId + ' (N)';
+
+          if (sourceId === 'users') {
+            document.getElementById('rel-desc').innerText = 'Un usuario autenticado (David o Lector) puede registrar N movimientos (gastos o ingresos) asociados a su cuenta.';
+          } else {
+            document.getElementById('rel-desc').innerText = 'Una configuración mensual (parámetros I1 de gasto e intereses J1) genera en cascada las ~31 filas diarias para calcular el saldo estimado y compararlo con el saldo real.';
+          }
+        }
+      }
+    }
+
+    function closeDetail() {
+      document.getElementById('detail-drawer').style.display = 'none';
+    }
+
+    // ==========================================
+    // INTERACTIVIDAD CANVAS TOPOLÓGICO DE NUBES
+    // ==========================================
+    let currentZoom = 1;
+    let panX = 0;
+    let panY = 0;
+    let isPanning = false;
+    let startX = 0;
+    let startY = 0;
+
+    function applyTransform() {
+      const g = document.getElementById('viewport-group');
+      if (g) {
+        g.setAttribute('transform', `translate(${panX}, ${panY}) scale(${currentZoom})`);
+      }
+      const zoomText = document.getElementById('zoom-level-text');
+      if (zoomText) {
+        zoomText.innerText = Math.round(currentZoom * 100) + '%';
+      }
+    }
+
+    function zoomIn() {
+      currentZoom = Math.min(currentZoom + 0.15, 2.5);
+      applyTransform();
+    }
+
+    function zoomOut() {
+      currentZoom = Math.max(currentZoom - 0.15, 0.4);
+      applyTransform();
+    }
+
+    function resetZoom() {
+      currentZoom = 1;
+      panX = 0;
+      panY = 0;
+      applyTransform();
+    }
+
+    function toggleCanvasTheme(themeName) {
+      const container = document.getElementById('cloud-container');
+      if (container) {
+        container.className = 'cloud-viewport-container ' + (themeName === 'white' ? 'theme-whiteboard' : 'theme-darkcloud');
+      }
+      const btnWhite = document.getElementById('btn-theme-white');
+      const btnDark = document.getElementById('btn-theme-dark');
+      if (btnWhite && btnDark) {
+        btnWhite.classList.toggle('active-tool', themeName === 'white');
+        btnDark.classList.toggle('active-tool', themeName === 'dark');
+      }
+    }
+
+    function startPan(e) {
+      if (e.button !== 0) return;
+      isPanning = true;
+      startX = e.clientX - panX;
+      startY = e.clientY - panY;
+    }
+
+    function doPan(e) {
+      if (!isPanning) return;
+      panX = e.clientX - startX;
+      panY = e.clientY - startY;
+      applyTransform();
+    }
+
+    function endPan() {
+      isPanning = false;
+    }
+
+    function handleWheel(e) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.08 : 0.08;
+      currentZoom = Math.max(0.4, Math.min(2.5, currentZoom + delta));
+      applyTransform();
+    }
+  </script>
+</body>
+</html>

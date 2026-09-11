@@ -1,0 +1,233 @@
+<mat-card class="example-card contenedor" appearance="outlined" [class.is-collapsed]="isCollapsed()">
+  <div class="card-header-wrapper" style="padding: 16px 16px 0 16px;">
+    <h3 style="margin:0; font-size: 1.25rem; font-weight: 600;">Préstamos y Rendimientos Anuales</h3>
+    <button
+      type="button"
+      class="btn-collapse-card"
+      [class.collapsed]="isCollapsed()"
+      (click)="toggleCollapse()"
+      [title]="isCollapsed() ? 'Expandir Préstamos Anuales' : 'Contraer Préstamos Anuales'"
+    >
+      <svg class="icon-triangle" viewBox="0 0 24 24" width="24" height="24">
+        <path fill="currentColor" d="M7 10l5 5 5-5z" />
+      </svg>
+    </button>
+  </div>
+  <mat-card-content *ngIf="!isCollapsed()">
+    <div *ngIf="isCargando; else lista" class="spinner-wrapper">
+      <mat-spinner diameter="40" strokeWidth="4" color="primary"></mat-spinner>
+    </div>
+    <ng-template #lista>
+      <ng-container *ngIf="filas.length > 0">
+        <!-- Tarjetas KPI Superiores -->
+        <div class="kpi-cards-grid">
+          <div class="kpi-card kpi-otorgado">
+            <div class="kpi-header">
+              <mat-icon class="kpi-icon">account_balance_wallet</mat-icon>
+              <span class="kpi-title">Total Otorgado</span>
+            </div>
+            <div class="kpi-value">
+              {{ valorOtorgado | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+            </div>
+          </div>
+
+          <div class="kpi-card kpi-devolver-bordo">
+            <div class="kpi-header">
+              <mat-icon class="kpi-icon">payments</mat-icon>
+              <span class="kpi-title">Total a Devolver</span>
+            </div>
+            <div class="kpi-value">
+              {{ totalDevolverGlobal() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+            </div>
+          </div>
+
+          <div class="kpi-card kpi-pendiente" [ngStyle]="obtenerStyleKpiRestaPorPagar()">
+            <div class="kpi-header">
+              <mat-icon class="kpi-icon" [style.color]="obtenerColorRestaPorPagar()"
+                >pending_actions</mat-icon
+              >
+              <span class="kpi-title">Resta por Pagar</span>
+            </div>
+            <div class="kpi-value" [style.color]="obtenerColorRestaPorPagar()">
+              {{ totalGlobalPendiente() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+            </div>
+          </div>
+
+          <div class="kpi-card kpi-porcentaje" [ngStyle]="obtenerStyleKpiPorcentaje()">
+            <div class="kpi-header">
+              <mat-icon
+                class="kpi-icon"
+                [style.color]="obtenerColorPorcentaje(porcentajeGlobalPendiente())"
+                >pie_chart</mat-icon
+              >
+              <span class="kpi-title">% Restante Pendiente</span>
+            </div>
+            <div
+              class="kpi-value"
+              [style.color]="obtenerColorPorcentaje(porcentajeGlobalPendiente())"
+            >
+              {{ porcentajeGlobalPendiente() | number: '1.2-2' }}%
+            </div>
+            <div class="kpi-progress-bg">
+              <div
+                class="kpi-progress-bar"
+                [style.width.%]="porcentajeGlobalPendiente()"
+                [style.background]="obtenerColorPorcentaje(porcentajeGlobalPendiente())"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabla Responsiva con Columnas Fijas (Sticky) -->
+        <div class="tabla-wrapper">
+          <table class="tabla-fechas" aria-label="Resumen financiero anual de préstamos">
+            <thead>
+              <tr>
+                <th class="col-sticky-prestamo col-header-prestamo">Prestamos / Mes</th>
+                <th *ngFor="let cat of categorias" class="col-header-categoria">{{ cat }}</th>
+                <th class="col-sticky-cant col-header-cant">Cant.</th>
+                <th class="col-sticky-total col-header-total">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Filas por Mes -->
+              <tr
+                *ngFor="let fila of filas; let i = index"
+                [ngClass]="obtenerEstadoMes(fila.nombreFila, i)"
+              >
+                <!-- Primera Columna: Nombre de Fila -->
+                <td class="col-sticky-prestamo col-body-prestamo font-medium">
+                  <ng-container *ngIf="i === 0">
+                    <div class="monto-prestado-inicial">
+                      <span class="prestado-label">Prestado</span>
+                    </div>
+                  </ng-container>
+                  <ng-container *ngIf="i !== 0 && i !== filas.length - 1">
+                    <span class="mes-label">{{ fila.nombreFila }}</span>
+                  </ng-container>
+                  <ng-container *ngIf="i === filas.length - 1">
+                    <strong>Total a devolver</strong>
+                  </ng-container>
+                </td>
+
+                <!-- Columnas de Categorías -->
+                <td *ngFor="let cat of categorias" class="col-valor texto-derecha">
+                  <ng-container *ngIf="i === 0">
+                    <span class="monto-otorgado">
+                      {{ fila.valores[cat] | currency: 'ARS' : 'symbol' : '1.0-0' : 'es-AR' }}
+                    </span>
+                  </ng-container>
+                  <ng-container *ngIf="i !== 0">
+                    <span
+                      *ngIf="fila.valores[cat] && fila.valores[cat] !== 0"
+                      [ngStyle]="{
+                        'text-decoration':
+                          fila.colores[cat] === '#0000ff' ? 'line-through' : 'none',
+                        color: fila.colores[cat] === '#0000ff' ? '#60a5fa' : 'inherit',
+                        'font-weight': fila.colores[cat] === '#0000ff' ? '500' : '600',
+                      }"
+                    >
+                      {{ fila.valores[cat] | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                    </span>
+                    <span
+                      class="celda-vacia-guion"
+                      *ngIf="!fila.valores[cat] || fila.valores[cat] === 0"
+                      >·</span
+                    >
+                  </ng-container>
+                </td>
+
+                <!-- Penúltima Columna: Cantidad de préstamos/cuotas activas -->
+                <td class="col-sticky-cant col-body-cant texto-centro">
+                  <ng-container *ngIf="i === 0">
+                    <span class="badge-cant-head">{{ cantPrestamos(fila) }}</span>
+                  </ng-container>
+                  <ng-container *ngIf="i !== 0 && i !== filas.length - 1">
+                    <span class="badge-cant" *ngIf="cantPrestamos(fila) > 0">{{
+                      cantPrestamos(fila)
+                    }}</span>
+                    <span class="celda-vacia-texto" *ngIf="cantPrestamos(fila) === 0">0</span>
+                  </ng-container>
+                  <ng-container *ngIf="i === filas.length - 1">
+                    <span class="celda-vacia-texto"></span>
+                  </ng-container>
+                </td>
+
+                <!-- Última Columna: Total del Mes (o Total Otorgado / Total a Devolver) -->
+                <td
+                  class="col-sticky-total col-body-total texto-derecha"
+                  [ngClass]="{
+                    'celda-total-otorgado-full': i === 0,
+                    'celda-total-devolver-full': i === filas.length - 1,
+                  }"
+                >
+                  <ng-container *ngIf="i === 0">
+                    {{ valorOtorgado | currency: 'ARS' : 'symbol' : '1.0-0' : 'es-AR' }}
+                  </ng-container>
+                  <ng-container *ngIf="i > 0 && i < filas.length - 1">
+                    <span class="badge-total-mes" *ngIf="totalMes(fila) > 0">
+                      {{ totalMes(fila) | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                    </span>
+                    <span class="celda-vacia-texto" *ngIf="totalMes(fila) === 0">-</span>
+                  </ng-container>
+                  <ng-container *ngIf="i === filas.length - 1">
+                    <span class="total-devolver-val">
+                      {{ totalMes(fila) | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                    </span>
+                  </ng-container>
+                </td>
+              </tr>
+
+              <!-- Fila de Totales Pendientes por Categoría -->
+              <tr class="fila-total-pendiente">
+                <td class="col-sticky-prestamo font-bold label-footer">Resta por pagar</td>
+                <td *ngFor="let cat of categorias" class="texto-derecha font-bold col-valor">
+                  <span [style.color]="obtenerColorPorcentaje(resultado[cat] || 0)">
+                    {{ totalesPendientes[cat] || 0 | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                  </span>
+                </td>
+                <td class="col-sticky-cant texto-centro font-bold"></td>
+                <td
+                  class="col-sticky-total texto-derecha font-bold celda-total-pendiente-global"
+                  [ngStyle]="obtenerStyleTotalPendienteGlobal()"
+                >
+                  {{ totalGlobalPendiente() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                </td>
+              </tr>
+
+              <!-- Fila de % Restante con Barras de Progreso -->
+              <tr class="fila-porcentaje-restante">
+                <td class="col-sticky-prestamo font-bold label-footer">% restante</td>
+                <td *ngFor="let cat of categorias" class="texto-derecha col-valor">
+                  <div class="mini-progress-container">
+                    <span
+                      class="porcentaje-numero"
+                      [style.color]="obtenerColorPorcentaje(resultado[cat] || 0)"
+                    >
+                      {{ resultado[cat] | number: '1.2-2' }}%
+                    </span>
+                    <div class="mini-progress-bg">
+                      <div
+                        class="mini-progress-fill"
+                        [style.width.%]="resultado[cat] || 0"
+                        [style.background]="obtenerColorPorcentaje(resultado[cat] || 0)"
+                      ></div>
+                    </div>
+                  </div>
+                </td>
+                <td class="col-sticky-cant texto-centro font-bold">-</td>
+                <td
+                  class="col-sticky-total texto-derecha font-bold celda-porcentaje-global"
+                  [ngStyle]="obtenerStylePorcentajeGlobal()"
+                >
+                  {{ porcentajeGlobalPendiente() | number: '1.2-2' }}%
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </ng-container>
+    </ng-template>
+  </mat-card-content>
+</mat-card>
+

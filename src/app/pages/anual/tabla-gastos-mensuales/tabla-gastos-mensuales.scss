@@ -1,0 +1,104 @@
+.example-card {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  margin-top: 12px;
+
+  mat-card-content {
+    padding: 0;
+  }
+}
+
+.spinner-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.tabla-wrapper {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  background-color: #ffffff;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tabla-gastos-mensuales {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  thead tr th.header-gastos-mensuales {
+    background-color: #fecdd3;
+    color: #9f1239;
+    font-size: 14px;
+    font-weight: 800;
+    text-align: center;
+    padding: 10px;
+    border-bottom: 2px solid #fda4af;
+    letter-spacing: 0.3px;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid #f1f5f9;
+    transition: background-color 0.15s ease;
+
+    td {
+      padding: 8px 12px;
+      color: #1e293b;
+    }
+
+    td.col-mes {
+      text-transform: capitalize;
+      color: #334155;
+    }
+
+    td.col-monto {
+      font-weight: 700;
+      color: #0f172a;
+
+      &.monto-negativo {
+        color: #dc2626 !important;
+        font-weight: 800;
+      }
+    }
+
+    &.mes-pasado {
+      background-color: #e6f4ea;
+      .mes-label {
+        color: #137333;
+        font-weight: 600;
+      }
+    }
+
+    &.mes-actual {
+      background-color: #fef7e0;
+      .mes-label {
+        color: #b06000;
+        font-weight: 700;
+      }
+    }
+
+    &.mes-futuro {
+      background-color: #ffffff;
+      .mes-label {
+        color: #5f6368;
+      }
+    }
+
+    &:hover {
+      filter: brightness(0.97);
+    }
+  }
+}
+
+.texto-derecha {
+  text-align: right;
+}
+
+.font-bold {
+  font-weight: 700;
+}

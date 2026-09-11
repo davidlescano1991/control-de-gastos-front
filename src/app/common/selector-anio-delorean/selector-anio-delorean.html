@@ -1,0 +1,68 @@
+<div class="delorean-timeline-card" *ngIf="anios() && anios().length > 0">
+  <div class="delorean-header">
+    <div class="time-circuits-info">
+      <span class="circuits-title">CIRCUITOS DEL TIEMPO</span>
+      <span class="destination-pill">
+        AÑO DESTINO: <strong>{{ anioSeleccionado() }}</strong>
+      </span>
+    </div>
+    <div class="speedometer-pill traveling" *ngIf="isTimeTraveling()">
+      <span>🔥 VIAJANDO A 88 MPH 🔥</span>
+    </div>
+  </div>
+
+  <div class="delorean-road-wrapper">
+    <div class="road-track-inner">
+      <!-- Riel / Carretera del tiempo -->
+      <div class="road-line"></div>
+
+      <!-- Huellas de fuego al viajar -->
+      <div
+        class="fire-trail-tracks"
+        [class.active]="isTimeTraveling()"
+        [style.left]="fireTrailLeft()"
+        [style.width]="fireTrailWidth()"
+      ></div>
+
+      <!-- Vehículo DeLorean original estacionado sobre la línea -->
+      <div
+        class="delorean-car-container"
+        [class.traveling]="isTimeTraveling()"
+        [class.facing-right]="travelDirection() === 'right'"
+        [class.facing-left]="travelDirection() === 'left'"
+        [style.left]="deloreanPosition()"
+      >
+        <div class="delorean-flip-box">
+          <img
+            src="assets/images/delorean-hd.png"
+            alt="DeLorean Time Machine"
+            class="delorean-pixel-img"
+          />
+        </div>
+      </div>
+
+      <!-- Botones de la línea de tiempo (Años) -->
+      <div class="road-nodes-container">
+        <button
+          *ngFor="let anio of anios(); let i = index"
+          type="button"
+          class="road-year-node"
+          [class.active]="anio === anioSeleccionado()"
+          [class.is-traveling]="isTimeTraveling()"
+          (click)="seleccionar(i)"
+          [title]="'Viajar al año ' + anio"
+        >
+          <!-- Marca sobre la carretera -->
+          <div class="road-notch-marker">
+            <span class="notch-pip"></span>
+          </div>
+          <!-- Etiqueta del Año -->
+          <div class="road-year-label">
+            <span class="year-digits">{{ anio }}</span>
+            <span class="current-tag" *ngIf="anio === anioActual">HOY</span>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

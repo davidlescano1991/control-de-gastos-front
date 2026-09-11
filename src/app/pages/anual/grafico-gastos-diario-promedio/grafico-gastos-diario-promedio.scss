@@ -1,0 +1,25 @@
+.movimientos-wrapper {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 24px;
+  padding: 16px 20px;
+
+  &.is-collapsed {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+  }
+}
+
+.spinner-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+
+
+
+
+

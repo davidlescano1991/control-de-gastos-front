@@ -1,0 +1,2 @@
+#!/bin/sh
+npm.cmd run prepush

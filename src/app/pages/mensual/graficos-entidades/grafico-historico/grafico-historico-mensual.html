@@ -1,0 +1,16 @@
+
+  <div class="spinner" *ngIf="isCargando; else grafico">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+  <ng-template #grafico>
+    <div class="grafico-wrapper" *ngIf="isBrowser">
+       <canvas
+      baseChart
+      [data]="chartData"
+      [options]="chartOptions"
+      [plugins]="chartPlugins"
+      [type]="'line'"
+    ></canvas>
+    </div>
+   
+  </ng-template>

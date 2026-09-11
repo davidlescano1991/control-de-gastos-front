@@ -1,0 +1,31 @@
+<div class="movimientos-wrapper" [class.is-collapsed]="isCollapsed()">
+  <div class="card-header-wrapper">
+    <h3>
+      Días transcurridos: {{ getDiasCargados() }} / {{ getTotalDias() }} (<span [style.color]="getColorPorcentaje()" style="font-weight: 800;">{{ getPorcentaje() }}%</span>)
+    </h3>
+    <button
+      type="button"
+      class="btn-collapse-card"
+      [class.collapsed]="isCollapsed()"
+      (click)="toggleCollapse()"
+      [title]="isCollapsed() ? 'Expandir Días Transcurridos' : 'Contraer Días Transcurridos'"
+    >
+      <svg class="icon-triangle" viewBox="0 0 24 24" width="24" height="24">
+        <path fill="currentColor" d="M7 10l5 5 5-5z" />
+      </svg>
+    </button>
+  </div>
+
+  <ng-container *ngIf="!isCollapsed()">
+    <div class="grafico-juliano-wrapper">
+      <canvas
+        class="grafico-juliano"
+        baseChart
+        [data]="chartData"
+        [options]="chartOptions"
+        [type]="'bar'"
+      >
+      </canvas>
+    </div>
+  </ng-container>
+</div>

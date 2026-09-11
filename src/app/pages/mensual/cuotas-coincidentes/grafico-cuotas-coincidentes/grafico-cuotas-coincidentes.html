@@ -1,0 +1,26 @@
+<mat-card class="tabla-resumen-card" [class.is-collapsed]="isCollapsed()">
+  <mat-card-header class="card-header-wrapper">
+    <mat-card-title>Subtotales por Cuota ($)</mat-card-title>
+    <button
+      type="button"
+      class="btn-collapse-card"
+      [class.collapsed]="isCollapsed()"
+      (click)="toggleCollapse()"
+      [title]="isCollapsed() ? 'Expandir Subtotales por Cuota ($)' : 'Contraer Subtotales por Cuota ($)'"
+    >
+      <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
+        <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+      </svg>
+    </button>
+  </mat-card-header>
+  <mat-card-content *ngIf="!isCollapsed()">
+    <div class="spinner" *ngIf="isCargando(); else grafico">
+      <mat-spinner diameter="40"></mat-spinner>
+    </div>
+    <ng-template #grafico>
+      <div class="grafico-wrapper" *ngIf="isBrowser">
+        <canvas baseChart [data]="chartData" [options]="chartOptions" [type]="'bar'"></canvas>
+      </div>
+    </ng-template>
+  </mat-card-content>
+</mat-card>

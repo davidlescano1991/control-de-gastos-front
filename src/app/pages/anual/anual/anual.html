@@ -1,0 +1,115 @@
+<app-selector-anio-delorean
+  [anios]="anios"
+  [anioSeleccionado]="anioSeleccionado()"
+  (indiceCambiado)="seleccionarAnio($event)"
+></app-selector-anio-delorean>
+<div class="pantalla-mensual">
+  <h2>Datos de Todo el año</h2>
+  <div class="movimientos-wrapper-all">
+    <app-grafico-dias-restantes-anual [anioSeleccionado]="anioSeleccionado()"></app-grafico-dias-restantes-anual>
+  </div>
+  <div class="movimientos-wrapper-all tabla-anual-full">
+    <app-tabla-prestamos [anioSeleccionado]="anioSeleccionado()" [filas]="filas()" [categorias]="categorias()"
+      [resultado]="resultado()" [isCargando]="isCargando()"
+      [totalesPendientes]="calcularTotalesPendientes()"></app-tabla-prestamos>
+  </div>
+  <main class="contenido-dos-columnas" [class.col-izq-contraida]="colIzquierdaContraida()"
+    [class.col-der-contraida]="colDerechaContraida()">
+    <div class="col-izquierda" [class.is-collapsed-horiz]="colIzquierdaContraida()">
+      @if (!colIzquierdaContraida()) {
+      <div class="movimientos-wrapper">
+        <div class="card-header-wrapper header-izq-anual">
+          <button type="button" class="btn-header-action" (click)="toggleColIzquierdaHorizontal()"
+            [title]="colIzquierdaContraida() ? 'Expandir vista' : 'Contraer horizontalmente a la izquierda'">
+            <mat-icon>{{ colIzquierdaContraida() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+          </button>
+          <h2>Tablas Anuales</h2>
+          <div style="width: 34px;"></div>
+        </div>
+        <app-rendimientos-positivos-mensuales [anioSeleccionado]="anioSeleccionado()" [filas]="filasSecundarias()"
+          [categorias]="categoriasSecundarias()" [isCargando]="isCargando()"></app-rendimientos-positivos-mensuales>
+        <app-tabla-gastos-mensuales [datos]="gastosMensuales()" [isCargando]="isCargando()"
+          [anioSeleccionado]="anioSeleccionado()"></app-tabla-gastos-mensuales>
+        <app-tabla-gastos-diario-promedio [datos]="gastosDiarioPromedio()" [isCargando]="isCargando()"
+          [anioSeleccionado]="anioSeleccionado()"></app-tabla-gastos-diario-promedio>
+        <app-tabla-deuda-total [datos]="deudaTotalAnual()" [filas]="filas()" [categorias]="categorias()"
+          [isCargando]="isCargando()" [anioSeleccionado]="anioSeleccionado()"></app-tabla-deuda-total>
+        <app-tabla-ingreso-neto [datos]="ingresoNetoAnual()" [filas]="filas()" [categorias]="categorias()"
+          [isCargando]="isCargando()" [anioSeleccionado]="anioSeleccionado()"></app-tabla-ingreso-neto>
+      </div>
+      } @else {
+      <div class="franja-colapsada" (click)="toggleColIzquierdaHorizontal()" title="Expandir columna izquierda">
+        <button type="button" class="btn-franja-expand">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+        <span class="texto-vertical">Tablas Anuales</span>
+      </div>
+      }
+    </div>
+
+    <div class="col-derecha" [class.is-collapsed-horiz]="colDerechaContraida()">
+      @if (!colDerechaContraida()) {
+      <div class="contenido-derecho">
+        <div class="movimientos-wrapper">
+          <div class="card-header-wrapper header-der-anual">
+            <div style="width: 34px;"></div>
+            <h2>Gráficos Anuales</h2>
+            <button type="button" class="btn-header-action" (click)="toggleColDerechaHorizontal()"
+              [title]="colDerechaContraida() ? 'Expandir vista' : 'Contraer horizontalmente a la derecha'">
+              <mat-icon>{{ colDerechaContraida() ? 'chevron_left' : 'chevron_right' }}</mat-icon>
+            </button>
+          </div>
+          <app-grafico-saldo-anual [datosAnuales]="graficoAnual()"
+            [isCargando]="isCargando()"></app-grafico-saldo-anual>
+          <app-grafico-rendimientos-positivos-mensuales
+            [datosAnuales]="resumenPositivo()"></app-grafico-rendimientos-positivos-mensuales>
+          <app-grafico-gasto-anual [datosAnuales]="gastosMensuales()"
+            [isCargandoInput]="isCargando()"></app-grafico-gasto-anual>
+          <app-grafico-gastos-diario-promedio [datosAnuales]="gastosDiarioPromedio()"
+            [isCargandoInput]="isCargando()"></app-grafico-gastos-diario-promedio>
+          <app-grafico-deuda-total [datos]="deudaTotalAnual()" [filas]="filas()" [categorias]="categorias()"
+            [isCargandoInput]="isCargando()" [anioSeleccionado]="anioSeleccionado()"></app-grafico-deuda-total>
+          <app-grafico-deuda-total-usd [datos]="deudaTotalAnual()" [filas]="filas()" [categorias]="categorias()"
+            [isCargandoInput]="isCargando()" [anioSeleccionado]="anioSeleccionado()"></app-grafico-deuda-total-usd>
+          <app-grafico-ingreso-neto [datos]="ingresoNetoAnual()" [filas]="filas()" [categorias]="categorias()"
+            [isCargandoInput]="isCargando()" [anioSeleccionado]="anioSeleccionado()"></app-grafico-ingreso-neto>
+          <app-grafico-ingreso-neto-usd [datos]="ingresoNetoAnual()" [filas]="filas()" [categorias]="categorias()"
+            [isCargandoInput]="isCargando()" [anioSeleccionado]="anioSeleccionado()"></app-grafico-ingreso-neto-usd>
+        </div>
+      </div>
+      } @else {
+      <div class="franja-colapsada" (click)="toggleColDerechaHorizontal()" title="Expandir columna derecha">
+        <button type="button" class="btn-franja-expand">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <span class="texto-vertical">Gráficos Anuales</span>
+      </div>
+      }
+    </div>
+  </main>
+
+  <div class="movimientos-wrapper-all">
+    <app-grafico-deuda-total-historico [datos]="deudaTotalHistorico()"
+      [filas]="filasAnioActual().length > 0 ? filasAnioActual() : filas()"
+      [categorias]="categoriasAnioActual().length > 0 ? categoriasAnioActual() : categorias()"
+      [isCargandoInput]="isCargando()"></app-grafico-deuda-total-historico>
+  </div>
+  <div class="movimientos-wrapper-all">
+    <app-grafico-deuda-total-historico-usd [datos]="deudaTotalHistorico()"
+      [filas]="filasAnioActual().length > 0 ? filasAnioActual() : filas()"
+      [categorias]="categoriasAnioActual().length > 0 ? categoriasAnioActual() : categorias()"
+      [isCargandoInput]="isCargando()"></app-grafico-deuda-total-historico-usd>
+  </div>
+  <div class="movimientos-wrapper-all">
+    <app-grafico-ingreso-neto-historico [datos]="ingresoNetoHistorico()"
+      [filas]="filasAnioActual().length > 0 ? filasAnioActual() : filas()"
+      [categorias]="categoriasAnioActual().length > 0 ? categoriasAnioActual() : categorias()"
+      [isCargandoInput]="isCargando()"></app-grafico-ingreso-neto-historico>
+  </div>
+  <div class="movimientos-wrapper-all">
+    <app-grafico-ingreso-neto-historico-usd [datos]="ingresoNetoHistorico()"
+      [filas]="filasAnioActual().length > 0 ? filasAnioActual() : filas()"
+      [categorias]="categoriasAnioActual().length > 0 ? categoriasAnioActual() : categorias()"
+      [isCargandoInput]="isCargando()"></app-grafico-ingreso-neto-historico-usd>
+  </div>
+</div>

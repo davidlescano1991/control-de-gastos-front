@@ -1,0 +1,190 @@
+<ng-container *ngIf="anios && anios.length > 0">
+  <app-selector-anio-delorean
+    [anios]="anios"
+    [anioSeleccionado]="anioSeleccionado()"
+    (indiceCambiado)="seleccionarAnio($event)"
+  ></app-selector-anio-delorean>
+
+  <!-- ✅ Layout completo fuera del stepper -->
+  <div class="pantalla-mensual">
+    <aside class="sidebar" [class.collapsed]="sidebarCollapsed()">
+      <div class="sidebar-header">
+        <button type="button" class="btn-toggle-sidebar" (click)="toggleSidebar()"
+          [title]="sidebarCollapsed() ? 'Expandir meses' : 'Contraer meses'">
+          <mat-icon>{{ sidebarCollapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+          <span *ngIf="!sidebarCollapsed()">Meses</span>
+        </button>
+      </div>
+
+      <div class="sidebar-months-list">
+        <button *ngFor="let mes of meses" (click)="seleccionarMes(mes)" [class.active]="mes === mesSeleccionado()"
+          [title]="mes">
+          <span class="full-label" *ngIf="!sidebarCollapsed()">{{ mes }}</span>
+          <span class="short-label" *ngIf="sidebarCollapsed()">{{ mes.substring(0, 3) }}</span>
+        </button>
+      </div>
+    </aside>
+
+    <div class="contenido-principal" [class.sidebar-is-collapsed]="sidebarCollapsed()">
+      <mat-card class="alert-card warning" *ngIf="mensajeEstado.length > 0">
+        <mat-card-content class="contenido-abajo">
+          @for (msg of [mensajeEstado]; track msg) {
+            <strong class="msg-animated"> {{ msg }} </strong>
+          }
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card-content class="contenedor-dos-columnas contenido-dos-columnas"
+        [class.col-izq-contraida]="colIzquierdaContraida()" [class.col-der-contraida]="colDerechaContraida()">
+        <div class="col-izquierda" [class.is-collapsed-horiz]="colIzquierdaContraida()">
+          @if (!colIzquierdaContraida()) {
+          <div class="movimientos-wrapper" [class.is-collapsed]="gastosMensualesCollapsed()">
+            <mat-card class="grafico-card" [class.is-collapsed]="gastosMensualesCollapsed()">
+              <div class="card-header-wrapper">
+                <button type="button" class="btn-header-action" (click)="toggleColIzquierdaHorizontal()"
+                  [title]="colIzquierdaContraida() ? 'Expandir vista' : 'Contraer horizontalmente a la izquierda'">
+                  <mat-icon>{{ colIzquierdaContraida() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+                </button>
+                <h2>Gastos de {{ mesSeleccionado() }} {{ anioSeleccionado() }}</h2>
+                <button type="button" class="btn-header-action" (click)="toggleTodasLasEntidades()"
+                  [title]="todasEntidadesContraidas() ? 'Expandir todas las tarjetas' : 'Contraer todas las tarjetas'">
+                  <mat-icon>{{ todasEntidadesContraidas() ? 'unfold_more' : 'unfold_less' }}</mat-icon>
+                </button>
+              </div>
+              <mat-card-content *ngIf="!gastosMensualesCollapsed()">
+                <div class="contenedor-entidad">
+                  <app-visa [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="visaDatos()"
+                    [entidad]="visaEntidad()" [isCargando]="isCargando()"
+                    [forceCollapsed]="todasEntidadesContraidas()"></app-visa>
+                </div>
+
+                <div class="contenedor-entidad">
+                  <app-master-galicia [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="masterDatos()"
+                    [entidad]="masterEntidad()" [isCargando]="isCargando()"
+                    [forceCollapsed]="todasEntidadesContraidas()"></app-master-galicia>
+                </div>
+
+                <div class="contenedor-entidad">
+                  <app-naranja [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="naranjaDatos()"
+                    [entidad]="naranjaEntidad()" [isCargando]="isCargando()"
+                    [forceCollapsed]="todasEntidadesContraidas()"></app-naranja>
+                </div>
+
+                <div class="contenedor-entidad">
+                  <app-bancor [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="bancorDatos()"
+                    [entidad]="bancorEntidad()" [isCargando]="isCargando()"
+                    [forceCollapsed]="todasEntidadesContraidas()"></app-bancor>
+                </div>
+
+                <div class="contenedor-entidad">
+                  <app-mercado-libre [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="mLDatos()"
+                    [entidad]="mLEntidad()" [isCargando]="isCargando()"
+                    [forceCollapsed]="todasEntidadesContraidas()"></app-mercado-libre>
+                </div>
+
+                <div class="contenedor-entidad">
+                  <app-otros [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="otrosDatos()"
+                    [entidad]="otrosEntidad()" [isCargando]="isCargando()"
+                    [forceCollapsed]="todasEntidadesContraidas()"></app-otros>
+                </div>
+
+                <div class="contenedor-entidad">
+                  <app-tabla-cuotas-coincidentes [mesSeleccionado]="mesSeleccionado()" [visa]="visaDatos()"
+                    [master]="masterDatos()" [naranja]="naranjaDatos()" [bancor]="bancorDatos()" [otros]="otrosDatos()"
+                    [ml]="mLDatos()" [forceCollapsed]="todasEntidadesContraidas()"></app-tabla-cuotas-coincidentes>
+                </div>
+
+                <div class="contenedor-entidad">
+                  <app-tabla-proyeccion-totales [mesSeleccionado]="mesSeleccionado()"
+                    [anioSeleccionado]="anioSeleccionado()" [visa]="visaDatos()" [master]="masterDatos()"
+                    [naranja]="naranjaDatos()" [bancor]="bancorDatos()" [otros]="otrosDatos()" [ml]="mLDatos()"
+                    [forceCollapsed]="todasEntidadesContraidas()"></app-tabla-proyeccion-totales>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+          } @else {
+          <div class="franja-colapsada" (click)="toggleColIzquierdaHorizontal()" title="Expandir columna izquierda">
+            <button type="button" class="btn-franja-expand">
+              <mat-icon>chevron_right</mat-icon>
+            </button>
+            <span class="texto-vertical">Gastos Mensuales</span>
+          </div>
+          }
+        </div>
+
+        <div class="col-derecha-scroll" [class.is-collapsed-horiz]="colDerechaContraida()">
+          @if (!colDerechaContraida()) {
+          <div class="contenido-derecho" *ngIf="!isCargando()">
+            <div class="movimientos-wrapper" [class.is-collapsed]="resumenGraficoCollapsed()">
+              <mat-card class="grafico-card" [class.is-collapsed]="resumenGraficoCollapsed()">
+                <div class="card-header-wrapper">
+                  <button type="button" class="btn-header-action" (click)="toggleTodosLosGraficos()"
+                    [title]="todosGraficosContraidos() ? 'Expandir todas las tarjetas' : 'Contraer todas las tarjetas'">
+                    <mat-icon>{{ todosGraficosContraidos() ? 'unfold_more' : 'unfold_less' }}</mat-icon>
+                  </button>
+                  <h2>Resumen gráfico</h2>
+                  <button type="button" class="btn-header-action" (click)="toggleColDerechaHorizontal()"
+                    [title]="colDerechaContraida() ? 'Expandir vista' : 'Contraer horizontalmente a la derecha'">
+                    <mat-icon>{{ colDerechaContraida() ? 'chevron_left' : 'chevron_right' }}</mat-icon>
+                  </button>
+                </div>
+                <mat-card-content *ngIf="!resumenGraficoCollapsed()">
+                  <app-novedades-cuotas [mesSeleccionado]="mesSeleccionado()" [visa]="visaDatos()"
+                    [master]="masterDatos()" [naranja]="naranjaDatos()" [bancor]="bancorDatos()" [otros]="otrosDatos()"
+                    [forceCollapsed]="todosGraficosContraidos()">
+                  </app-novedades-cuotas>
+                  <app-grafico-visa [mesSeleccionado]="mesSeleccionado()" [anioSeleccionado]="anioSeleccionado()"
+                    [forceCollapsed]="todosGraficosContraidos()"></app-grafico-visa>
+                  <app-resumen [mesSeleccionado]="mesSeleccionado()" [anioSeleccionado]="anioSeleccionado()"
+                    [forceCollapsed]="todosGraficosContraidos()"></app-resumen>
+                  <app-grafico-cuotas-coincidentes [mesSeleccionado]="mesSeleccionado()" [visa]="visaDatos()"
+                    [master]="masterDatos()" [naranja]="naranjaDatos()" [bancor]="bancorDatos()" [otros]="otrosDatos()"
+                    [ml]="mLDatos()" [forceCollapsed]="todosGraficosContraidos()"></app-grafico-cuotas-coincidentes>
+                  <app-grafico-proyeccion-totales [mesSeleccionado]="mesSeleccionado()"
+                    [anioSeleccionado]="anioSeleccionado()" [visa]="visaDatos()" [master]="masterDatos()"
+                    [naranja]="naranjaDatos()" [bancor]="bancorDatos()" [otros]="otrosDatos()" [ml]="mLDatos()"
+                    [forceCollapsed]="todosGraficosContraidos()"></app-grafico-proyeccion-totales>
+                </mat-card-content>
+              </mat-card>
+            </div>
+          </div>
+          } @else {
+          <div class="franja-colapsada" (click)="toggleColDerechaHorizontal()" title="Expandir columna derecha">
+            <button type="button" class="btn-franja-expand">
+              <mat-icon>chevron_left</mat-icon>
+            </button>
+            <span class="texto-vertical">Resumen Gráfico</span>
+          </div>
+          }
+        </div>
+      </mat-card-content>
+      <mat-card-content>
+        <div class="movimientos-wrapper contenido-una-columnas" [class.is-collapsed]="gastosHistoricosCollapsed()">
+          <mat-card class="grafico-card" [class.is-collapsed]="gastosHistoricosCollapsed()">
+            <mat-card-header class="card-header-wrapper">
+              <mat-card-title>Gastos Históricos</mat-card-title>
+              <button type="button" class="btn-collapse-card" [class.collapsed]="gastosHistoricosCollapsed()"
+                (click)="toggleGastosHistoricos()"
+                [title]="gastosHistoricosCollapsed() ? 'Expandir Gastos Históricos' : 'Contraer Gastos Históricos'">
+                <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
+                  <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+                </svg>
+              </button>
+            </mat-card-header>
+            <mat-card-content *ngIf="!gastosHistoricosCollapsed()">
+              <app-grafico-mensual-historico [isCargando]="isCargando()"
+                [resultados]="resultados()"></app-grafico-mensual-historico>
+            </mat-card-content>
+          </mat-card>
+        </div>
+      </mat-card-content>
+    </div>
+  </div>
+</ng-container>
+
+
+<!-- Spinner global -->
+<div class="spinner-global" *ngIf="isCargando()">
+  <mat-spinner diameter="50"></mat-spinner>
+</div>

@@ -1,0 +1,99 @@
+<ng-container *ngIf="anios && anios.length > 0">
+  <app-selector-anio-delorean
+    [anios]="anios"
+    [anioSeleccionado]="anioSeleccionado()"
+    (indiceCambiado)="seleccionarAnio($event)"
+  ></app-selector-anio-delorean>
+  <div class="pantalla-mensual">
+    <aside class="sidebar" [class.collapsed]="sidebarCollapsed()">
+      <div class="sidebar-header">
+        <button type="button" class="btn-toggle-sidebar" (click)="toggleSidebar()"
+          [title]="sidebarCollapsed() ? 'Expandir meses' : 'Contraer meses'">
+          <mat-icon>{{ sidebarCollapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+          <span *ngIf="!sidebarCollapsed()">Meses</span>
+        </button>
+      </div>
+
+      <div class="sidebar-months-list">
+        <button *ngFor="let mes of meses()" (click)="seleccionarMes(mes)" [class.active]="mes === mesSeleccionado()"
+          [title]="mes">
+          <span class="full-label" *ngIf="!sidebarCollapsed()">{{ mes }}</span>
+          <span class="short-label" *ngIf="sidebarCollapsed()">{{ mes.substring(0, 3) }}</span>
+        </button>
+      </div>
+    </aside>
+
+    <div class="contenido-principal" [class.sidebar-is-collapsed]="sidebarCollapsed()">
+      <mat-card class="alert-card warning" *ngIf="isCargando() && mensajeEstado()">
+        <mat-card-content class="contenido-abajo">
+          @for (msg of [mensajeEstado()]; track msg) {
+            <div class="msg-animated">{{ msg }}</div>
+          }
+        </mat-card-content>
+      </mat-card>
+
+      <div class="contenedor-dias-restantes">
+        <app-grafico-dias-restantes-anual
+          [modo]="'estimativo'"
+          [mesSeleccionado]="mesSeleccionado()"
+          [estimativoFilas]="estimativoFilas()"
+          [anioSeleccionado]="anioSeleccionado()"
+        ></app-grafico-dias-restantes-anual>
+      </div>
+
+      <div
+        class="contenido-dos-columnas"
+        [class.col-izq-contraida]="colIzquierdaContraida()"
+        [class.col-der-contraida]="colDerechaContraida()"
+      >
+        <div class="col-izquierda" [class.is-collapsed-horiz]="colIzquierdaContraida()">
+          @if (!colIzquierdaContraida()) {
+            <app-estimativo-mensual
+              [mesSeleccionado]="mesSeleccionado()"
+              [anioSeleccionado]="anioSeleccionado()"
+              [isCargando]="isCargando()"
+              [estimativoFilas]="estimativoFilas()"
+              [isColIzquierdaContraida]="colIzquierdaContraida()"
+              (toggleHorizontalCollapse)="toggleColIzquierdaHorizontal()"
+            ></app-estimativo-mensual>
+          } @else {
+            <div class="franja-colapsada" (click)="toggleColIzquierdaHorizontal()" title="Expandir columna izquierda">
+              <button type="button" class="btn-franja-expand">
+                <mat-icon>chevron_right</mat-icon>
+              </button>
+              <span class="texto-vertical">Estimativo Mensual</span>
+            </div>
+          }
+        </div>
+
+        <div class="col-derecha-scroll" [class.is-collapsed-horiz]="colDerechaContraida()">
+          @if (!colDerechaContraida()) {
+            <div class="contenido-derecho" *ngIf="!isCargando()">
+              <app-grafico-estimativo
+                [mesSeleccionado]="mesSeleccionado()"
+                [anioSeleccionado]="anioSeleccionado()"
+                [estimativoFilas]="estimativoFilas()"
+                [isColDerechaContraida]="colDerechaContraida()"
+                (toggleHorizontalCollapse)="toggleColDerechaHorizontal()"
+              ></app-grafico-estimativo>
+            </div>
+          } @else {
+            <div class="franja-colapsada" (click)="toggleColDerechaHorizontal()" title="Expandir columna derecha">
+              <button type="button" class="btn-franja-expand">
+                <mat-icon>chevron_left</mat-icon>
+              </button>
+              <span class="texto-vertical">Gráfico Estimativo</span>
+            </div>
+          }
+        </div>
+      </div>
+      <div>
+        <div class="grafico-historico-wrapper">
+          <app-grafico-historico [datosHistoricosEstimativos]="datosHistoricosEstimativos()"
+            [isCargando]="isCargando()">
+          </app-grafico-historico>
+        </div>
+      </div>
+    </div>
+  </div>
+</ng-container>

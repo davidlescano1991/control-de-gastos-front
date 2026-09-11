@@ -1,0 +1,105 @@
+<div class="movimientos-wrapper" [class.is-collapsed]="isCollapsed()">
+  <div class="card-header-wrapper">
+    <button
+      type="button"
+      class="btn-header-action"
+      (click)="onToggleHorizontalCollapse()"
+      [title]="isColIzquierdaContraida ? 'Expandir vista' : 'Contraer horizontalmente a la izquierda'"
+    >
+      <mat-icon>{{ isColIzquierdaContraida ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+    </button>
+
+    <h3>Estimativo {{ mesSeleccionado }}</h3>
+
+    <button
+      type="button"
+      class="btn-header-action"
+      [class.collapsed]="isCollapsed()"
+      (click)="toggleCollapse()"
+      [title]="isCollapsed() ? 'Expandir Estimativo Mensual' : 'Contraer Estimativo Mensual'"
+    >
+      <mat-icon>{{ isCollapsed() ? 'expand_more' : 'expand_less' }}</mat-icon>
+    </button>
+  </div>
+  <ng-container *ngIf="!isCollapsed()">
+    <mat-card
+      class="example-card"
+      appearance="outlined"
+      *ngIf="estimativoFilas != undefined && estimativoFilas.length > 0 && !isCargando"
+    >
+      <mat-card-content>
+        <div class="tabla-wrapper">
+          <table class="tabla-fechas" *ngIf="estimativoFilas.length > 0">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Saldo Est.</th>
+                <th>Saldo Est. USD</th>
+                <th>Deuda</th>
+                <th>Real</th>
+                <th>Deuda Real</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                *ngFor="let fila of estimativoFilas"
+                [ngClass]="obtenerClaseFila(fila.fecha)"
+                [attr.title]="obtenerTooltipFecha(fila.fecha) || null"
+              >
+                <td class="col-fecha">
+                  <span>{{ fila.fecha }}</span>
+                </td>
+                <td class="texto-derecha columna-resaltada saldo">
+                  {{ fila.saldoPesos | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                </td>
+                <td class="texto-derecha saldoUSD">
+                  {{ fila.saldoUSD | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                </td>
+                <td class="texto-derecha columna-resaltada deuda">
+                  {{ fila.deuda | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                </td>
+                <td class="texto-derecha">
+                  {{ fila.real | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                  <div *ngIf="fila.real !== null">
+                    <span
+                      [ngClass]="{
+                        'positivo': (fila.real - fila.saldoPesos) > 0,
+                        'negativo': (fila.real - fila.saldoPesos) < 0,
+                        'neutro': (fila.real - fila.saldoPesos) === 0
+                      }"
+                    >
+                      <span *ngIf="(fila.real - fila.saldoPesos) > 0">+</span>
+                      {{
+                        calcularDiferencia(fila.saldoPesos, fila.real)
+                          | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR'
+                      }}
+                    </span>
+                  </div>
+                </td>
+                <td class="texto-derecha deudaReal">
+                  {{ fila.deudaReal | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                  <div *ngIf="fila.deudaReal !== null">
+                    <span
+                      [ngClass]="{
+                        'deuda-roja': (fila.deudaReal - fila.deuda) > 0,
+                        'deuda-verde': (fila.deudaReal - fila.deuda) < 0,
+                        'deuda-neutro': (fila.deudaReal - fila.deuda) === 0
+                      }"
+                    >
+                      <span *ngIf="(fila.deudaReal - fila.deuda) > 0">+</span>
+                      {{
+                        calcularDiferencia(fila.deuda, fila.deudaReal)
+                          | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR'
+                      }}
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </ng-container>
+</div>
+

@@ -1,0 +1,104 @@
+.spinner-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.tabla-wrapper {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  background-color: #ffffff;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tabla-fechas {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+
+  thead tr th.col-header-rendimientos {
+    background-color: #4c1d95;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 800;
+    text-align: center;
+    padding: 12px;
+    letter-spacing: 0.3px;
+    border: none;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid #e2e8f0;
+    transition: background-color 0.15s ease;
+
+    td {
+      padding: 8px 12px;
+      vertical-align: middle;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    td.col-sticky-mes {
+      position: sticky;
+      left: 0;
+      z-index: 5;
+      background-color: inherit;
+      font-weight: 600;
+      color: #334155;
+      text-transform: capitalize;
+    }
+
+    td.col-valor {
+      text-align: right;
+    }
+
+    &.mes-pasado {
+      background-color: #e6f4ea;
+      td.col-sticky-mes {
+        background-color: #e6f4ea;
+      }
+      .mes-label {
+        color: #137333;
+        font-weight: 600;
+      }
+    }
+
+    &.mes-actual {
+      background-color: #fef7e0;
+      td.col-sticky-mes {
+        background-color: #fef7e0;
+      }
+      .mes-label {
+        color: #b06000;
+        font-weight: 700;
+      }
+    }
+
+    &.mes-futuro {
+      background-color: #ffffff;
+      td.col-sticky-mes {
+        background-color: #ffffff;
+      }
+      .mes-label {
+        color: #5f6368;
+      }
+    }
+
+    &:hover {
+      filter: brightness(0.97);
+    }
+  }
+}
+
+.texto-derecha {
+  text-align: right;
+}
+
+.font-medium {
+  font-weight: 600;
+}

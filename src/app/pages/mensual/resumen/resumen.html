@@ -1,0 +1,63 @@
+@if (isCargando()) {
+  <div class="spinner">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+} @else {
+  <mat-card class="tabla-resumen-card" [class.is-collapsed]="isCollapsed()">
+    <mat-card-header class="card-header-wrapper">
+      <mat-card-title>Resumen por Entidad</mat-card-title>
+      <button
+        type="button"
+        class="btn-collapse-card"
+        [class.collapsed]="isCollapsed()"
+        (click)="toggleCollapse()"
+        [title]="isCollapsed() ? 'Expandir Resumen por Entidad' : 'Contraer Resumen por Entidad'"
+      >
+        <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
+          <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+        </svg>
+      </button>
+    </mat-card-header>
+    @if (!isCollapsed()) {
+      <mat-card-content>
+        <div class="tabla-resumen-container">
+          <table>
+            <thead>
+              <tr>
+                <th class="col-sticky">Entidad</th>
+                @for (mes of meses; track mes) {
+                  <th>{{ mes }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (entidad of entidades; track entidad) {
+                <tr>
+                  <td class="col-sticky" [ngClass]="getEntidadClass(entidad)">
+                    {{ getNombreEntidad(entidad) }}
+                  </td>
+                  @for (mes of meses; track mes) {
+                    <td>
+                      {{ getTotal(entidad, mes) | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                    </td>
+                  }
+                </tr>
+              }
+              <tr class="fila-total">
+                <td class="col-sticky"><strong>Total</strong></td>
+                @for (mes of meses; track mes) {
+                  <td>
+                    <strong>{{
+                      getTotalPorMes(mes) | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR'
+                    }}</strong>
+                  </td>
+                }
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </mat-card-content>
+    }
+  </mat-card>
+}
+

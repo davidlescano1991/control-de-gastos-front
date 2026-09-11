@@ -1,0 +1,132 @@
+<div class="movimientos-wrapper" [class.is-collapsed]="isCollapsed()">
+  <div class="card-header-wrapper">
+    <button
+      type="button"
+      class="btn-header-action"
+      (click)="onToggleHorizontalCollapse()"
+      [title]="isColIzquierdaContraida ? 'Expandir vista' : 'Contraer horizontalmente a la izquierda'"
+    >
+      <mat-icon>{{ isColIzquierdaContraida ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+    </button>
+
+    <h2>Totales Diarios</h2>
+
+    <button
+      type="button"
+      class="btn-header-action"
+      [class.collapsed]="isCollapsed()"
+      (click)="toggleCollapse()"
+      [title]="isCollapsed() ? 'Expandir Totales Diarios' : 'Contraer Totales Diarios'"
+    >
+      <mat-icon>{{ isCollapsed() ? 'expand_more' : 'expand_less' }}</mat-icon>
+    </button>
+  </div>
+
+  <ng-container *ngIf="!isCollapsed()">
+    <!-- Spinner mientras no hay datos -->
+    <div *ngIf="cargando()" class="spinner-wrapper">
+      <mat-spinner diameter="40" strokeWidth="4" color="primary"></mat-spinner>
+    </div>
+
+    <mat-card class="alert-card warning" *ngIf="cargando() && mensajeEstado()">
+      <mat-card-content class="contenido-abajo">
+        @for (msg of [mensajeEstado()]; track msg) {
+          <div class="msg-animated">{{ msg }}</div>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <div *ngIf="!cargando() && resumenFormateado().length > 0">
+      <div class="tabla-wrapper">
+        <table class="tabla-movimientos">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Total</th>
+              <th>USD</th>
+              <th>Deuda $</th>
+              <th>Deuda $USD</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of paginaActual(); let i = $index; track $index) {
+              <tr>
+                <td class="texto-centro" data-label="Fecha">{{ r.fecha }}</td>
+                <td class="texto-derecha" data-label="Total">
+                  {{ r.total }}
+                  <div [ngClass]="{ positivo: r.diferenciaRaw >= 0, negativo: r.diferenciaRaw < 0 }">
+                    <span *ngIf="r.diferenciaRaw >= 0">+</span>
+                    {{ r.diferencia }}
+                  </div>
+                </td>
+                <td class="texto-derecha" data-label="USD">
+                  {{ r.totalUSD }}
+                  <div
+                    [ngClass]="{
+                      positivo: r.diferenciaUSDRaw != null && r.diferenciaUSDRaw >= 0,
+                      negativo: r.diferenciaUSDRaw != null && r.diferenciaUSDRaw < 0,
+                    }"
+                  >
+                    <span *ngIf="r.diferenciaUSDRaw != null && r.diferenciaUSDRaw >= 0">+</span>
+                    <ng-container *ngIf="r.diferenciaUSD != null; else sinDato">
+                      {{ r.diferenciaUSD }}
+                    </ng-container>
+                    <ng-template #sinDato>-</ng-template>
+                  </div>
+                </td>
+                <td class="texto-derecha" data-label="Deuda $">
+                  {{ r.deudaPesos }}
+                  <div
+                    [ngClass]="{
+                      'deuda-roja': r.diferenciaDeudaPesosRaw > 0,
+                      'deuda-verde': r.diferenciaDeudaPesosRaw < 0,
+                      'deuda-neutro': r.diferenciaDeudaPesosRaw === 0
+                    }"
+                  >
+                    <span *ngIf="r.diferenciaDeudaPesosRaw > 0">+</span>
+                    {{ r.diferenciaDeudaPesos }}
+                  </div>
+                </td>
+                <td class="texto-derecha" data-label="Deuda $USD">
+                  {{ r.deudaUSD }}
+                  <div
+                    *ngIf="r.diferenciaDeudaUSDRaw != null"
+                    [ngClass]="{
+                      'deuda-roja': r.diferenciaDeudaUSDRaw > 0,
+                      'deuda-verde': r.diferenciaDeudaUSDRaw < 0,
+                      'deuda-neutro': r.diferenciaDeudaUSDRaw === 0
+                    }"
+                  >
+                    <span *ngIf="r.diferenciaDeudaUSDRaw > 0">+</span>
+                    {{ r.diferenciaDeudaUSD }}
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5">No hay movimientos registrados</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="paginador-wrapper">
+        <mat-paginator
+          [length]="resumenFormateado().length"
+          [pageSize]="30"
+          [pageSizeOptions]="[17, 34, 60, 90, 120, 365]"
+          (page)="onPageChange($event)"
+        >
+        </mat-paginator>
+      </div>
+    </div>
+
+    <div *ngIf="!cargando() && resumenFormateado().length === 0">No hay datos para mostrar</div>
+
+    <div *ngIf="errorMsj().length > 0" class="error-box">
+      {{ errorMsj() }}
+    </div>
+  </ng-container>
+</div>
+

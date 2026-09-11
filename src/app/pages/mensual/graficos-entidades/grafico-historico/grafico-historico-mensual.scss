@@ -1,0 +1,28 @@
+.movimientos-wrapper {
+
+  margin: 0px 30px auto;
+  padding: 30px;
+  background: #ffffff !important;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  font-family: 'Inter', sans-serif;
+  margin-top: 20px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 250px; // ajustá según el alto que querés para el gráfico
+
+}
+
+.spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.grafico-wrapper {
+  position: relative;
+  width: 100%;
+}

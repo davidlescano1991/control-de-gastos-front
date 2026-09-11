@@ -1,0 +1,33 @@
+<div class="movimientos-wrapper" [class.is-collapsed]="isCollapsed()">
+  <div class="card-header-wrapper">
+    <h3>Gastos diario promedio</h3>
+    <button
+      type="button"
+      class="btn-collapse-card"
+      [class.collapsed]="isCollapsed()"
+      (click)="toggleCollapse()"
+      [title]="isCollapsed() ? 'Expandir Gastos Diario Promedio' : 'Contraer Gastos Diario Promedio'"
+    >
+      <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
+        <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+      </svg>
+    </button>
+  </div>
+
+  <ng-container *ngIf="!isCollapsed()">
+    <div *ngIf="isCargando()" class="spinner-wrapper">
+      <mat-spinner diameter="40" strokeWidth="4" color="primary"></mat-spinner>
+    </div>
+
+    <canvas
+      *ngIf="!isCargando() && isBrowser && chartData.labels && chartData.labels.length > 0"
+      baseChart
+      [data]="chartData"
+      [options]="chartOptions"
+      [type]="chartType"
+    >
+    </canvas>
+  </ng-container>
+</div>
+
+

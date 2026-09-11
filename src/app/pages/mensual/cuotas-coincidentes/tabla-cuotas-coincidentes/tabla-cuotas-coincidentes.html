@@ -1,0 +1,56 @@
+<mat-card class="tabla-resumen-card" appearance="outlined" [class.is-collapsed]="isCollapsed()">
+  <mat-card-header class="card-header-wrapper">
+    <mat-card-title>Subtotales por Cuota</mat-card-title>
+    <button
+      type="button"
+      class="btn-collapse-card"
+      [class.collapsed]="isCollapsed()"
+      (click)="toggleCollapse()"
+      [title]="isCollapsed() ? 'Expandir Subtotales por Cuota' : 'Contraer Subtotales por Cuota'"
+    >
+      <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
+        <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+      </svg>
+    </button>
+  </mat-card-header>
+
+  <ng-container *ngIf="!isCollapsed()">
+    <mat-card-content>
+      <table class="tabla-movimientos" *ngIf="items().length > 0">
+        <thead>
+          <tr class="header-excel">
+            <th class="th-item">item a pagar</th>
+            <th class="th-subtotal">subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of items()">
+            <td [class.texto-nuevo]="item.esNuevo" [class.texto-ultimo]="item.esUltima">
+              {{ item.itemLabel }}
+              <span *ngIf="item.esNuevo" class="tag-notificacion nuevo">¡nuevo!</span>
+              <span *ngIf="item.esUltima" class="tag-notificacion ultimo">¡última!</span>
+            </td>
+            <td [class.monto-nuevo]="item.esNuevo" [class.monto-ultimo]="item.esUltima" class="td-monto">
+              {{ item.subtotal | currency:'ARS':'symbol':'1.2-2':'es-AR' }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </mat-card-content>
+
+    <mat-card-actions *ngIf="totalGlobal() > 0" class="acciones-total">
+      <div class="total-row">
+        <div class="total-label">
+          <strong>Total</strong>
+        </div>
+        <div class="total-value">
+          <strong>{{ totalGlobal() | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>
+        </div>
+      </div>
+    </mat-card-actions>
+  </ng-container>
+
+  <mat-card-content *ngIf="items().length === 0 && !isCollapsed()">
+    <p class="sin-datos">No hay datos de cuotas disponibles para este mes.</p>
+  </mat-card-content>
+</mat-card>

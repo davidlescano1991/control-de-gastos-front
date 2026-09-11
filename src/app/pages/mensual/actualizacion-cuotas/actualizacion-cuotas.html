@@ -1,0 +1,37 @@
+<mat-card class="tabla-resumen-card" [class.is-collapsed]="isCollapsed()">
+  <mat-card-header class="card-header-wrapper">
+    <mat-card-title>Novedades de cuotas</mat-card-title>
+    <button
+      type="button"
+      class="btn-collapse-card"
+      [class.collapsed]="isCollapsed()"
+      (click)="toggleCollapse()"
+      [title]="isCollapsed() ? 'Expandir Novedades de cuotas' : 'Contraer Novedades de cuotas'"
+    >
+      <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
+        <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+      </svg>
+    </button>
+  </mat-card-header>
+  <mat-card-content *ngIf="!isCollapsed()">
+    <p>
+      Total nuevas cuotas:
+      <strong style="color: red">
+        {{ nuevasCuotas() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+      </strong>
+    </p>
+    <p>
+      Total últimas cuotas:
+      <strong style="color: green">
+        {{ ultimasCuotas() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+      </strong>
+    </p>
+    <p>
+      Compensaciones:
+      <strong [style.color]="getColorPorValor(compensaciones())">
+        {{ compensaciones() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+      </strong>
+    </p>
+  </mat-card-content>
+</mat-card>
+

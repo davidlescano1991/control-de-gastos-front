@@ -1,0 +1,39 @@
+
+
+<div class="movimientos-wrapper" [class.is-collapsed]="isCollapsed()">
+  <div class="card-header-wrapper">
+    <button
+      type="button"
+      class="btn-header-action"
+      [class.collapsed]="isCollapsed()"
+      (click)="toggleCollapse()"
+      [title]="isCollapsed() ? 'Expandir Gráfico Estimativo' : 'Contraer Gráfico Estimativo'"
+    >
+      <mat-icon>{{ isCollapsed() ? 'expand_more' : 'expand_less' }}</mat-icon>
+    </button>
+
+    <h3>Gráfico Estimativo {{ mesSeleccionado }}</h3>
+
+    <button
+      type="button"
+      class="btn-header-action"
+      (click)="onToggleHorizontalCollapse()"
+      [title]="isColDerechaContraida ? 'Expandir vista' : 'Contraer horizontalmente a la derecha'"
+    >
+      <mat-icon>{{ isColDerechaContraida ? 'chevron_left' : 'chevron_right' }}</mat-icon>
+    </button>
+  </div>
+  <ng-container *ngIf="!isCollapsed()">
+    <div class="grafico-wrapper" *ngIf="!isCargando(); else cargando">
+      <canvas baseChart [data]="chartData" [options]="chartOptions" [type]="'line'">
+      </canvas>
+    </div>
+
+    <ng-template #cargando>
+      <mat-spinner diameter="40"></mat-spinner>
+    </ng-template>
+  </ng-container>
+</div>
+
+
+   
