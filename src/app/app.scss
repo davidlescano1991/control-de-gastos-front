@@ -260,3 +260,52 @@
   min-width: 88px;
   text-align: right;
 }
+
+/* 📡 BADGE DE TIEMPO REAL SSE */
+.sse-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  margin-right: 12px;
+  transition: all 0.3s ease;
+  user-select: none;
+
+  .sse-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: #ef4444;
+    box-shadow: 0 0 6px #ef4444;
+  }
+
+  &.online {
+    background: rgba(16, 185, 129, 0.14);
+    border-color: rgba(16, 185, 129, 0.4);
+    color: #34d399;
+
+    .sse-dot {
+      background-color: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: ssePulse 2s infinite ease-in-out;
+    }
+  }
+}
+
+@keyframes ssePulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+}

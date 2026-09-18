@@ -248,7 +248,8 @@ gantt
     Conector híbrido con Google Sheets         :d3, after d2, 1d
     section 5. Cloud & Frontend
     Dockerfile y Configuración Cloud Run/SQL   :e1, after d3, 2d
-    Integración Frontend Angular (SSE + JWT)   :e2, after e1, 2d
+    Módulo Auth en Frontend (Login & Guards)   :e2, after e1, 2d
+    Integración Frontend Angular (SSE + API)   :e3, after e2, 2d
 ```
 
 ---
@@ -475,15 +476,70 @@ gantt
 
 ---
 
-#### 📌 Paso 5.3: Integración en Frontend Angular (`control-gastos-front`)
+#### 📌 Paso 5.3: Módulo de Autenticación y Pantalla de Login en Frontend (`control-gastos-front`)
 * **¿Qué es y por qué se hace?**
-  * Conectar el frontend para autenticarse, enviar el JWT en cada petición y suscribirse al canal SSE para actualizaciones en vivo sin recargar la pantalla.
+  * Para que la aplicación sea segura y privada, no cualquier persona que entre a la URL debe poder ver ni modificar los números financieros.
+  * El Frontend necesita:
+    1. Una **pantalla de Login** moderna y elegante para capturar email y contraseña.
+    2. Un servicio (**`AuthService`**) que hable con la API (`POST /api/auth/login`), reciba el token JWT y lo almacene de forma segura en `localStorage`.
+    3. Un **Interceptor HTTP** (`authInterceptor`) que automáticamente adjunte el encabezado `Authorization: Bearer <token>` a cada petición saliente sin tener que repetirlo a mano.
+    4. **Guardianes de Rutas** (`AuthGuard`) para impedir que usuarios sin sesión accedan al Dashboard o formulario de registro.
+    5. Controles visuales en la interfaz según el rol (`ADMIN` vs `LECTOR`): por ejemplo, ocultar botones de creación o borrado a usuarios de solo lectura.
 * **Subpasos**:
-  * **5.3.1**: Implementar `AuthInterceptor` en Angular.
-  * **5.3.2**: Crear `SseService` en Angular consumiendo `EventSource` y `RxJS`.
-  * **5.3.3**: Actualizar stores para refrescar tablas y gráficos al recibir `DATA_UPDATED`.
-* **🧪 Tu Prueba Local Integrada**:
-  1. Levantar frontend Angular (`npm run start` en `control-gastos-front`).
-  2. Iniciar sesión en la app.
-  3. Guardar un nuevo gasto desde la interfaz y comprobar que la tabla y gráficos se actualizan de inmediato en milisegundos vía SSE.
+  * **5.3.1**: Crear Interfaces y Servicio de Autenticación (`src/app/services/auth.service.ts`):
+    * Interfaces: `User`, `LoginCredentials`, `AuthResponse`.
+    * Métodos clave: `login(credentials)`, `logout()`, `getToken()`, `getUser()`, `isAuthenticated()`, `isAdmin()`.
+    * Estado reactivo mediante Signals o `BehaviorSubject` para que cualquier componente del sistema conozca en tiempo real si hay un usuario logueado y qué rol tiene.
+  * **5.3.2**: Implementar el Interceptor HTTP (`src/app/common/interceptors/auth.interceptor.ts`):
+    * Intercepta todas las peticiones salientes hacia la API.
+    * Si existe token en `localStorage`, adjunta la cabecera `Authorization: Bearer <token>`.
+    * Atrapa respuestas con código `401 Unauthorized` (token vencido o manipulado) y `403 Forbidden`, cerrando la sesión y redirigiendo al login.
+    * Registrar el interceptor en `app.config.ts` mediante `provideHttpClient(withInterceptors([authInterceptor]))`.
+  * **5.3.3**: Crear los Guardianes de Rutas (`src/app/common/guards/auth.guard.ts`):
+    * `authGuard`: Verifica `authService.isAuthenticated()`. Si no hay sesión válida, redirige inmediatamente a `/login`.
+    * Proteger las rutas principales en `app.routes.ts` (`''` y `'nuevo'`).
+  * **5.3.4**: Crear la Vista y Componente de Login (`src/app/pages/login/`):
+    * Componente standalone con formulario reactivo (`ReactiveFormsModule`).
+    * **Diseño visual elegante y homogéneo**: Contenedor centrado que respeta los estilos del proyecto (tarjeta blanca con `border-radius: 12px`, `box-shadow: 0 6px 20px rgba(0,0,0,0.08)` y bordes suaves).
+    * Campos para Email y Contraseña con validaciones reactivas (formato de correo y campos obligatorios).
+    * Botón de ingreso con estado de carga ("Iniciando sesión...") para evitar múltiples clicks.
+    * Alerta visual elegante con mensajes amigables si las credenciales fallan.
+  * **5.3.5**: Integración en la Barra Superior / Header de la Aplicación:
+    * Mostrar el usuario actual con un badge de su rol (`ADMIN` o `LECTOR`).
+    * Botón de **"Cerrar Sesión"** que limpia el `localStorage`, corta la conexión SSE y redirige a `/login`.
+* **🧪 Tu Prueba Local Manual (Frontend Auth)**:
+  1. Inicia la API en su terminal (`npm run dev` en `control-de-gastos-api`).
+  2. Inicia el Frontend en su terminal (`npm start` en `control-gastos-front`).
+  3. Abre tu navegador e intenta entrar a `http://localhost:4200/`.
+     * *Resultado esperado*: El guardián detecta que no estás logueado y te redirige de inmediato a `http://localhost:4200/login`.
+  4. Ingresa una contraseña incorrecta a propósito.
+     * *Resultado esperado*: Se muestra un mensaje visual de error ("Credenciales incorrectas") sin recargar la página.
+  5. Ingresa con las credenciales de Administrador generadas con el Seed.
+     * *Resultado esperado*: El sistema te autentica, almacena el JWT en `localStorage` y te redirige al Dashboard principal.
+  6. Abre la consola de desarrollador (F12 -> Pestaña *Application* -> *Local Storage*) y comprueba que figure el token JWT.
+  7. Haz clic en "Cerrar sesión" en el header.
+     * *Resultado esperado*: El token se elimina y el sistema vuelve a la pantalla de `/login`.
+
+---
+
+#### 📌 Paso 5.4: Conexión en Tiempo Real (SSE) y Migración de Consumo de Datos
+* **¿Qué es y por qué se hace?**
+  * Una vez que el Frontend puede autenticarse de forma segura, reemplazamos el consumo estático de JSONs o llamadas directas a Google Sheets por los endpoints protegidos de la API 2.0 y conectamos el canal de eventos en vivo.
+* **Subpasos**:
+  * **5.4.1**: Crear `SseService` en Angular (`src/app/services/sse.service.ts`):
+    * Abre la conexión nativa con `EventSource` hacia `/api/events/sub`.
+    * Procesa el evento `DATA_UPDATED` y emite una señal reactiva a través de un `Subject<void>`.
+    * Mecanismo de reconexión automática en caso de pérdida momentánea de conexión de red.
+  * **5.4.2**: Adaptar los Stores y Servicios de Datos (`movimientos.store.ts`):
+    * Conectar la carga de datos hacia los endpoints de la API (`/api/movimientos`, `/api/estimaciones`) usando el `HttpClient` con el JWT inyectado automáticamente.
+    * Suscribir el store al `SseService`: cada vez que la API avise que hubo un cambio (`DATA_UPDATED`), el front actualiza sus datos en segundo plano de forma instantánea.
+  * **5.4.3**: Control de Permisos en la Interfaz:
+    * Si el usuario autenticado tiene rol `LECTOR`, ocultar o inhabilitar el botón "+ Nuevo Movimiento" y las acciones de edición/eliminación.
+* **🧪 Tu Prueba Local Integrada (Flujo Completo)**:
+  1. Mantén la API y el Frontend corriendo.
+  2. Inicia sesión en Angular con usuario `ADMIN`.
+  3. En otra pestaña o navegador de incógnito, inicia sesión como usuario `LECTOR`.
+  4. Desde la pestaña del Administrador, registra un nuevo gasto en `/nuevo`.
+  5. *Resultado esperado*: En milisegundos y sin presionar F5, tanto en la pantalla del Administrador como en la del Lector, los gráficos y las tablas del dashboard se actualizan en vivo con el nuevo gasto gracias al canal SSE.
+
 

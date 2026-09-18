@@ -9,6 +9,13 @@
     </span>
     <span class="spacer"></span>
 
+    <!-- Indicador de Tiempo Real SSE -->
+    <div class="sse-status-badge" [class.online]="sseService.isConnected()" 
+         [title]="sseService.isConnected() ? 'Conectado a la API 2.0 en tiempo real (http://localhost:3000)' : 'Sin conexión con la API en localhost:3000'">
+      <span class="sse-dot"></span>
+      <span class="sse-text">{{ sseService.isConnected() ? 'En Tiempo Real' : 'API Desconectada' }}</span>
+    </div>
+
     <!-- Navegación para Escritorio -->
     <ng-container *ngIf="!isMobile">
       <button mat-button routerLink="/">Inicio</button>

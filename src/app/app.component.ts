@@ -11,6 +11,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatIconModule } from '@angular/material/icon';
 import { ThemeService } from './services/theme.service';
 import { MovimientosStoreGoogle } from './stores/movimiento.google';
+import { SseService } from './services/sse.service';
 
 type AppWindow = Window & { __APP_VERSION__?: string };
 
@@ -42,6 +43,7 @@ export class AppComponent {
   private breakpointObserver = inject(BreakpointObserver);
   private themeService = inject(ThemeService);
   private storeGoogle = inject(MovimientosStoreGoogle);
+  public sseService = inject(SseService);
 
   constructor() {
     this.breakpointObserver.observe([Breakpoints.Handset]).subscribe((result) => {
