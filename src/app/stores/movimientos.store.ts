@@ -1,20 +1,38 @@
-import { Injectable, signal, computed } from '@angular/core';
-import { MovimientosService} from '../services/movimientos.service';
-import { Movimiento} from '../models/movimiento'
-
+import { Injectable, signal, computed, inject } from '@angular/core';
+import { MovimientosService } from '../services/movimientos.service';
+import { Movimiento } from '../models/movimiento';
+import { SseService } from '../services/sse.service';
 
 @Injectable({ providedIn: 'root' })
 export class MovimientosStore {
+  private servicio = inject(MovimientosService);
+  private sseService = inject(SseService);
+
   private _movimientos = signal<Movimiento[]>([]);
 
   // Computed para acceder desde componentes
   readonly lista = computed(() => this.movimientos());
 
-  constructor(private servicio: MovimientosService) {}
+  constructor() {
+    this.cargar();
+
+    // 📡 Suscripción al canal SSE para actualizaciones en tiempo real
+    this.sseService.getEvents$().subscribe((msg) => {
+      if (msg.event === 'DATA_UPDATED') {
+        console.log('⚡ [MovimientosStore] Notificación DATA_UPDATED recibida. Recargando movimientos...');
+        this.cargar();
+      }
+    });
+  }
 
   cargar() {
-    this.servicio.listarMovimientos().subscribe(data => {
-      this._movimientos.set(data);
+    this.servicio.listarMovimientos().subscribe({
+      next: (data) => {
+        this._movimientos.set(data);
+      },
+      error: (err) => {
+        console.warn('⚠️ [MovimientosStore] No se pudieron listar movimientos desde la API:', err);
+      },
     });
   }
  

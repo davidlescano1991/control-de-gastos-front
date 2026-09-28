@@ -9,6 +9,7 @@ import { Prestamo } from '../models/prestamo';
 import { DolarService } from '../services/dolar.service';
 import { CotizacionStore } from './dolar.store';
 import { formatFechaEsAR, parseFechaEsAR } from '../utils/grafico.utils';
+import { SseService } from '../services/sse.service';
 
 interface GoogleSheetResponse {
   range: string;
@@ -174,8 +175,36 @@ export class MovimientosStoreGoogle {
   private appConfig = inject(AppConfigService);
   private dolarService = inject(DolarService);
   private cotizacionStore = inject(CotizacionStore);
+  private sseService = inject(SseService);
+
   constructor() {
     console.log('🧠 MovimientosStoreGoogle instanciado');
+    this.suscribirEventosSSE();
+  }
+
+  private suscribirEventosSSE(): void {
+    this.sseService.getEvents$().subscribe((msg) => {
+      if (msg.event === 'DATA_UPDATED') {
+        const year = msg.data?.year || new Date().getFullYear();
+        console.log(`⚡ [MovimientosStoreGoogle] Evento DATA_UPDATED recibido vía SSE para año ${year}. Refrescando store...`);
+        // 1. Invalidamos cachés en memoria del año afectado
+        this.movimientosPorAnio.delete(year);
+        this.movimientosTimestamp.delete(year);
+        this.tablaAnualPorAnio.delete(year);
+        this.anualCargadoPorAnio.delete(year);
+
+        if (msg.data?.mes) {
+          const nombreMes = todosLosMeses[msg.data.mes - 1];
+          if (nombreMes) {
+            this.mensualPorMes.delete(nombreMes);
+            this.estimativoPorMes.delete(nombreMes);
+          }
+        }
+
+        // 2. Disparamos la recarga inmediata con force = true
+        this.cargarDesdeSheetsPorAnio(year, true);
+      }
+    });
   }
 
   private puedeUsarStorage(): boolean {

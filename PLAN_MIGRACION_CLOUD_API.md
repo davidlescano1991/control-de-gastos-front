@@ -553,7 +553,7 @@ gantt
   * **5.3.2**: Configurar `SseService` en Angular (`src/app/services/sse.service.ts`):
     * *¿Cómo funciona?*: Utiliza la API nativa del navegador `EventSource` para abrir un túnel unidireccional y eficiente con `/api/events/sub`. Expone una señal reactiva `isConnected()` conectada al badge visual en el header de la aplicación y un Subject RxJS `getEvents$()`. La URL se lee dinámicamente desde `environment.sseUrl`. *(Completado)*
   * **5.3.3**: Actualizar stores para refrescar tablas y gráficos al recibir `DATA_UPDATED`:
-    * *¿Cómo funciona?*: El store principal de la aplicación (`MovimientosStoreGoogle` y `MovimientosStore`) se suscribe a los eventos de `SseService`. Al llegar un mensaje con el evento `DATA_UPDATED`, el store invalida su caché local y solicita inmediatamente los datos frescos a la API con `force = true`, provocando que los gráficos y balances se redibujen automáticamente en tiempo real.
+    * *¿Cómo funciona?*: El store principal de la aplicación (`MovimientosStoreGoogle` y `MovimientosStore`) se suscribe a los eventos de `SseService`. Al llegar un mensaje con el evento `DATA_UPDATED`, el store invalida su caché local y solicita inmediatamente los datos frescos a la API con `force = true`, provocando que los gráficos y balances se redibujen automáticamente en tiempo real. *(Completado)*
   * **5.3.4**: Configuración de Alternancia de Entornos (`Local` vs `Google Cloud Run`):
     * *¿Qué es y por qué?*: En desarrollo necesitas probar cambios rápidos en tu máquina local (`localhost:3000`), pero también necesitas poder apuntar tu Frontend directamente al contenedor en producción en Google Cloud Run sin tener que modificar código a mano cada vez.
     * *¿Cómo se hace?*:
@@ -562,7 +562,7 @@ gantt
          ```json
          "start:cloud": "ng serve --configuration production"
          ```
-      3. De esta forma, con `npm start` trabajas en local y con `npm run start:cloud` trabajas directamente conectado a Google Cloud.
+      3. De esta forma, con `npm start` trabajas en local y con `npm run start:cloud` trabajas directamente conectado a Google Cloud. *(Completado)*
 * **🧪 Tu Prueba Local Integrada (Paso 5.3)**:
   1. Iniciar la API local en `control-de-gastos-api` con `npm run dev`.
   2. Iniciar el Frontend en `control-de-gastos-front` con `npm start`.
