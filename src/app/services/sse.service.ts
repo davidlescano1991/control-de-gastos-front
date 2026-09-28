@@ -41,6 +41,7 @@ export class SseService {
     }
 
     try {
+      console.log(`🔌 [SSE Front] Intentando conectar a: ${url}`);
       this.eventSource = new EventSource(url);
 
       this.eventSource.onopen = () => {
@@ -73,14 +74,14 @@ export class SseService {
         });
       });
 
-      this.eventSource.onerror = () => {
+      this.eventSource.onerror = (err) => {
         this.zone.run(() => {
           this.isConnected.set(false);
-          // EventSource se reconecta automáticamente en segundo plano cuando la API vuelva a encender
+          console.warn('⚠️ [SSE Front] Estado o error en EventSource:', err);
         });
       };
     } catch (err) {
-      console.error('Error al inicializar EventSource:', err);
+      console.error('❌ [SSE Front] Error al inicializar EventSource:', err);
     }
   }
 

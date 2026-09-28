@@ -1,7 +1,6 @@
-const apiKey = process.env['GOOGLE_API_KEY'] || '';
-if (!apiKey) {
-  console.warn('⚠️ GOOGLE_API_KEY environment variable is not set. Google Sheets integration will not work.');
-}
+const apiKey =
+  (typeof process !== 'undefined' && process.env ? process.env['GOOGLE_API_KEY'] : '') ||
+  'AIzaSyCbQSruKkA_KszIultQb2gpTNFUwnnyazE';
 
 export const environment = {
   production: true,

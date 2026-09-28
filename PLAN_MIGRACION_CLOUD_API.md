@@ -582,10 +582,10 @@ gantt
 * **Subpasos**:
   * **5.4.1**: Conexión del Frontend hacia Cloud Run:
     * Ejecutar el frontend con el perfil de nube: `npm run start:cloud`.
-    * Verificar en la consola del navegador que las solicitudes se dirigen a `https://control-gastos-api-io57eybm3q-tl.a.run.app/api`.
+    * Verificar en la consola del navegador que las solicitudes se dirigen a `https://control-gastos-api-io57eybm3q-tl.a.run.app/api`. *(Completado)*
   * **5.4.2**: Validación de la Sesión y Canales Remotos:
     * Iniciar sesión con el usuario administrador creado en el semillado de Cloud SQL (`david@admin.com`).
-    * Comprobar que el badge de SSE se conecta exitosamente a la URL remota de Cloud Run.
+    * Comprobar que el badge de SSE se conecta exitosamente a la URL remota de Cloud Run con mensaje de bienvenida. *(Completado)*
 * **🧪 Tu Prueba Remota Integrada (Frontend ↔ Cloud Run)**:
   1. Ejecutar en terminal: `npm run start:cloud`.
   2. Abrir el navegador en `http://localhost:4200/`.
