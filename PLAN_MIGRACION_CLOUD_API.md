@@ -247,9 +247,16 @@ gantt
     Script de Semillado inicial (Seed & Admin) :d2, after d1, 1d
     Conector híbrido con Google Sheets         :d3, after d2, 1d
     section 5. Cloud & Frontend
-    Dockerfile y Configuración Cloud Run/SQL   :e1, after d3, 2d
-    Módulo Auth en Frontend (Login & Guards)   :e2, after e1, 2d
-    Integración Frontend Angular (SSE + API)   :e3, after e2, 2d
+    Dockerfile y Configuración Local           :e1, after d3, 1d
+    Infraestructura con Terraform (GCP)        :e2, after e1, 1d
+    Despliegue Cloud Run y Conexión Cloud SQL  :e3, after e2, 1d
+    Integración Frontend Angular (SSE + JWT)   :e4, after e3, 2d
+    Validación Remota Frontend ↔ Cloud Run     :e5, after e4, 1d
+    Despliegue de Frontend en la Nube          :e6, after e5, 1d
+    section 6. Migración de Datos (Sheets -> BD)
+    Diseño ETL y Modo Dry-Run (Simulación)     :f1, after e6, 1d
+    Migración y Auditoría en Base Local        :f2, after f1, 1d
+    Backup Preventivo y Migración Cloud SQL    :f3, after f2, 1d
 ```
 
 ---
@@ -462,84 +469,249 @@ gantt
 
 ---
 
-#### 📌 Paso 5.2: Despliegue en Google Cloud Platform (Cloud Run + Cloud SQL)
-* **¿Qué es y por qué se hace?**
-  * **Cloud SQL**: Base de datos PostgreSQL gestionada en la nube (instancia económica `db-f1-micro`).
-  * **Cloud Run**: Ejecuta tu contenedor Docker en servidores de Google con escalado a cero (`min-instances: 0` = $0 cuando no hay visitas).
+#### 📌 Paso 5.2: Infraestructura como Código (IaC) con Terraform y Despliegue en GCP
+* **¿Qué es y por qué se hace en un proyecto independiente?**
+  * **Terraform**: Es la herramienta estándar en la industria para definir infraestructura en la nube mediante código declarativo (`.tf`). En lugar de crear recursos manualmente haciendo clics en la consola web de Google Cloud (propenso a olvidos y errores), Terraform automatiza la creación reproducible de Cloud SQL, Cloud Run, Artifact Registry y Alertas de Costo.
+  * **Proyecto Independiente (`control-de-gastos-infra`)**: Se ubica fuera de la API y del Frontend (en `C:\Datos\David\Proyectos\Control_Gastos\control-de-gastos-infra`). Esto permite versionar la infraestructura por separado, destruir o recrear entornos sin tocar el código fuente de las aplicaciones, y mantener los secretos de infraestructura aislados.
 * **Subpasos**:
-  * **5.2.1**: Provisionar instancia Cloud SQL y base de datos `control_gastos`.
-  * **5.2.2**: Configurar Cloud Run con variables de entorno y conexión segura a Cloud SQL.
-  * **5.2.3**: Configurar alertas de presupuesto (Billing Alerts) al 50%, 90% y 100%.
+  * **5.2.0**: Estructuración detallada del proyecto independiente `control-de-gastos-infra`:
+    * **5.2.0.1: Inicialización y Seguridad de Estado (`.gitignore`)**:
+      * *¿Qué es y por qué?*: Terraform almacena el estado de los recursos creados en archivos `terraform.tfstate`, los cuales contienen contraseñas y metadatos en texto plano. Se crea un `.gitignore` estricto para ignorar `.tfstate`, carpetas `.terraform/` (binarios de plugins) y archivos `.tfvars` con credenciales reales.
+    * **5.2.0.2: Proveedor y Habilitación de APIs (`provider.tf`)**:
+      * *¿Qué hace?*: Declara la versión requerida de Terraform y el proveedor oficial de Google (`hashicorp/google`).
+      * *Recursos clave*: Usa `google_project_service` para habilitar de forma automática las APIs de GCP necesarias (`run.googleapis.com`, `sqladmin.googleapis.com`, `artifactregistry.googleapis.com`, `billingbudgets.googleapis.com`), evitando tener que habilitarlas manualmente una por una en la consola.
+    * **5.2.0.3: Parametrización y Secretos (`variables.tf` y `terraform.tfvars.example`)**:
+      * *¿Qué hace?*: `variables.tf` define el contrato de datos (nombre de variable, tipo `string`/`number`, descripción y valores por defecto para región como `southamerica-west1` Santiago de Chile o `us-central1`).
+      * *`terraform.tfvars.example`*: Sirve como guía documentada para que crees tu archivo local privado `terraform.tfvars` con tu `project_id`, contraseñas de base de datos y secret key de JWT.
+    * **5.2.0.4: Repositorio Docker Privado (`artifact_registry.tf`)**:
+      * *¿Qué hace?*: Define el recurso `google_artifact_registry_repository` en formato `DOCKER`.
+      * *Objetivo*: Es el registro seguro y privado en tu proyecto de GCP donde se subirá la imagen `control-gastos-api:prod` antes de desplegarse en Cloud Run.
+    * **5.2.0.5: Base de Datos PostgreSQL Gestionada (`cloud_sql.tf`) y Política de Pausa**:
+      * *¿Qué hace?*:
+        1. `google_sql_database_instance`: Crea la instancia PostgreSQL 16 con tier económico (`db-f1-micro`), disco HDD/SSD mínimo de 10GB, y backups automáticos diarios.
+        2. `activation_policy`: Parametrizada con `var.db_activation_policy` (`ALWAYS` para encendido normal, `NEVER` para pausar la base de datos dejando el costo de CPU/RAM en $0 y conservando todos los datos).
+        3. `google_sql_database`: Crea la base de datos lógica `control_gastos`.
+        4. `google_sql_user`: Crea el usuario administrador (`admin`) con contraseña segura.
+    * **5.2.0.6: Bucket Blindado de Backups en Cloud Storage (`storage.tf`)**:
+      * *¿Qué hace?*:
+        1. `google_storage_bucket`: Crea un Bucket en Google Cloud Storage con versionado para alojar los dumps de la base de datos.
+        2. `prevent_destroy = true`: **Regla de oro**. Terraform tiene prohibido destruir este bucket aunque se ejecute `terraform destroy`, garantizando que tus backups nunca se borren.
+        3. `google_storage_bucket_iam_member`: Otorga permisos a Cloud SQL para exportar e importar datos directamente.
+    * **5.2.0.7: Scripts de Automatización en 1-Clic (`scripts/backup.ps1` y `scripts/restore.ps1`)**:
+      * *Objetivo*: Cero comandos complejos de memoria.
+      * `.\scripts\backup.ps1`: Exporta automáticamente la base de datos al Bucket en la nube y descarga una copia local en tu PC en `backups/backup_YYYYMMDD.sql.gz` (lista para subir a Google Drive).
+      * `.\scripts\restore.ps1`: Restaura automáticamente el backup más reciente en PostgreSQL.
+    * **5.2.0.8: Servicio Serverless y Conexión Segura (`cloud_run.tf`)**:
+      * *¿Qué hace?*:
+        1. `google_cloud_run_v2_service`: Configura el contenedor de la API con `min_instance_count = 0` (costo $0 sin tráfico), inyecta las variables de entorno (`DATABASE_URL`, `JWT_SECRET`, `NODE_ENV=production`) y enlaza Cloud SQL mediante sockets Unix seguros (`/cloudsql/<connection_name>`), eliminando la necesidad de abrir la base de datos a internet público.
+        2. `google_cloud_run_service_iam_member`: Configura la política de acceso público `roles/run.invoker` para `allUsers`, permitiendo que el Frontend Angular pueda consultar la API.
+    * **5.2.0.9: Presupuesto y Alertas de Costos (`billing_alerts.tf`)**:
+      * *¿Qué hace?*: Configura el recurso `google_billing_budget` con un umbral mensual (ej. $10 USD) y dispara alertas por correo automáticamente al **50%**, **90%** y **100%**.
+    * **5.2.0.10: Valores de Salida para el Operador (`outputs.tf`)**:
+      * *¿Qué hace?*: Muestra en tu terminal al finalizar el despliegue los datos clave listos para usar: URL pública de Cloud Run, nombre de conexión de Cloud SQL, nombre del Bucket de backups y comandos rápidos.
+  * **5.2.1**: Inicialización y Planificación de Terraform:
+    * `terraform init`: Descarga el provider oficial de Google Cloud (`hashicorp/google` y `google-beta`). *(Completado)*
+    * `terraform plan`: Valida los recursos a crear sin aplicar cambios aún. *(Completado)*
+  * **5.2.2**: Aprovisionamiento de Infraestructura con `terraform apply`:
+    * Aprovisionamiento de Cloud SQL PostgreSQL 16 (`db-f1-micro`, `edition = "ENTERPRISE"`), Bucket blindado de backups (`prevent_destroy = true`), Artifact Registry y Presupuesto con alertas de correo. *(Completado)*
+  * **5.2.3**: Publicación de la Imagen Docker en Artifact Registry y Despliegue de Cloud Run:
+    * **Regla Crítica**: La imagen debe etiquetarse obligatoriamente con `:prod` antes del `terraform apply` (`control-gastos-api:prod`). Si queda sin tag o con otro nombre, Cloud Run fallará con `Image not found`.
+    * En caso de subir un digest sin tag, se puede asociar rápidamente con: `gcloud artifacts docker tags add <URL>@<DIGEST> <URL>:prod`.
+    * Servicio Cloud Run desplegado exitosamente con URL activa: `https://control-gastos-api-io57eybm3q-tl.a.run.app`. *(Completado)*
+  * **5.2.4**: Ejecución de Migraciones de Base de Datos en Cloud SQL (`prisma migrate deploy` / `seed`):
+    * Conexión segura mediante `cloud-sql-proxy.exe` en `127.0.0.1:5433` sin exponer la BD a IPs públicas dinámicas.
+    * Migraciones aplicadas: `20260909182654_init` y `20260922210838_add_holidays_and_sheets`.
+    * Semillado exitoso: Usuarios (`david@admin.com`, lector), 150 feriados históricos, configuración cifrada de Google Sheets y ciclo de Septiembre 2026 con movimientos base. *(Completado)*
 * **🧪 Tu Prueba Remota**:
-  1. Ejecutar `curl https://<tu-servicio-cloud-run>.a.run.app/health`.
-  2. *Resultado esperado*: `{"status":"UP","database":"CONNECTED"}`.
+  1. Ejecutar:
+     ```bash
+     curl https://control-gastos-api-io57eybm3q-tl.a.run.app/api/health
+     ```
+  2. *Resultado esperado*:
+     ```json
+     {
+       "status": "ok",
+       "message": "Control de Gastos API 2.0 en línea",
+       "env": "production"
+     }
+     ```
 
 ---
 
-#### 📌 Paso 5.3: Módulo de Autenticación y Pantalla de Login en Frontend (`control-gastos-front`)
+#### 📌 Paso 5.3: Integración de Autenticación, Tiempo Real y Stores en Frontend Angular (`control-gastos-front`)
 * **¿Qué es y por qué se hace?**
-  * Para que la aplicación sea segura y privada, no cualquier persona que entre a la URL debe poder ver ni modificar los números financieros.
-  * El Frontend necesita:
-    1. Una **pantalla de Login** moderna y elegante para capturar email y contraseña.
-    2. Un servicio (**`AuthService`**) que hable con la API (`POST /api/auth/login`), reciba el token JWT y lo almacene de forma segura en `localStorage`.
-    3. Un **Interceptor HTTP** (`authInterceptor`) que automáticamente adjunte el encabezado `Authorization: Bearer <token>` a cada petición saliente sin tener que repetirlo a mano.
-    4. **Guardianes de Rutas** (`AuthGuard`) para impedir que usuarios sin sesión accedan al Dashboard o formulario de registro.
-    5. Controles visuales en la interfaz según el rol (`ADMIN` vs `LECTOR`): por ejemplo, ocultar botones de creación o borrado a usuarios de solo lectura.
+  * Para que la aplicación web funcione de forma segura y reactiva con la nueva arquitectura 2.0, el Frontend debe dejar de depender de llamadas lentas y desprotegidas.
+  * Necesita:
+    1. **Autenticación centralizada**: Un servicio reactivo que guarde el JWT de forma persistente y gestione el estado del usuario (`ADMIN` vs `LECTOR`) mediante Signals de Angular.
+    2. **Interceptor HTTP transparente**: Un mecanismo automático que adjunte la cabecera `Authorization: Bearer <token>` a cada petición dirigida a la API, evitando tener que escribir encabezados manualmente en cada componente o servicio.
+    3. **Canal SSE (Server-Sent Events)**: Una conexión persistente y ligera que escuche en segundo plano los avisos de la API.
+    4. **Actualización reactiva de Stores**: Vincular los almacenes de datos (`stores`) para que, al detectar una notificación `DATA_UPDATED`, refresquen tablas y gráficos en milisegundos sin requerir que el usuario recargue la pantalla (F5).
+    5. **Conmutador de Entornos (Local vs Nube)**: Permitir alternar con un solo comando si el Frontend habla con la API local en tu PC (`http://localhost:3000`) o con la API en la nube (`https://control-gastos-api-io57eybm3q-tl.a.run.app`).
 * **Subpasos**:
-  * **5.3.1**: Crear Interfaces y Servicio de Autenticación (`src/app/services/auth.service.ts`):
-    * Interfaces: `User`, `LoginCredentials`, `AuthResponse`.
-    * Métodos clave: `login(credentials)`, `logout()`, `getToken()`, `getUser()`, `isAuthenticated()`, `isAdmin()`.
-    * Estado reactivo mediante Signals o `BehaviorSubject` para que cualquier componente del sistema conozca en tiempo real si hay un usuario logueado y qué rol tiene.
-  * **5.3.2**: Implementar el Interceptor HTTP (`src/app/common/interceptors/auth.interceptor.ts`):
-    * Intercepta todas las peticiones salientes hacia la API.
-    * Si existe token en `localStorage`, adjunta la cabecera `Authorization: Bearer <token>`.
-    * Atrapa respuestas con código `401 Unauthorized` (token vencido o manipulado) y `403 Forbidden`, cerrando la sesión y redirigiendo al login.
-    * Registrar el interceptor en `app.config.ts` mediante `provideHttpClient(withInterceptors([authInterceptor]))`.
-  * **5.3.3**: Crear los Guardianes de Rutas (`src/app/common/guards/auth.guard.ts`):
-    * `authGuard`: Verifica `authService.isAuthenticated()`. Si no hay sesión válida, redirige inmediatamente a `/login`.
-    * Proteger las rutas principales en `app.routes.ts` (`''` y `'nuevo'`).
-  * **5.3.4**: Crear la Vista y Componente de Login (`src/app/pages/login/`):
-    * Componente standalone con formulario reactivo (`ReactiveFormsModule`).
-    * **Diseño visual elegante y homogéneo**: Contenedor centrado que respeta los estilos del proyecto (tarjeta blanca con `border-radius: 12px`, `box-shadow: 0 6px 20px rgba(0,0,0,0.08)` y bordes suaves).
-    * Campos para Email y Contraseña con validaciones reactivas (formato de correo y campos obligatorios).
-    * Botón de ingreso con estado de carga ("Iniciando sesión...") para evitar múltiples clicks.
-    * Alerta visual elegante con mensajes amigables si las credenciales fallan.
-  * **5.3.5**: Integración en la Barra Superior / Header de la Aplicación:
-    * Mostrar el usuario actual con un badge de su rol (`ADMIN` o `LECTOR`).
-    * Botón de **"Cerrar Sesión"** que limpia el `localStorage`, corta la conexión SSE y redirige a `/login`.
-* **🧪 Tu Prueba Local Manual (Frontend Auth)**:
-  1. Inicia la API en su terminal (`npm run dev` en `control-de-gastos-api`).
-  2. Inicia el Frontend en su terminal (`npm start` en `control-gastos-front`).
-  3. Abre tu navegador e intenta entrar a `http://localhost:4200/`.
-     * *Resultado esperado*: El guardián detecta que no estás logueado y te redirige de inmediato a `http://localhost:4200/login`.
-  4. Ingresa una contraseña incorrecta a propósito.
-     * *Resultado esperado*: Se muestra un mensaje visual de error ("Credenciales incorrectas") sin recargar la página.
-  5. Ingresa con las credenciales de Administrador generadas con el Seed.
-     * *Resultado esperado*: El sistema te autentica, almacena el JWT en `localStorage` y te redirige al Dashboard principal.
-  6. Abre la consola de desarrollador (F12 -> Pestaña *Application* -> *Local Storage*) y comprueba que figure el token JWT.
-  7. Haz clic en "Cerrar sesión" en el header.
-     * *Resultado esperado*: El token se elimina y el sistema vuelve a la pantalla de `/login`.
+  * **5.3.1**: Implementar `AuthService` e `AuthInterceptor` en Angular (`src/app/services/auth.service.ts` y `src/app/common/interceptors/auth.interceptor.ts`):
+    * *¿Cómo funciona?*: `AuthService` expone Signals modernas (`token`, `currentUser`, `isAuthenticated`, `isAdmin`). `authInterceptor` intercepta cada petición saliente con `HttpInterceptorFn`: si la URL coincide con la API y existe un token, inyecta `Authorization: Bearer <token>`. Si la API responde `401 Unauthorized`, cierra la sesión automáticamente. *(Completado)*
+  * **5.3.2**: Configurar `SseService` en Angular (`src/app/services/sse.service.ts`):
+    * *¿Cómo funciona?*: Utiliza la API nativa del navegador `EventSource` para abrir un túnel unidireccional y eficiente con `/api/events/sub`. Expone una señal reactiva `isConnected()` conectada al badge visual en el header de la aplicación y un Subject RxJS `getEvents$()`. La URL se lee dinámicamente desde `environment.sseUrl`. *(Completado)*
+  * **5.3.3**: Actualizar stores para refrescar tablas y gráficos al recibir `DATA_UPDATED`:
+    * *¿Cómo funciona?*: El store principal de la aplicación (`MovimientosStoreGoogle` y `MovimientosStore`) se suscribe a los eventos de `SseService`. Al llegar un mensaje con el evento `DATA_UPDATED`, el store invalida su caché local y solicita inmediatamente los datos frescos a la API con `force = true`, provocando que los gráficos y balances se redibujen automáticamente en tiempo real.
+  * **5.3.4**: Configuración de Alternancia de Entornos (`Local` vs `Google Cloud Run`):
+    * *¿Qué es y por qué?*: En desarrollo necesitas probar cambios rápidos en tu máquina local (`localhost:3000`), pero también necesitas poder apuntar tu Frontend directamente al contenedor en producción en Google Cloud Run sin tener que modificar código a mano cada vez.
+    * *¿Cómo se hace?*:
+      1. Se configura `fileReplacements` en `angular.json` para que el target `--configuration production` sustituya `environment.ts` (local) por `environment.prod.ts` (apuntando a `https://control-gastos-api-io57eybm3q-tl.a.run.app/api`).
+      2. Se agrega el comando npm en `package.json`:
+         ```json
+         "start:cloud": "ng serve --configuration production"
+         ```
+      3. De esta forma, con `npm start` trabajas en local y con `npm run start:cloud` trabajas directamente conectado a Google Cloud.
+* **🧪 Tu Prueba Local Integrada (Paso 5.3)**:
+  1. Iniciar la API local en `control-de-gastos-api` con `npm run dev`.
+  2. Iniciar el Frontend en `control-de-gastos-front` con `npm start`.
+  3. Abrir `http://localhost:4200/` y comprobar que el badge de la barra superior luce en verde: **`En Tiempo Real`**.
+  4. Emitir un evento o registrar un gasto y verificar que la interfaz actualiza los gráficos sin presionar F5.
 
 ---
 
-#### 📌 Paso 5.4: Conexión en Tiempo Real (SSE) y Migración de Consumo de Datos
+#### 📌 Paso 5.4: Validación y Prueba Integrada Remota Frontend ↔ Google Cloud Run
 * **¿Qué es y por qué se hace?**
-  * Una vez que el Frontend puede autenticarse de forma segura, reemplazamos el consumo estático de JSONs o llamadas directas a Google Sheets por los endpoints protegidos de la API 2.0 y conectamos el canal de eventos en vivo.
+  * Tu API y tu Base de Datos ya están desplegadas y activas en Google Cloud Platform (`Cloud Run` + `Cloud SQL`).
+  * Este paso valida que el Frontend es capaz de comunicarse con la infraestructura en la nube sorteando las barreras de red reales de internet:
+    1. **CORS (Cross-Origin Resource Sharing)**: Comprobar que los servidores de Google aceptan peticiones HTTP provenientes del dominio de tu frontend.
+    2. **Autenticación Cloud**: Iniciar sesión contra Cloud Run y comprobar que el token JWT emitido en los servidores de Google viaja y se valida en cada petición.
+    3. **Flujo de Datos Real Cloud SQL**: Verificar que las consultas de movimientos traen los datos semillados en la base de datos PostgreSQL alojada en Google Cloud.
+    4. **Túnel SSE Nube**: Confirmar que el canal Server-Sent Events se mantiene abierto de manera estable a través de la infraestructura de Google Cloud Run sin que los balanceadores de carga corten la conexión.
 * **Subpasos**:
-  * **5.4.1**: Crear `SseService` en Angular (`src/app/services/sse.service.ts`):
-    * Abre la conexión nativa con `EventSource` hacia `/api/events/sub`.
-    * Procesa el evento `DATA_UPDATED` y emite una señal reactiva a través de un `Subject<void>`.
-    * Mecanismo de reconexión automática en caso de pérdida momentánea de conexión de red.
-  * **5.4.2**: Adaptar los Stores y Servicios de Datos (`movimientos.store.ts`):
-    * Conectar la carga de datos hacia los endpoints de la API (`/api/movimientos`, `/api/estimaciones`) usando el `HttpClient` con el JWT inyectado automáticamente.
-    * Suscribir el store al `SseService`: cada vez que la API avise que hubo un cambio (`DATA_UPDATED`), el front actualiza sus datos en segundo plano de forma instantánea.
-  * **5.4.3**: Control de Permisos en la Interfaz:
-    * Si el usuario autenticado tiene rol `LECTOR`, ocultar o inhabilitar el botón "+ Nuevo Movimiento" y las acciones de edición/eliminación.
-* **🧪 Tu Prueba Local Integrada (Flujo Completo)**:
-  1. Mantén la API y el Frontend corriendo.
-  2. Inicia sesión en Angular con usuario `ADMIN`.
-  3. En otra pestaña o navegador de incógnito, inicia sesión como usuario `LECTOR`.
-  4. Desde la pestaña del Administrador, registra un nuevo gasto en `/nuevo`.
-  5. *Resultado esperado*: En milisegundos y sin presionar F5, tanto en la pantalla del Administrador como en la del Lector, los gráficos y las tablas del dashboard se actualizan en vivo con el nuevo gasto gracias al canal SSE.
+  * **5.4.1**: Conexión del Frontend hacia Cloud Run:
+    * Ejecutar el frontend con el perfil de nube: `npm run start:cloud`.
+    * Verificar en la consola del navegador que las solicitudes se dirigen a `https://control-gastos-api-io57eybm3q-tl.a.run.app/api`.
+  * **5.4.2**: Validación de la Sesión y Canales Remotos:
+    * Iniciar sesión con el usuario administrador creado en el semillado de Cloud SQL (`david@admin.com`).
+    * Comprobar que el badge de SSE se conecta exitosamente a la URL remota de Cloud Run.
+* **🧪 Tu Prueba Remota Integrada (Frontend ↔ Cloud Run)**:
+  1. Ejecutar en terminal: `npm run start:cloud`.
+  2. Abrir el navegador en `http://localhost:4200/`.
+  3. Revisar la pestaña **Network (Red)** en DevTools (F12) y verificar que las llamadas HTTP devuelven código `200 OK` con la URL remota de Cloud Run.
+  4. Comprobar que los datos financieros provienen de la base de datos de producción.
+
+---
+
+#### 📌 Paso 5.5: Despliegue del Frontend en la Nube (Hosting Global)
+* **¿Qué es y por qué se hace?**
+  * Hasta este punto, el backend vive 100% en la nube (Cloud Run + Cloud SQL), pero el Frontend aún se ejecuta en tu máquina local con `npm start`.
+  * Para que la aplicación sea verdaderamente accesible desde cualquier lugar (tu celular, tablet o cualquier computadora sin necesidad de tener tu PC encendida con la terminal abierta), el Frontend debe compilarse (`ng build`) y subirse a un servicio de hosting en la nube.
+* **Opciones de Despliegue**:
+  * **Opción A (Recomendada): Firebase Hosting (de Google Cloud)**:
+    * Integración nativa con tu mismo proyecto de GCP.
+    * Gratuito, ultrarrápido (servido por la red global de CDN de Google) y con certificado SSL (HTTPS) automático.
+  * **Opción B: Google Cloud Storage con Balanceador / CDN**:
+    * Alojamiento de los archivos estáticos HTML/JS/CSS en un bucket público protegido por Cloud CDN.
+* **Subpasos**:
+  * **5.5.1**: Generación del paquete de producción compilado (`npm run build`).
+  * **5.5.2**: Configuración del hosting (`firebase.json` o configuración de bucket).
+  * **5.5.3**: Despliegue con 1 solo comando (`firebase deploy` o script de subida).
+  * **5.5.4**: Validación final: Acceso a la aplicación completa mediante su dominio público `.web.app` o personalizado con HTTPS activo.
+
+---
+
+### 🔹 FASE 6: Migración Masiva de Datos Históricos (Google Sheets 2026 ➔ PostgreSQL)
+
+#### 📌 ¿Qué es un proceso ETL y por qué se hace de esta manera en la industria?
+* **ETL** significa **Extract (Extraer)**, **Transform (Transformar)** y **Load (Cargar)**. Es el estándar de oro en la ingeniería de software para migrar datos desde fuentes heredadas (como planillas de Excel o Google Sheets) hacia bases de datos relacionales modernas (como PostgreSQL).
+* **Los 4 Pilares de Seguridad de la Industria**:
+  1. **Modo Dry-Run (Simulación Segura)**: Antes de escribir una sola fila en la base de datos, el script se corre en modo "simulación". Inspecciona toda la planilla, valida los tipos de datos y emite un informe en consola con los conteos y posibles errores de formato, sin tocar la base.
+  2. **Transacciones Atómicas (`Prisma.$transaction`)**: Principio **ACID (Todo o Nada)**. Si estás migrando 2.000 filas y en la fila 1.999 hay un error de fecha o un texto inválido, el motor de base de datos hace un *Rollback* automático y no guarda nada a medias, evitando dejar la base de datos en un estado corrupto o inconsistente.
+  3. **Idempotencia**: Si corres el script de migración una vez, dos veces o cinco veces, el resultado final debe ser exactamente el mismo: no debe duplicar gastos ni crear movimientos repetidos.
+  4. **Auditoría y Conciliación Matemática**: Tras la carga, un subproceso compara la sumatoria total de Google Sheets contra la sumatoria calculada en SQL (`SELECT SUM(monto)...`). Si la diferencia es exactamente **$0,00**, se certifica que la migración fue 100% exitosa sin pérdida de un solo centavo.
+
+---
+
+#### 📌 Paso 6.1: Diseño del Pipeline ETL y Modo Simulación (`--dry-run`)
+* **¿Qué es y por qué se hace?**
+  * Crear un script especializado en Node.js/TypeScript (`control-de-gastos-api/src/scripts/migrate_sheets_2026.ts`) capaz de leer la planilla completa del año 2026 (`sheetId2026: 1IkaaIQVs24QXswoS3gR-WJHvk3UEeEyHtnxWXZvk7R8`) utilizando la API de Google Sheets.
+  * Diseñar la lógica de mapeo y transformación para cada una de las 4 estructuras clave de la planilla:
+    1. **Pestaña `Movimientos`**: Gastos e ingresos individuales por fecha, categoría, entidad (tarjetas Bancor, Naranja, Mastercard, otros) y método de pago.
+    2. **Pestañas Mensuales (`Enero`, `Febrero`, ..., `Diciembre`)**: Datos de control mensual, subtotales por entidad y balances.
+    3. **Pestaña `Estimaciones`**: Saldo inicial (día 1), gastos diarios presupuestados, intereses a favor y la grilla de seguimiento día por día (real vs proyectado).
+    4. **Pestaña `Anual`**: Matriz consolidada de resumen para contrastar contra los totales de la base de datos.
+* **Subpasos**:
+  * **6.1.1**: Crear interfaces de normalización y funciones de limpieza de datos:
+    * Conversión de fechas argentinas (`DD/MM/YYYY`) a timestamps estándar ISO-8601 (`DateTime`).
+    * Sanitización de importes: eliminación de signos `$`, espacios, puntos de miles y conversión de comas a puntos decimales (`$ 1.500,50` ➔ `1500.50`).
+    * Normalización de nombres de entidades para que coincidan exactamente con el enum/clasificación de la API.
+  * **6.1.2**: Implementar el flag `--dry-run`:
+    * Al ejecutar `npx ts-node src/scripts/migrate_sheets_2026.ts --dry-run`, el script procesa y valida todas las pestañas, imprime una tabla resumen en consola con la cantidad de registros encontrados y avisa si alguna fila tiene datos incompletos, **sin realizar ninguna inserción en la base de datos**.
+* **🧪 Tu Prueba Local Manual (Paso 6.1)**:
+  1. Ejecutar en terminal de la API:
+     ```bash
+     npx ts-node src/scripts/migrate_sheets_2026.ts --dry-run
+     ```
+  2. *Resultado esperado*: Se visualiza en consola el resumen de filas detectadas por pestaña (ej: 450 movimientos, 12 meses de estimaciones, 365 días proyectados) y el mensaje verde `[Dry-Run] Simulación completada con éxito. 0 errores encontrados`.
+
+---
+
+#### 📌 Paso 6.2: Migración de Prueba en Base de Datos Local con Transacciones
+* **¿Qué es y por qué se hace?**
+  * La regla de oro en migraciones críticas es **nunca migrar a producción primero**.
+  * Se ejecuta la carga real sobre la base de datos PostgreSQL local corriendo en Docker (`127.0.0.1:5432`), asegurando que todos los registros se inserten correctamente dentro de una transacción atómica protegida.
+* **Subpasos**:
+  * **6.2.1**: Implementar la inserción transaccional con Prisma:
+    * Uso de `prisma.$transaction()` para encapsular la creación masiva de `Movement`, `MonthlyEstimateConfig` y `DailyEstimate`.
+    * Limpieza previa idempotente: Si ya existen registros del año 2026 generados en pruebas anteriores, el script los limpia de forma segura antes de la carga limpia.
+    * Vinculación al usuario administrador (`david@admin.com`).
+  * **6.2.2**: Ejecutar la migración real contra PostgreSQL local:
+    * Ejecutar el script sin el flag `--dry-run`.
+* **🧪 Tu Prueba Local Manual (Paso 6.2)**:
+  1. Levantar la base local de Docker si está apagada (`docker compose up -d`).
+  2. Ejecutar la migración local:
+     ```bash
+     npx ts-node src/scripts/migrate_sheets_2026.ts --target=local
+     ```
+  3. *Resultado esperado*: La terminal informa en tiempo real el progreso de inserción por mes y concluye con `[OK] 2026 migrado exitosamente a la base local`.
+
+---
+
+#### 📌 Paso 6.3: Conciliación y Auditoría Matemática de Totales (Data Reconciliation)
+* **¿Qué es y por qué se hace?**
+  * ¿Cómo sabemos con certeza matemática que no se omitió ningún gasto ni se alteró un centavo durante la conversión de formatos?
+  * Se ejecuta un subproceso de conciliación contable cruzada que compara:
+    1. Suma total de gastos por cada mes en Google Sheets vs `SELECT SUM(monto) FROM movements WHERE year = 2026 AND mes = X`.
+    2. Suma total por entidad (Visa Bancor, Naranja, etc.) en Google Sheets vs en la base de datos.
+    3. Saldos iniciales y finales de la pestaña `Estimaciones` vs registros de `DailyEstimate`.
+* **Subpasos**:
+  * **6.3.1**: Script de verificación contable automática (`src/scripts/audit_reconciliation.ts`):
+    * Calcula las sumatorias de la planilla y las compara contra las consultas de base de datos.
+    * Si la diferencia es menor a `$0.01` (diferencia de redondeo centesimal), califica la conciliación como **APROBADA**.
+* **🧪 Tu Prueba Local Manual (Paso 6.3)**:
+  1. Ejecutar en terminal:
+     ```bash
+     npx ts-node src/scripts/audit_reconciliation.ts --year=2026 --target=local
+     ```
+  2. *Resultado esperado*: Una tabla comparativa mes a mes donde la columna `Diferencia` muestra `$0.00` para todos los meses y tarjetas.
+
+---
+
+#### 📌 Paso 6.4: Backup Preventivo y Migración Definitiva a la Base Cloud (`Cloud SQL`)
+* **¿Qué es y por qué se hace?**
+  * Una vez que la prueba local y la conciliación matemática resultaron perfectas, estamos 100% listos para aplicar los datos reales en la base de datos en la nube de Google Cloud (`Cloud SQL`).
+  * Siguiendo las mejores prácticas de DevOps, primero se dispara un backup completo preventivo en Google Cloud Storage y luego se migran los datos a través del túnel seguro de `cloud-sql-proxy`.
+* **Subpasos**:
+  * **6.4.1**: Backup Preventivo Automático en Cloud Storage:
+    * En `control-de-gastos-infra`, ejecutar el script de 1-clic `.\scripts\backup.ps1`.
+    * Esto crea una copia de seguridad snapshot en el Bucket blindado antes de realizar cualquier cambio en producción.
+  * **6.4.2**: Apertura del Túnel Seguro con Cloud SQL Proxy:
+    * Iniciar `cloud-sql-proxy.exe` en el puerto seguro `127.0.0.1:5433` para conectar tu máquina con la base de datos gestionada en Santiago de Chile / us-central sin abrir la base a internet público.
+  * **6.4.3**: Ejecución del Pipeline ETL hacia la Nube:
+    * Ejecutar el script apuntando a Cloud SQL:
+      ```bash
+      npx ts-node src/scripts/migrate_sheets_2026.ts --target=cloud
+      ```
+  * **6.4.4**: Conciliación Final Remota:
+    * Ejecutar la auditoría matemática contra la base de datos de producción para confirmar que los datos en Google Cloud son idénticos a los de Google Sheets.
+* **🧪 Tu Prueba Remota Final Integrada**:
+  1. Iniciar el Frontend conectado a Cloud Run:
+     ```bash
+     npm run start:cloud
+     ```
+  2. Abrir `http://localhost:4200/` y navegar por las pantallas **Inicio**, **Mensual**, **Estimativos** y **Anual**.
+  3. *Resultado esperado*: Todas las pantallas cargan de inmediato todos los datos reales del año 2026 directamente desde la nube de Google, con gráficos, balances y estimaciones idénticos a la planilla de Google Sheets, confirmando el éxito total de la migración.
 
 

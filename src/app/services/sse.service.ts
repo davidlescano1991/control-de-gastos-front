@@ -1,5 +1,6 @@
 import { Injectable, NgZone, inject, signal } from '@angular/core';
 import { Subject, Observable } from 'rxjs';
+import { environment } from '../config/environment';
 
 export interface SseEventMessage {
   event: string;
@@ -29,7 +30,7 @@ export class SseService {
   /**
    * Abre la conexión persistente con el canal SSE de la API
    */
-  public conectar(url: string = 'http://localhost:3000/api/events/sub'): void {
+  public conectar(url: string = environment.sseUrl): void {
     // Si estamos en entorno servidor (SSR) o el navegador no soporta EventSource, salimos limpiamente
     if (typeof window === 'undefined' || !('EventSource' in window)) {
       return;
@@ -45,7 +46,7 @@ export class SseService {
       this.eventSource.onopen = () => {
         this.zone.run(() => {
           this.isConnected.set(true);
-          console.log('📡 [SSE Front] Conexión establecida con la API en http://localhost:3000');
+          console.log(`📡 [SSE Front] Conexión establecida con la API en ${url}`);
         });
       };
 

@@ -6,7 +6,8 @@ import {
   provideZonelessChangeDetection,
 } from '@angular/core';
 import { provideRouter } from '@angular/router';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { authInterceptor } from './common/interceptors/auth.interceptor';
 import { RegistrarMovimiento } from './registrar-movimiento/registrar-movimiento';
 import { Mensual } from './pages/mensual/mensual';
 import { Inicio } from './pages/inicio/inicio';
@@ -18,7 +19,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideZonelessChangeDetection(),
-    provideHttpClient(),
+    provideHttpClient(withInterceptors([authInterceptor])),
     provideAppInitializer(() => inject(AppConfigService).load()),
     provideRouter([
       { path: '', component: Inicio },

@@ -5,5 +5,7 @@ if (!apiKey) {
 
 export const environment = {
   production: true,
-  googleApiKey: apiKey
+  googleApiKey: apiKey,
+  apiUrl: 'https://control-gastos-api-io57eybm3q-tl.a.run.app/api',
+  sseUrl: 'https://control-gastos-api-io57eybm3q-tl.a.run.app/api/events/sub'
 };
