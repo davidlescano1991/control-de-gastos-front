@@ -46,3 +46,7 @@ Thumbs.db
 .env.local
 .env.*.local
 src/app/config/environment.local.ts
+*adminsdk*.json
+*service-account*.json
+credentials*.json
+*.key.json

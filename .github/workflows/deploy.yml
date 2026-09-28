@@ -36,12 +36,13 @@ jobs:
         run: sed -i "s/__APP_VERSION_VALUE__/V1.0.${{ github.run_number }}/g" src/index.html
 
       - name: Build proyecto Angular
-        run: pnpm exec -- ng build --configuration production --base-href "/control-de-gastos-dml-pages/"
+        run: pnpm exec -- ng build --configuration production --base-href "/"
 
-      - name: Deploy en el repositorio publico
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Deploy a Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          personal_token: ${{ secrets.GH_PAGES_TOKEN }}
-          external_repository: davidlescano1991/control-de-gastos-dml-pages
-          publish_branch: gh-pages
-          publish_dir: dist/control-gastos-front/browser
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CONTROL_GASTOS }}
+          projectId: control-gastos-472318
+          target: control-gastos-dml
+          channelId: live

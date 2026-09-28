@@ -594,21 +594,43 @@ gantt
 
 ---
 
-#### 📌 Paso 5.5: Despliegue del Frontend en la Nube (Hosting Global)
-* **¿Qué es y por qué se hace?**
-  * Hasta este punto, el backend vive 100% en la nube (Cloud Run + Cloud SQL), pero el Frontend aún se ejecuta en tu máquina local con `npm start`.
-  * Para que la aplicación sea verdaderamente accesible desde cualquier lugar (tu celular, tablet o cualquier computadora sin necesidad de tener tu PC encendida con la terminal abierta), el Frontend debe compilarse (`ng build`) y subirse a un servicio de hosting en la nube.
-* **Opciones de Despliegue**:
-  * **Opción A (Recomendada): Firebase Hosting (de Google Cloud)**:
-    * Integración nativa con tu mismo proyecto de GCP.
-    * Gratuito, ultrarrápido (servido por la red global de CDN de Google) y con certificado SSL (HTTPS) automático.
-  * **Opción B: Google Cloud Storage con Balanceador / CDN**:
-    * Alojamiento de los archivos estáticos HTML/JS/CSS en un bucket público protegido por Cloud CDN.
+#### 📌 Paso 5.5: Despliegue Continuo (CI/CD) del Frontend en Firebase Hosting con GitHub Actions
+* **¿Qué es y por qué se hace de esta manera en la industria?**
+  * En lugar de compilar (`ng build`) y subir los archivos manualmente desde tu computadora (lo cual consume tiempo, memoria y depende de tu conexión local), las empresas utilizan un pipeline de **Integración y Entrega Continua (CI/CD)**.
+  * **Flujo Profesional de Ramas (`GitFlow`)**:
+    1. Desarrollas y validas tus cambios en la rama de trabajo `develop`.
+    2. Cuando una funcionalidad está lista, creas un **Pull Request (PR)** desde `develop` hacia la rama productiva `main` en GitHub.
+    3. Al aprobar y fusionar (*mergear*) el PR en `main`, **GitHub Actions** activa un servidor virtual en la nube de GitHub que:
+       * Clona tu código fuente.
+       * Configura Node.js e instala dependencias con `pnpm`.
+       * Inyecta la versión de la compilación en `src/index.html` (`V1.0.X`).
+       * Compila la aplicación en modo producción (`ng build --configuration production`).
+       * Se autentica de forma segura con Google Cloud mediante un secreto (`FIREBASE_SERVICE_ACCOUNT`).
+       * Despliega los archivos estáticos en **Firebase Hosting** dentro del sitio multisitio personalizado `control-gastos-dml` del proyecto GCP (`control-gastos-472318`).
+    4. Tu aplicación queda publicada en internet bajo un dominio limpio y profesional con HTTPS y CDN global de Google (`https://control-gastos-dml.web.app`), accesible desde cualquier celular o PC sin depender de tu máquina local.
 * **Subpasos**:
-  * **5.5.1**: Generación del paquete de producción compilado (`npm run build`).
-  * **5.5.2**: Configuración del hosting (`firebase.json` o configuración de bucket).
-  * **5.5.3**: Despliegue con 1 solo comando (`firebase deploy` o script de subida).
-  * **5.5.4**: Validación final: Acceso a la aplicación completa mediante su dominio público `.web.app` o personalizado con HTTPS activo.
+  * **5.5.0**: Vinculación de Firebase y Creación del Sitio Multisitio (`control-gastos-dml`) (COMPLETADO):
+    * Vinculación del proyecto de Google Cloud `control-gastos-472318` en la consola de Firebase.
+    * Habilitación de Firebase Hosting y creación del sitio multisitio adicional `control-gastos-dml` para disponer de la URL limpia `https://control-gastos-dml.web.app`.
+  * **5.5.1**: Configuración de Firebase Hosting en el repositorio (`firebase.json` y `.firebaserc`):
+    * `firebase.json`: Configura el target o site `control-gastos-dml`, define la carpeta de salida `dist/control-gastos-front/browser` y la regla de reescritura SPA (`rewrites: [{"source": "**", "destination": "/index.html"}]`) para que el enrutamiento de Angular (`/mensual`, `/anual`, etc.) funcione al recargar sin dar error 404.
+    * `.firebaserc`: Asocia el proyecto de Google Cloud `control-gastos-472318` y mapea el target de hosting `control-gastos-dml`.
+  * **5.5.2**: Generación y Configuración del Secreto de Despliegue en GitHub:
+    * Configurar la Cuenta de Servicio (Service Account) con permisos de despliegue en Firebase Hosting.
+    * Guardar la clave JSON en GitHub: **Settings** ➔ **Secrets and variables** ➔ **Actions** bajo el nombre `FIREBASE_SERVICE_ACCOUNT_CONTROL_GASTOS`.
+  * **5.5.3**: Creación del Workflow de Despliegue Automático (`.github/workflows/deploy.yml`):
+    * Configurar el disparador en `push: branches: [main]`.
+    * Usar la acción oficial `FirebaseExtended/action-hosting-deploy@v0` apuntando al target `control-gastos-dml` con canal activo `live`.
+  * **5.5.4**: Prueba y Validación del Flujo CI/CD Completo:
+    * Confirmar cambios y pushear la rama `develop` a GitHub.
+    * Crear el Pull Request desde `develop` hacia `main` en la interfaz web de GitHub.
+    * Fusionar (*Merge*) el Pull Request.
+    * Monitorear la ejecución automática en la pestaña **Actions** de GitHub y verificar el acceso final a la web en producción.
+* **🧪 Tu Prueba de Despliegue Automático**:
+  1. Mergear el Pull Request de `develop` a `main` en GitHub.
+  2. Abrir la pestaña **Actions** en tu repositorio `davidlescano1991/control-de-gastos-front` y observar el job `build-deploy` en verde.
+  3. Ingresar a `https://control-gastos-dml.web.app` desde tu navegador o celular y comprobar que la aplicación carga conectada en tiempo real a la API en Cloud Run.
+
 
 ---
 

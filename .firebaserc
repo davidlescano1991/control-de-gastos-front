@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "control-gastos-472318"
+  },
+  "targets": {
+    "control-gastos-472318": {
+      "hosting": {
+        "control-gastos-dml": [
+          "control-gastos-dml"
+        ]
+      }
+    }
+  }
+}
