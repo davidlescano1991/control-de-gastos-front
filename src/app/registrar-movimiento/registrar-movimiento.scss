@@ -1,0 +1,80 @@
+@use "sass:color";
+$form-bg: #ffffff;
+$form-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+$primary-color: #0078d7;
+$primary-hover: color.scale($primary-color, $lightness: -23.72%);
+$text-color: #333;
+$label-color: #555;
+$border-radius: 8px;
+$input-border: #ccc;
+
+.form-container {
+  max-width: 600px;
+  margin: 40px auto;
+  padding: 30px;
+  background-color: $form-bg;
+  border-radius: 12px;
+  box-shadow: $form-shadow;
+  font-family: 'Inter', sans-serif;
+
+  h2 {
+    text-align: center;
+    margin-bottom: 25px;
+    font-size: 24px;
+    color: $text-color;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+
+    label {
+      font-weight: 600;
+      color: $label-color;
+    }
+
+    input,
+    select {
+      padding: 10px;
+      border: 1px solid $input-border;
+      border-radius: $border-radius;
+      font-size: 15px;
+      transition: border-color 0.3s;
+
+      &:focus {
+        border-color: $primary-color;
+        outline: none;
+      }
+    }
+
+    button {
+      padding: 12px;
+      background-color: $primary-color;
+      color: white;
+      border: none;
+      border-radius: $border-radius;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+
+      &:hover {
+        background-color: $primary-hover;
+      }
+    }
+  }
+}
+
+// 📱 Responsive
+@media (max-width: 600px) {
+  .form-container {
+    padding: 20px;
+  }
+
+  input,
+  select,
+  button {
+    font-size: 16px;
+  }
+}

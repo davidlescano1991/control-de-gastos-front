@@ -1,0 +1,1750 @@
+// Include theming for Angular Material with `mat.theme()`.
+// This Sass mixin will define CSS variables that are used for styling Angular Material
+// components according to the Material 3 design spec.
+// Learn more about theming and how to use it for your application's
+// custom components at https://material.angular.dev/guide/theming
+@use '@angular/material' as mat;
+
+html {
+  @include mat.theme((color: (primary: mat.$azure-palette,
+        tertiary: mat.$blue-palette,
+      ),
+      typography: Roboto,
+      density: 0,
+    ));
+}
+
+body {
+  // Default the application to a light color theme. This can be changed to
+  // `dark` to enable the dark color theme, or to `light dark` to defer to the
+  // user's system settings.
+  color-scheme: light;
+
+  // Set a default background, font and text colors for the application using
+  // Angular Material's system-level CSS variables. Learn more about these
+  // variables at https://material.angular.dev/guide/system-variables
+  background-color: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+
+  // Reset the user agent margin.
+  margin: 0;
+}
+
+/* You can add global styles to this file, and also import other style files */
+
+html,
+body {
+  height: 100%;
+  overflow-x: hidden;
+}
+
+/* Use border-box globally to avoid unexpected width calculations */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Roboto, 'Helvetica Neue', sans-serif;
+}
+
+/* Responsive chart and grafico-wrapper defaults (global) */
+.grafico-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  padding: 0 8px;
+  box-sizing: border-box;
+}
+
+.grafico-wrapper canvas {
+  display: block;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  will-change: transform;
+}
+
+@media (max-width: 767px) {
+  .grafico-wrapper {
+    min-height: 220px;
+    padding: 0 6px;
+  }
+
+  .grafico-wrapper canvas {
+    height: 220px !important;
+  }
+
+  /* Compact table/card spacing for mobile */
+  .movimientos-wrapper {
+    padding: 12px;
+  }
+
+  .tabla-movimientos td {
+    font-size: 13px;
+  }
+}
+
+/* ==========================================================================
+   📊 ESTILOS UNIFICADOS PARA GRÁFICOS DIARIOS (Total Diario $ y Total Diario USD)
+   ========================================================================== */
+app-movimientos,
+app-movimientos-usd {
+  display: block;
+  width: 100%;
+
+  .movimientos-wrapper {
+    width: 100%;
+    margin: 0 auto 20px;
+    padding: 24px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+    box-sizing: border-box;
+  }
+
+  .grafico-wrapper {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    height: clamp(540px, 54vh, 640px) !important;
+    padding: 0 12px;
+    box-sizing: border-box;
+
+    canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    @media (max-width: 767px) {
+      height: 300px !important;
+    }
+  }
+}
+
+/* ==========================================================================
+   📊 ESTILOS UNIFICADOS PARA GRÁFICOS HISTÓRICOS (Global)
+   ========================================================================== */
+app-grafico-movimientos-historicos .grafico-wrapper,
+app-grafico-movimientos-historicos-usd .grafico-wrapper,
+app-grafico-historico-mensual .grafico-wrapper,
+app-grafico-historico .grafico-wrapper,
+app-grafico-deuda-total-historico .grafico-wrapper,
+app-grafico-deuda-total-historico-usd .grafico-wrapper,
+app-grafico-ingreso-neto-historico .grafico-wrapper,
+app-grafico-ingreso-neto-historico-usd .grafico-wrapper {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  height: clamp(700px, 70vh, 800px) !important;
+  padding-bottom: 12px;
+  box-sizing: border-box;
+
+  canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+  }
+}
+
+app-grafico-movimientos-historicos .movimientos-wrapper,
+app-grafico-movimientos-historicos-usd .movimientos-wrapper,
+app-grafico-historico-mensual .movimientos-wrapper,
+app-grafico-historico .movimientos-wrapper,
+app-grafico-deuda-total-historico .movimientos-wrapper,
+app-grafico-deuda-total-historico-usd .movimientos-wrapper,
+app-grafico-ingreso-neto-historico .movimientos-wrapper,
+app-grafico-ingreso-neto-historico-usd .movimientos-wrapper {
+  height: auto !important;
+  min-height: fit-content !important;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1024px) {
+  app-grafico-movimientos-historicos .grafico-wrapper,
+  app-grafico-movimientos-historicos-usd .grafico-wrapper,
+  app-grafico-historico-mensual .grafico-wrapper,
+  app-grafico-historico .grafico-wrapper,
+  app-grafico-deuda-total-historico .grafico-wrapper,
+  app-grafico-deuda-total-historico-usd .grafico-wrapper,
+  app-grafico-ingreso-neto-historico .grafico-wrapper,
+  app-grafico-ingreso-neto-historico-usd .grafico-wrapper {
+    height: 460px !important;
+  }
+}
+
+@media (max-width: 700px) {
+  app-grafico-movimientos-historicos .grafico-wrapper,
+  app-grafico-movimientos-historicos-usd .grafico-wrapper,
+  app-grafico-historico-mensual .grafico-wrapper,
+  app-grafico-historico .grafico-wrapper,
+  app-grafico-deuda-total-historico .grafico-wrapper,
+  app-grafico-deuda-total-historico-usd .grafico-wrapper,
+  app-grafico-ingreso-neto-historico .grafico-wrapper,
+  app-grafico-ingreso-neto-historico-usd .grafico-wrapper {
+    height: 380px !important;
+  }
+}
+
+/* 🔹 Selector de Año Responsivo en Celulares (Global) */
+.selector-anio-mobile {
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.year-pills-container {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 2px 12px;
+  -webkit-overflow-scrolling: touch;
+  justify-content: center;
+
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+}
+
+.year-pill {
+  flex: 0 0 auto;
+  padding: 8px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  border-radius: 20px;
+  border: 1px solid #cbd5e1;
+  background-color: #f8fafc;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+
+  &:hover {
+    background-color: #e2e8f0;
+    color: #1e293b;
+  }
+
+  &.active {
+    background: linear-gradient(135deg, #1e88e5, #1565c0);
+    color: #ffffff;
+    border-color: #1565c0;
+    box-shadow: 0 4px 10px rgba(21, 101, 192, 0.3);
+  }
+}
+
+/* 🔹 Sidebar de Meses Contraíble */
+.sidebar {
+  transition: flex 0.25s ease-in-out, width 0.25s ease-in-out, min-width 0.25s ease-in-out, padding 0.25s ease-in-out;
+
+  .sidebar-header {
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: center;
+
+    .btn-toggle-sidebar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      padding: 6px;
+      background-color: #e2e8f0;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background-color: #cbd5e1;
+        color: #1e293b;
+      }
+
+      mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        color: #1565c0;
+      }
+    }
+  }
+
+  .sidebar-months-list {
+    display: flex;
+    flex-direction: column !important;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  &.collapsed {
+    flex: 0 0 54px !important;
+    width: 54px !important;
+    min-width: 54px !important;
+    max-width: 54px !important;
+    padding: 0.75rem 0.25rem !important;
+
+    .sidebar-header {
+      margin-bottom: 8px;
+
+      .btn-toggle-sidebar {
+        width: 44px;
+        padding: 6px 0;
+      }
+    }
+
+    .sidebar-months-list {
+      display: flex;
+      flex-direction: column !important;
+      /* Apilado vertical uno debajo del otro */
+      align-items: center;
+      gap: 0.35rem;
+
+      button {
+        width: 44px !important;
+        min-width: 44px !important;
+        max-width: 44px !important;
+        padding: 6px 0 !important;
+        margin: 0 !important;
+        text-align: center !important;
+        justify-content: center !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        border-radius: 6px;
+
+        .short-label {
+          display: block !important;
+          text-align: center;
+          width: 100%;
+        }
+      }
+    }
+  }
+}
+
+/* ==========================================================================
+   🎨 DICCIONARIO DE VARIABLES Y TOKENS DE DISEÑO (CSS Custom Properties)
+   ========================================================================== */
+:root {
+  --bg-app: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-header: #f1f5f9;
+  --border-card: #e2e8f0;
+  --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-main: 0 6px 20px rgba(0, 0, 0, 0.08);
+
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+
+  --table-header-bg: #768699;
+  --table-header-color: #ffffff;
+  --table-border: #e2e8f0;
+  --table-row-even: #f8fafc;
+  --table-row-hover: #f1f5f9;
+}
+
+/* ==========================================================================
+   🌙 REGLAS MODO OSCURO / MODO NOCHE (DARK MODE) GLOBAL
+   ========================================================================== */
+
+body.dark-mode {
+  --bg-app: #0f172a;
+  --bg-surface: #1e293b;
+  --bg-card: #1e293b;
+  --bg-card-header: #334155;
+  --border-card: #334155;
+  --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-main: 0 6px 20px rgba(0, 0, 0, 0.4);
+
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+
+  --table-header-bg: #0f172a;
+  --table-header-color: #cbd5e1;
+  --table-border: #334155;
+  --table-row-even: #162032;
+  --table-row-hover: #334155;
+
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  color-scheme: dark;
+
+  /* App Shell y Contenedores Principales de Pantalla */
+  .app-shell,
+  .app-content,
+  .pantalla-mensual,
+  .pantalla-anual,
+  .pantalla-inicio,
+  .pantalla-estimativo,
+  .contenido-principal,
+  .col-izquierda,
+  .col-derecha,
+  .col-derecha-scroll,
+  .contenido-derecho,
+  .mat-stepper-horizontal,
+  .mat-horizontal-stepper-wrapper,
+  .mat-step-header {
+    background: #0f172a !important;
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+  }
+
+  /* Sidebar de Meses */
+  .sidebar {
+    background: #0f172a !important;
+    background-color: #0f172a !important;
+    border-right-color: #334155 !important;
+    border-bottom-color: #334155 !important;
+
+    .sidebar-header .btn-toggle-sidebar {
+      background-color: #1e293b !important;
+      color: #cbd5e1 !important;
+      border-color: #334155 !important;
+
+      &:hover {
+        background-color: #334155 !important;
+        color: #ffffff !important;
+      }
+
+      mat-icon {
+        color: #38bdf8 !important;
+      }
+    }
+
+    .sidebar-months-list button,
+    button {
+      background-color: #1e293b !important;
+      color: #cbd5e1 !important;
+      border-color: #334155 !important;
+
+      &:hover {
+        background-color: #334155 !important;
+        color: #38bdf8 !important;
+      }
+
+      &.active,
+      &.active-month {
+        background-color: #2563eb !important;
+        color: #ffffff !important;
+      }
+    }
+  }
+
+  /* Toolbar Principal */
+  mat-toolbar {
+    background-color: #1e293b !important;
+    color: #f8fafc !important;
+    border-bottom: 1px solid #334155;
+
+    .titulo-toolbar {
+      color: #f8fafc !important;
+    }
+
+    button[mat-button] {
+      color: #e2e8f0 !important;
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.08) !important;
+        color: #38bdf8 !important;
+      }
+    }
+  }
+
+  .btn-theme-toggle {
+    color: #fbbf24 !important;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.1) !important;
+    }
+  }
+
+  .btn-menu-mobile {
+    background-color: #334155 !important;
+    border-color: #475569 !important;
+
+    mat-icon {
+      color: #38bdf8 !important;
+    }
+  }
+
+  /* Menú desplegable móvil */
+  .menu-navegacion-mobile,
+  .mat-mdc-menu-panel {
+    background-color: #1e293b !important;
+    border: 1px solid #334155 !important;
+
+    .mat-mdc-menu-item {
+      color: #f8fafc !important;
+
+      mat-icon {
+        color: #38bdf8 !important;
+      }
+
+      &:hover {
+        background-color: #334155 !important;
+        color: #38bdf8 !important;
+      }
+    }
+  }
+
+  /* 🔹 Estructura de Contenedores y Cards (Mantiene border-radius: 12px, box-shadow y width: 100%) */
+  .movimientos-wrapper,
+  .card,
+  mat-card,
+  .mat-mdc-card,
+  .tabla-container,
+  .grafico-wrapper,
+  .resumen-card,
+  .entidad-card,
+  .tabla-wrapper,
+  .anual-card,
+  .grafico-card {
+    background: #1e293b !important;
+    background-color: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #334155 !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  /* Títulos */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  .titulo,
+  .subtitulo,
+  .titulo-seccion,
+  .titulo-card,
+  .col-izquierda h2,
+  .col-derecha h2,
+  .movimientos-wrapper h2,
+  .pantalla-mensual h2,
+  .header-izq-mensual h2,
+  .header-izq-mensual h3,
+  .card-header-wrapper h2,
+  .card-header-wrapper h3,
+  mat-card-title,
+  .mat-mdc-card-title {
+    color: #f8fafc !important;
+  }
+
+  /* Sub-tarjetas */
+  .subcard,
+  .card-item,
+  .summary-card,
+  .tarjeta-resumen,
+  .novedades-container {
+    background-color: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #334155 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+  }
+
+  /* Header de mat-card en entidades */
+  mat-card-header {
+    background-color: #334155 !important;
+    color: #f8fafc !important;
+    border-bottom: 1px solid #475569 !important;
+  }
+
+  /* 🔑 Tablas y Filas (Fix para eliminar fondos blancos en filas alternas) */
+  table,
+  .tabla-movimientos,
+  .mat-mdc-table {
+    background-color: #1e293b !important;
+    color: #f8fafc !important;
+
+    thead,
+    thead tr,
+    thead th,
+    .mat-mdc-header-cell {
+      background-color: #0f172a !important;
+      color: #cbd5e1 !important;
+      border-bottom-color: #334155 !important;
+    }
+
+    tbody tr,
+    .mat-mdc-row {
+      background-color: #1e293b !important;
+      background: #1e293b !important;
+      color: #f8fafc !important;
+    }
+
+    tbody tr:nth-child(even),
+    tbody tr.fila-par {
+      background-color: #162032 !important;
+      background: #162032 !important;
+    }
+
+    tbody tr:nth-child(odd) {
+      background-color: #1e293b !important;
+      background: #1e293b !important;
+    }
+
+    tbody tr:hover {
+      background-color: #26354a !important;
+      background: #26354a !important;
+    }
+
+    td,
+    .mat-mdc-cell,
+    tbody tr td,
+    tbody tr:nth-child(even) td,
+    tbody tr:nth-child(odd) td {
+      color: #f8fafc !important;
+      border-bottom-color: #334155 !important;
+
+      &.positivo,
+      .positivo,
+      &.deuda-verde,
+      .deuda-verde {
+        color: #4ade80 !important;
+      }
+
+      &.negativo,
+      .negativo,
+      &.deuda-roja,
+      .deuda-roja {
+        color: #f87171 !important;
+      }
+    }
+
+    td span,
+    td strong {
+      color: inherit;
+    }
+  }
+
+  /* Filas de Total y Acciones */
+  .fila-total,
+  .acciones-total {
+    background-color: #312e81 !important;
+    color: #ffffff !important;
+
+    td,
+    strong,
+    span,
+    .total-label,
+    .total-value {
+      color: #ffffff !important;
+    }
+  }
+
+  /* Pills de Selección de Año */
+  .year-pill {
+    background-color: #1e293b !important;
+    color: #cbd5e1 !important;
+    border-color: #334155 !important;
+
+    &:hover {
+      background-color: #334155 !important;
+      color: #ffffff !important;
+    }
+
+    &.active {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+      color: #ffffff !important;
+      border-color: #2563eb !important;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4) !important;
+    }
+  }
+
+  /* Inputs & Selects */
+  input,
+  select,
+  textarea,
+  .mat-mdc-input-element,
+  .mat-mdc-form-field {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+    border-color: #334155 !important;
+  }
+
+  /* Footer */
+  .app-footer {
+    color: #94a3b8 !important;
+
+    .app-version {
+      border-top-color: #334155 !important;
+    }
+  }
+
+  /* Alert / Warning Cards */
+  .alert-card.warning {
+    background-color: #451a03 !important;
+    color: #fef08a !important;
+    border-left-color: #f59e0b !important;
+  }
+
+  /* 🔹 Columnas Resaltadas y Celdas Especiales (Fix para Estimativos y Anual) */
+  .columna-resaltada,
+  td.columna-resaltada,
+  th.columna-resaltada,
+  table td.columna-resaltada,
+  .tabla-fechas td.columna-resaltada {
+    background-color: #273549 !important;
+    background: #273549 !important;
+    color: #f8fafc !important;
+  }
+
+  .tabla-fechas {
+    background-color: #1e293b !important;
+    color: #f8fafc !important;
+
+    thead th {
+      background-color: #581c87 !important;
+      color: #ffffff !important;
+      border-bottom-color: #6b21a8 !important;
+    }
+
+    tbody tr {
+      background-color: #1e293b !important;
+      background: #1e293b !important;
+
+      &:nth-child(even) {
+        background-color: #162032 !important;
+        background: #162032 !important;
+      }
+
+      &.fila-no-laborable,
+      &.fila-fin-de-semana,
+      &.fila-feriado {
+        background-color: #29384e !important;
+        background: #29384e !important;
+
+        td {
+          background-color: #29384e !important;
+          border-bottom-color: #3b4d66 !important;
+          color: #f1f5f9 !important;
+        }
+
+        td.columna-resaltada {
+          background-color: #334661 !important;
+        }
+
+        &:hover {
+          background-color: #31425b !important;
+
+          td {
+            background-color: #31425b !important;
+          }
+
+          td.columna-resaltada {
+            background-color: #3b506e !important;
+          }
+        }
+      }
+    }
+
+    td {
+      border-bottom-color: #334155 !important;
+    }
+  }
+
+  /* Colores de texto en valores financieros */
+  .saldo,
+  td.saldo {
+    color: #d8b4fe !important;
+  }
+
+  .saldoUSD,
+  td.saldoUSD {
+    color: #4ade80 !important;
+  }
+
+  .deuda,
+  td.deuda {
+    color: #fb7185 !important;
+  }
+
+  .deudaReal,
+  td.deudaReal {
+    color: #f43f5e !important;
+  }
+
+  .positivo,
+  td.positivo,
+  tbody tr td.positivo,
+  .deuda-verde,
+  td.deuda-verde,
+  tbody tr td.deuda-verde {
+    color: #4ade80 !important;
+  }
+
+  .negativo,
+  td.negativo,
+  tbody tr td.negativo,
+  .deuda-roja,
+  td.deuda-roja,
+  tbody tr td.deuda-roja {
+    color: #f87171 !important;
+  }
+
+  /* 🔹 VISTA ANUAL Y TABLA PRESTAMOS EN MODO OSCURO */
+  .movimientos-wrapper-all,
+  .tabla-anual-full {
+    background: #1e293b !important;
+    background-color: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #334155 !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  /* Tarjetas KPI Superiores en Vista Anual */
+  .kpi-cards-grid .kpi-card {
+    background-color: #0f172a !important;
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+
+    .kpi-header .kpi-title {
+      color: #94a3b8 !important;
+    }
+  }
+
+  .kpi-otorgado {
+    border-left-color: #10b981 !important;
+
+    .kpi-icon {
+      color: #34d399 !important;
+    }
+
+    .kpi-value {
+      color: #34d399 !important;
+    }
+  }
+
+  .kpi-devolver-bordo {
+    border-left-color: #f43f5e !important;
+
+    .kpi-icon {
+      color: #fb7185 !important;
+    }
+
+    .kpi-value {
+      color: #fb7185 !important;
+    }
+  }
+
+  .kpi-porcentaje {
+    .kpi-progress-bg {
+      background-color: #334155 !important;
+    }
+  }
+
+  /* Tabla de Préstamos Anual y Sticky Columns */
+  .tabla-wrapper {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+  }
+
+  .tabla-fechas {
+    background-color: #1e293b !important;
+    color: #f8fafc !important;
+
+    thead tr th {
+      background-color: #312e81 !important;
+      color: #ffffff !important;
+      border-bottom-color: #4338ca !important;
+      border-right-color: #334155 !important;
+
+      &.col-sticky-prestamo,
+      &.col-sticky-cant,
+      &.col-sticky-total {
+        background-color: #2e1065 !important;
+      }
+    }
+
+    tbody tr {
+      background-color: #1e293b !important;
+      background: #1e293b !important;
+
+      &:hover {
+        background-color: #1e2d42 !important;
+        background: #1e2d42 !important;
+
+        td {
+          background-color: #1e2d42 !important;
+        }
+
+        .col-sticky-prestamo,
+        .col-sticky-cant,
+        .col-sticky-total {
+          background-color: #1e2d42 !important;
+        }
+      }
+
+      td:not([style*="color"]) {
+        color: #e2e8f0 !important;
+        border-bottom-color: #334155 !important;
+        border-right-color: #334155 !important;
+      }
+
+      td.col-valor:not([style*="color"]) span:not([style*="color"]) {
+        color: #93c5fd !important;
+      }
+    }
+
+    /* Filas por estado de mes en Anual */
+    tr.row-prestado {
+      background-color: #0f172a !important;
+
+      .col-sticky-prestamo,
+      .col-sticky-cant {
+        background-color: #0f172a !important;
+      }
+
+      .prestado-label {
+        color: #2dd4bf !important;
+      }
+    }
+
+    tr.row-total-devolver {
+      background-color: #0f172a !important;
+
+      .col-sticky-prestamo,
+      .col-sticky-cant {
+        background-color: #0f172a !important;
+      }
+    }
+
+    tr.mes-pasado {
+      background-color: #064e3b33 !important;
+
+      .col-sticky-prestamo,
+      .col-sticky-cant {
+        background-color: #064e3b88 !important;
+      }
+
+      .mes-label,
+      .badge-total-mes {
+        color: #34d399 !important;
+      }
+    }
+
+    tr.mes-actual {
+      background-color: #78350f44 !important;
+
+      td {
+        border-bottom-color: #f59e0b !important;
+      }
+
+      .col-sticky-prestamo,
+      .col-sticky-cant {
+        background-color: #78350f99 !important;
+      }
+
+      .mes-label,
+      .badge-total-mes {
+        color: #fbbf24 !important;
+      }
+    }
+
+    tr.mes-futuro {
+      background-color: #1e293b !important;
+
+      .col-sticky-prestamo,
+      .col-sticky-cant {
+        background-color: #1e293b !important;
+      }
+
+      .mes-label {
+        color: #cbd5e1 !important;
+      }
+
+      .badge-total-mes {
+        color: #94a3b8 !important;
+      }
+    }
+
+    /* Columnas Sticky (Preservar degradados en col-sticky-total) */
+    .col-sticky-prestamo,
+    .col-sticky-cant {
+      background-color: #1e293b !important;
+      color: #f8fafc !important;
+      box-shadow: none !important;
+    }
+
+    .col-sticky-total:not([style*="background"]):not([class*="celda-total-"]) {
+      background-color: #1e293b !important;
+      color: #f8fafc !important;
+      box-shadow: none !important;
+    }
+
+    /* 🔑 En Modo Oscuro SOLAMENTE: Celdas de totales usan fondo oscuro de fila y texto en color dinámico */
+    td.celda-total-otorgado-full,
+    .total-otorgado-val {
+      background: #0f172a !important;
+      background-color: #0f172a !important;
+      color: #34d399 !important;
+    }
+
+    td.celda-total-devolver-full,
+    .total-devolver-val {
+      background: #0f172a !important;
+      background-color: #0f172a !important;
+      color: #fb7185 !important;
+    }
+
+    td.celda-total-pendiente-global {
+      background: #0f172a !important;
+      background-color: #0f172a !important;
+      color: var(--dynamic-color, #fbbf24) !important;
+    }
+
+    td.celda-porcentaje-global {
+      background: #0f172a !important;
+      background-color: #0f172a !important;
+      color: var(--dynamic-color, #fbbf24) !important;
+    }
+
+    /* Badges de cantidad y celdas vacías */
+    .badge-cant {
+      background-color: #334155 !important;
+      color: #f8fafc !important;
+    }
+
+    .celda-vacia-texto,
+    .celda-vacia-guion {
+      color: #64748b !important;
+    }
+
+    /* Pie de Tabla Anual */
+    tr.fila-total-pendiente {
+      background-color: #0f172a !important;
+
+      td {
+        border-top-color: #334155 !important;
+        border-bottom-color: #334155 !important;
+      }
+
+      .col-sticky-prestamo,
+      .label-footer {
+        background-color: #0f172a !important;
+        color: #f8fafc !important;
+      }
+    }
+
+    tr.fila-porcentaje-restante {
+      background-color: #0f172a !important;
+
+      .col-sticky,
+      .col-sticky-prestamo,
+      .col-sticky-cant,
+      .label-footer {
+        background-color: #0f172a !important;
+        color: #cbd5e1 !important;
+      }
+
+      .mini-progress-bg {
+        background-color: #334155 !important;
+      }
+    }
+  }
+
+  /* 🔹 CONTENEDORES DE GRÁFICOS EN VISTA ANUAL Y EN TODA LA APP */
+  .grafico-gasto-container,
+  .grafico-historico-wrapper,
+  .grafico-card,
+  .chart-container,
+  app-grafico-gastos-diario-promedio .chart-container,
+  app-grafico-gasto-anual .chart-container,
+  app-grafico-rendimientos-positivos-mensuales .chart-container {
+    background: #1e293b !important;
+    background-color: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #334155 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  }
+
+  /* 🔹 REGLAS PARA TABLAS DE GASTOS Y RENDIMIENTOS SECUNDARIAS */
+  .tabla-gastos-mensuales,
+  .tabla-gastos-diario-promedio {
+
+    thead tr th.header-gastos-mensuales,
+    thead tr th.header-gastos-diario-promedio {
+      background-color: #881337 !important;
+      color: #fecdd3 !important;
+      border-bottom-color: #9f1239 !important;
+    }
+  }
+
+  /* Tabla Rendimientos Positivos Mensuales */
+  app-rendimientos-positivos-mensuales {
+    .tabla-fechas thead tr th.col-header-rendimientos {
+      background-color: #312e81 !important;
+      color: #ffffff !important;
+      border-bottom-color: #4338ca !important;
+    }
+  }
+
+  th.col-header-rendimientos,
+  th.header-gastos-mensuales,
+  th.header-gastos-diario-promedio {
+    padding: 0 !important;
+
+    .card-header-wrapper {
+      position: relative !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 100% !important;
+      padding: 10px 14px !important;
+      box-sizing: border-box !important;
+      margin-bottom: 0 !important;
+    }
+  }
+
+  /* Tabla Resumen por Entidad en Modo Oscuro */
+  app-resumen .tabla-resumen-container,
+  .tabla-resumen-container {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+
+    table {
+
+      th,
+      td {
+        border-bottom-color: #334155 !important;
+      }
+
+      thead th,
+      th.col-sticky {
+        background-color: #0f172a !important;
+        color: #f8fafc !important;
+        box-shadow: inset 0 -1px 0 #334155, inset -1px 0 0 #334155 !important;
+      }
+
+      td.col-sticky:not(.entidad-visa):not(.entidad-mastercard):not(.entidad-naranja):not(.entidad-bancor):not(.entidad-ml):not(.entidad-otros) {
+        background-color: #1e293b !important;
+        color: #f8fafc !important;
+        box-shadow: inset -1px 0 0 #334155 !important;
+      }
+
+      .fila-total {
+        background-color: #064e3b !important;
+        box-shadow: inset 0 1px 0 #059669, inset 0 -1px 0 #059669 !important;
+
+        td {
+          color: #34d399 !important;
+          background-color: #064e3b !important;
+          font-weight: 800 !important;
+          font-size: 13px !important;
+        }
+
+        td.col-sticky {
+          z-index: 3;
+          background-color: #064e3b !important;
+          color: #34d399 !important;
+          box-shadow: inset -1px 0 0 #059669 !important;
+          font-weight: 800 !important;
+        }
+      }
+    }
+  }
+}
+
+
+/* 🔑 ESTILOS UNIFICADOS Y ARMÓNICOS DE MESES (PASADO, ACTUAL, FUTURO) PARA TODAS LAS TABLAS */
+
+/* MES PASADO: Verde Esmeralda Oscuro Unificado */
+body.dark-mode tr.mes-pasado,
+body.dark-mode .tabla-fechas tr.mes-pasado,
+body.dark-mode .tabla-gastos-mensuales tr.mes-pasado,
+body.dark-mode .tabla-gastos-diario-promedio tr.mes-pasado,
+body.dark-mode .tabla-deuda-total tr.mes-pasado {
+  background-color: rgba(6, 78, 59, 0.35) !important;
+  background: rgba(6, 78, 59, 0.35) !important;
+
+  td:not([class*="celda-total-"]),
+  td.col-sticky-mes,
+  td.col-sticky-prestamo,
+  td.col-sticky-cant,
+  td.col-sticky-total,
+  td.col-mes,
+  td.col-valor,
+  td.col-tarjetas,
+  td.col-prestamos,
+  td.col-deuda-total,
+  td.col-monto {
+    background-color: rgba(6, 78, 59, 0.35) !important;
+    background: rgba(6, 78, 59, 0.35) !important;
+    color: #e2e8f0 !important;
+  }
+
+  .mes-label,
+  .badge-total-mes {
+    color: #34d399 !important;
+    font-weight: 700 !important;
+  }
+
+  td.col-deuda-total {
+    color: #f87171 !important;
+    font-weight: 700 !important;
+  }
+
+  td.col-monto {
+    color: #f8fafc !important;
+    font-weight: 700 !important;
+
+    &.monto-negativo {
+      color: #f87171 !important;
+      font-weight: 800 !important;
+    }
+  }
+}
+
+/* MES ACTUAL: Ámbar Cálido Unificado / Verde Proyección (Sin división de dos tonos) */
+body.dark-mode tr.mes-actual,
+body.dark-mode tr.fila-mes-actual,
+body.dark-mode .tabla-movimientos tr.fila-mes-actual,
+body.dark-mode .tabla-fechas tr.mes-actual,
+body.dark-mode .tabla-gastos-mensuales tr.mes-actual,
+body.dark-mode .tabla-gastos-diario-promedio tr.mes-actual,
+body.dark-mode .tabla-deuda-total tr.mes-actual {
+  background-color: rgba(120, 53, 15, 0.45) !important;
+  background: rgba(120, 53, 15, 0.45) !important;
+
+  td:not([class*="celda-total-"]),
+  td.col-sticky-mes,
+  td.col-sticky-prestamo,
+  td.col-sticky-cant,
+  td.col-sticky-total,
+  td.col-mes,
+  td.col-valor,
+  td.col-tarjetas,
+  td.col-prestamos,
+  td.col-deuda-total,
+  td.col-monto {
+    background-color: rgba(120, 53, 15, 0.45) !important;
+    background: rgba(120, 53, 15, 0.45) !important;
+    color: #ffffff !important;
+    border-bottom-color: #f59e0b !important;
+  }
+
+  .mes-label,
+  .badge-total-mes {
+    color: #fbbf24 !important;
+    font-weight: 800 !important;
+  }
+
+  td.col-deuda-total {
+    color: #fca5a5 !important;
+    font-weight: 800 !important;
+  }
+
+  td.col-monto {
+    color: #f8fafc !important;
+    font-weight: 700 !important;
+
+    &.monto-negativo {
+      color: #f87171 !important;
+      font-weight: 800 !important;
+    }
+  }
+}
+
+/* MES FUTURO: Slate Oscuro Elegante */
+body.dark-mode tr.mes-futuro,
+body.dark-mode .tabla-fechas tr.mes-futuro,
+body.dark-mode .tabla-gastos-mensuales tr.mes-futuro,
+body.dark-mode .tabla-gastos-diario-promedio tr.mes-futuro,
+body.dark-mode .tabla-deuda-total tr.mes-futuro {
+  background-color: #1e293b !important;
+  background: #1e293b !important;
+
+  td:not([class*="celda-total-"]),
+  td.col-sticky-mes,
+  td.col-sticky-prestamo,
+  td.col-sticky-cant,
+  td.col-sticky-total,
+  td.col-mes,
+  td.col-valor,
+  td.col-tarjetas,
+  td.col-prestamos,
+  td.col-deuda-total,
+  td.col-monto {
+    background-color: #1e293b !important;
+    background: #1e293b !important;
+    color: #e2e8f0 !important;
+  }
+
+  .mes-label {
+    color: #cbd5e1 !important;
+  }
+
+  .badge-total-mes {
+    color: #94a3b8 !important;
+  }
+
+  td.col-deuda-total {
+    color: #f87171 !important;
+    font-weight: 700 !important;
+  }
+
+  td.col-monto {
+    color: #f8fafc !important;
+    font-weight: 700 !important;
+
+    &.monto-negativo {
+      color: #f87171 !important;
+      font-weight: 800 !important;
+    }
+  }
+}
+
+/* Tabla Deuda Total Dark Mode - Header y Footer */
+body.dark-mode .tabla-deuda-total {
+  thead {
+    tr th.header-deuda-total {
+      background-color: rgba(127, 29, 29, 0.45) !important;
+      color: #fca5a5 !important;
+      border-bottom: 2px solid #991b1b !important;
+    }
+
+    tr.sub-header-row th {
+      background-color: #0f172a !important;
+      color: #94a3b8 !important;
+      border-bottom: 1px solid #334155 !important;
+    }
+  }
+
+  tfoot tr.fila-total-footer {
+    background-color: #0f172a !important;
+    border-top: 2px solid #334155 !important;
+
+    td {
+      background-color: #0f172a !important;
+      color: #f8fafc !important;
+    }
+
+    td.total-highlight {
+      color: #f87171 !important;
+    }
+  }
+}
+
+/* 🔹 ESTILOS GLOBALES DE CABECERA Y BOTÓN DE COLAPSO MODERNO Y ADAPTATIVO */
+.card-header-wrapper {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  margin-bottom: 16px;
+  box-sizing: border-box;
+  padding: 10px 16px !important;
+  background-color: #f1f5f9;
+  border-radius: 8px;
+  color: #1e293b;
+
+  .mat-mdc-card-header-text,
+  .mat-card-header-text {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  h2,
+  h3,
+  h4,
+  mat-card-title,
+  .mat-mdc-card-title {
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    color: inherit !important;
+    width: 100% !important;
+    display: block !important;
+  }
+}
+
+th .card-header-wrapper {
+  background-color: transparent !important;
+  padding: 10px 14px !important;
+  color: inherit !important;
+
+  h2,
+  h3,
+  h4,
+  mat-card-title,
+  .mat-mdc-card-title {
+    color: inherit !important;
+  }
+}
+
+body.dark-mode .card-header-wrapper {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+
+  h2,
+  h3,
+  h4,
+  mat-card-title,
+  .mat-mdc-card-title {
+    color: #ffffff !important;
+  }
+}
+
+body.dark-mode th .card-header-wrapper {
+  background-color: transparent !important;
+  color: inherit !important;
+
+  h2,
+  h3,
+  h4,
+  mat-card-title,
+  .mat-mdc-card-title {
+    color: inherit !important;
+  }
+}
+
+/* 🎨 BRAND COLORS FOR ENTITY HEADERS (Light & Dark Mode from CSS variables) */
+app-visa .card-header-wrapper,
+app-visa mat-card-header,
+body.dark-mode app-visa .card-header-wrapper,
+body.dark-mode app-visa mat-card-header {
+  background-color: var(--color-entidad-visa, #768699) !important;
+  color: #ffffff !important;
+}
+
+app-master-galicia .card-header-wrapper,
+app-master-galicia mat-card-header,
+body.dark-mode app-master-galicia .card-header-wrapper,
+body.dark-mode app-master-galicia mat-card-header {
+  background-color: var(--color-entidad-mastercard, #768699) !important;
+  color: #ffffff !important;
+}
+
+app-naranja .card-header-wrapper,
+app-naranja mat-card-header,
+body.dark-mode app-naranja .card-header-wrapper,
+body.dark-mode app-naranja mat-card-header {
+  background-color: var(--color-entidad-naranja, #ff8104) !important;
+  color: #ffffff !important;
+}
+
+app-bancor .card-header-wrapper,
+app-bancor mat-card-header,
+body.dark-mode app-bancor .card-header-wrapper,
+body.dark-mode app-bancor mat-card-header {
+  background-color: var(--color-entidad-bancor, #005f5a) !important;
+  color: #ffffff !important;
+}
+
+app-otros .card-header-wrapper,
+app-otros mat-card-header,
+body.dark-mode app-otros .card-header-wrapper,
+body.dark-mode app-otros mat-card-header {
+  background-color: var(--color-entidad-otros, #c10090) !important;
+  color: #ffffff !important;
+}
+
+app-mercado-libre .card-header-wrapper,
+app-mercado-libre mat-card-header,
+body.dark-mode app-mercado-libre .card-header-wrapper,
+body.dark-mode app-mercado-libre mat-card-header {
+  background-color: var(--color-entidad-ml, #ffe600) !important;
+  color: #2d3277 !important;
+
+  mat-card-title,
+  .mat-mdc-card-title,
+  span {
+    color: #2d3277 !important;
+  }
+
+  .btn-collapse-card {
+    color: #2d3277 !important;
+  }
+}
+
+/* 🏷️ LOGOS DE ENTIDADES EN HEADER */
+.entidad-logo {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 26px;
+  max-width: 52px;
+  object-fit: contain;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.movimientos-wrapper.is-collapsed,
+mat-card.is-collapsed,
+.card.is-collapsed {
+  .card-header-wrapper {
+    margin-bottom: 0;
+  }
+}
+
+.btn-collapse-card {
+  position: absolute !important;
+  right: 12px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  color: #475569;
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, transform 0.25s ease;
+  outline: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+  &:hover {
+    background-color: #e2e8f0;
+    color: #1e88e5;
+    border-color: #94a3b8;
+    transform: translateY(-50%) scale(1.08) !important;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  &:active {
+    transform: translateY(-50%) scale(1) !important;
+  }
+
+  mat-icon,
+  svg {
+    width: 20px;
+    height: 20px;
+    font-size: 20px;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: block;
+  }
+
+  &.collapsed mat-icon,
+  &.collapsed svg,
+  mat-icon.icon-collapsed,
+  svg.icon-collapsed {
+    transform: rotate(180deg);
+  }
+}
+
+/* 🌙 Modo Oscuro (Dark Mode) */
+body.dark-mode {
+
+  .movimientos-wrapper,
+  app-grafico-saldo-anual .movimientos-wrapper,
+  app-grafico-rendimientos-positivos-mensuales .movimientos-wrapper,
+  app-grafico-gasto-anual .grafico-gasto-container,
+  app-grafico-gastos-diario-promedio .movimientos-wrapper,
+  app-grafico-estimativo .movimientos-wrapper,
+  app-grafico-historico .movimientos-wrapper {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  .btn-collapse-card {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+    color: #cbd5e1 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+
+    &:hover {
+      background-color: #334155 !important;
+      color: #38bdf8 !important;
+      border-color: #475569 !important;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3) !important;
+    }
+  }
+}
+
+/* 🎨 Transiciones y Animaciones Modernas de Colapso/Expansión (Globales) */
+
+/* Grilla Principal */
+.contenedor-dos-columnas,
+.contenido-dos-columnas {
+  transition: grid-template-columns 0.45s cubic-bezier(0.34, 1.25, 0.64, 1) !important;
+}
+
+/* Columnas Izquierda y Derecha */
+.col-izquierda,
+.col-derecha,
+.col-derecha-scroll {
+  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.4s cubic-bezier(0.34, 1.25, 0.64, 1),
+    flex 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, opacity;
+
+  &:not(.is-collapsed-horiz) {
+    animation: contentExpandIn 0.4s cubic-bezier(0.34, 1.2, 0.64, 1);
+  }
+}
+
+/* Franja Colapsada Vertical */
+.franja-colapsada {
+  position: relative;
+  z-index: 5;
+  padding-top: 20px !important;
+  overflow: visible !important;
+  animation: franjaSpringIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: background-color 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    z-index: 20;
+    box-shadow: 0 8px 24px rgba(21, 101, 192, 0.15) !important;
+    border-color: #93c5fd !important;
+  }
+
+  .btn-franja-expand {
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+      background-color 0.2s ease,
+      color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  &:hover .btn-franja-expand {
+    transform: scale(1.08);
+  }
+}
+
+/* Botones de Acción de Cabecera */
+.btn-header-action,
+.btn-collapse-card {
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.25s ease !important;
+
+  mat-icon,
+  svg {
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  }
+
+  &:hover {
+    transform: scale(1.12);
+    box-shadow: 0 4px 12px rgba(21, 101, 192, 0.18) !important;
+  }
+
+  &:active {
+    transform: scale(0.92);
+  }
+
+  &.collapsed mat-icon,
+  &.collapsed svg {
+    transform: rotate(180deg) !important;
+  }
+}
+
+/* Animaciones Clave (Keyframes) */
+@keyframes msgFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.msg-animated {
+  display: block;
+  animation: msgFadeIn 0.35s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes franjaSpringIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+
+  70% {
+    opacity: 0.9;
+    transform: scale(1.04);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes contentExpandIn {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Transición suave para colapso vertical en movimientos-wrapper y grafico-card */
+.movimientos-wrapper,
+.grafico-card {
+  transition: padding 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    margin 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    border-radius 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+
+  mat-card-content {
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+      transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+
+    &:not([hidden]) {
+      animation: contentExpandIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+  }
+}
+
+/* 💬 Tooltips Multilínea Elegantes y Descriptivos */
+.mat-mdc-tooltip.tooltip-multilinea,
+.tooltip-multilinea {
+  white-space: pre-line !important;
+  font-size: 12px !important;
+  line-height: 1.55 !important;
+  max-width: 360px !important;
+  padding: 10px 14px !important;
+  background-color: rgba(15, 23, 42, 0.96) !important;
+  color: #f8fafc !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+  font-family: inherit !important;
+}
+
+.cell-with-tooltip {
+  cursor: help !important;
+  transition: background-color 0.15s ease, filter 0.15s ease;
+
+  &:hover {
+    filter: brightness(1.08);
+  }
+}

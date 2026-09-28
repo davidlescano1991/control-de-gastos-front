@@ -1,0 +1,46 @@
+<div [class.is-collapsed]="isCollapsed()">
+  <div *ngIf="isCargando || !datos || datos.length === 0; else lista" class="spinner-wrapper">
+    <mat-spinner diameter="40" strokeWidth="4" color="primary"></mat-spinner>
+  </div>
+  <ng-template #lista>
+    <div class="tabla-wrapper">
+      <table class="tabla-gastos-mensuales" aria-label="Gastos Mensuales">
+        <thead>
+          <tr>
+            <th colspan="100" class="header-gastos-mensuales">
+              <div class="card-header-wrapper" style="margin-bottom: 0;">
+                <span>Gastos mensuales</span>
+                <button
+                  type="button"
+                  class="btn-collapse-card"
+                  [class.collapsed]="isCollapsed()"
+                  (click)="toggleCollapse()"
+                  [title]="isCollapsed() ? 'Expandir Gastos Mensuales' : 'Contraer Gastos Mensuales'"
+                >
+                  <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
+                    <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+                  </svg>
+                </button>
+              </div>
+            </th>
+          </tr>
+        </thead>
+        <tbody *ngIf="!isCollapsed()">
+          <tr *ngFor="let item of datos; let i = index" [ngClass]="obtenerEstadoMes(i)">
+            <td class="col-mes">
+              <strong class="mes-label">{{ item.mes }}</strong>
+            </td>
+            <td
+              class="col-monto texto-derecha font-bold"
+              [ngClass]="{ 'monto-negativo': item.total < 0 }"
+            >
+              {{ item.total | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </ng-template>
+</div>
+
+

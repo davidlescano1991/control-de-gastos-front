@@ -1,0 +1,204 @@
+{
+    "coloresEntidades": {
+        "visa": "#768699",
+        "mastercard": "#768699",
+        "naranja": "#ff8104",
+        "bancor": "#005f5a",
+        "otros": "#c10090",
+        "ml": "#ffe600"
+    },
+    "rangosEntidadesPorAnio": {
+        "2026": {
+            "visa": {
+                "inicio": 1,
+                "fin": 20,
+                "headerIndex": 0
+            },
+            "mastercard": {
+                "inicio": 24,
+                "fin": 38,
+                "headerIndex": 23
+            },
+            "naranja": {
+                "inicio": 42,
+                "fin": 60,
+                "headerIndex": 41
+            },
+            "bancor": {
+                "inicio": 64,
+                "fin": 76,
+                "headerIndex": 63
+            },
+            "otros": {
+                "inicio": 79,
+                "fin": 90,
+                "headerIndex": 78
+            },
+            "ml": {
+                "inicio": 104,
+                "fin": 107,
+                "headerIndex": 103
+            }
+        },
+        "2025": {
+            "visa": {
+                "inicio": 1,
+                "fin": 20,
+                "headerIndex": 0
+            },
+            "mastercard": {
+                "inicio": 24,
+                "fin": 37,
+                "headerIndex": 23
+            },
+            "naranja": {
+                "inicio": 41,
+                "fin": 59,
+                "headerIndex": 40
+            },
+            "bancor": {
+                "inicio": 63,
+                "fin": 74,
+                "headerIndex": 62
+            },
+            "otros": {
+                "inicio": 77,
+                "fin": 88,
+                "headerIndex": 76
+            },
+            "ml": {
+                "inicio": 102,
+                "fin": 104,
+                "headerIndex": 101
+            }
+        },
+        "2024": {
+            "visa": {
+                "inicio": 1,
+                "fin": 20,
+                "headerIndex": 0
+            },
+            "mastercard": {
+                "inicio": 24,
+                "fin": 36,
+                "headerIndex": 23
+            },
+            "naranja": {
+                "inicio": 40,
+                "fin": 58,
+                "headerIndex": 39
+            },
+            "bancor": {
+                "inicio": 62,
+                "fin": 72,
+                "headerIndex": 61
+            },
+            "otros": {
+                "inicio": 75,
+                "fin": 86,
+                "headerIndex": 74
+            },
+            "ml": {
+                "inicio": 100,
+                "fin": 102,
+                "headerIndex": 99
+            }
+        },
+        "2023": {
+            "visa": {
+                "inicio": 1,
+                "fin": 20,
+                "headerIndex": 0
+            },
+            "mastercard": {
+                "inicio": 24,
+                "fin": 35,
+                "headerIndex": 23
+            },
+            "naranja": {
+                "inicio": 39,
+                "fin": 57,
+                "headerIndex": 38
+            },
+            "bancor": {
+                "inicio": 61,
+                "fin": 70,
+                "headerIndex": 60
+            },
+            "otros": {
+                "inicio": 74,
+                "fin": 84,
+                "headerIndex": 73
+            },
+            "ml": {
+                "inicio": 102,
+                "fin": 104,
+                "headerIndex": 101
+            }
+        },
+        "2022": {
+            "visa": {
+                "inicio": 1,
+                "fin": 20,
+                "headerIndex": 0
+            },
+            "mastercard": {
+                "inicio": 25,
+                "fin": 35,
+                "headerIndex": 24
+            },
+            "naranja": {
+                "inicio": 39,
+                "fin": 57,
+                "headerIndex": 38
+            },
+            "otros": {
+                "inicio": 61,
+                "fin": 71,
+                "headerIndex": 60
+            },
+            "ml": {
+                "inicio": 102,
+                "fin": 104,
+                "headerIndex": 101
+            }
+        }
+    },
+    "mesesExtraPorAnio": {
+        "2026": [
+            "Enero_2027",
+            "Febrero_2027"
+        ],
+        "2025": [
+            "Enero_2026",
+            "Febrero_2026"
+        ],
+        "2024": [
+            "Enero_2025",
+            "Febrero_2025"
+        ],
+        "2023": [
+            "Enero_2024",
+            "Febrero_2024"
+        ],
+        "2022": [
+            "Enero_2023",
+            "Febrero_2023"
+        ]
+    },
+    "filasTablaAnualPorAnio": {
+        "2026": 84,
+        "2025": 84,
+        "2024": 83,
+        "2023": 82,
+        "2022": 82
+    },
+    "celdaIngresoNeto": "K21",
+    "celdaIngresoNetoPorAnio": {
+        "2026": "K21",
+        "2025": "K21",
+        "2024": "K21",
+        "2023": "K21",
+        "2022": "K21"
+    }
+}

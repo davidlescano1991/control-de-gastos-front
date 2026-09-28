@@ -1,0 +1,306 @@
+mat-card {
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 16px;
+  background-color: #ffffff;
+}
+
+mat-card-header.card-header-wrapper {
+  background-color: #5c6b73;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  padding: 12px 16px;
+
+  mat-card-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: white;
+    margin: 0;
+    text-align: center;
+    width: 100%;
+  }
+
+  .btn-collapse-card {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    transition: transform 0.2s ease;
+
+    &.collapsed {
+      transform: translateY(-50%) rotate(180deg);
+    }
+  }
+}
+
+.pill-total-actual {
+  background-color: #16a34a;
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 18px;
+  text-align: right;
+  padding: 8px 16px;
+  margin: 12px 16px 4px 16px;
+  border-radius: 6px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.tabla-movimientos {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin-top: 8px;
+
+  thead {
+    tr.header-excel,
+    tr {
+      background-color: #768699;
+
+      th {
+        padding: 10px 14px;
+        font-weight: 700;
+        font-size: 13px;
+        color: #ffffff;
+        background-color: #768699;
+        border-bottom: 2px solid #5a6878;
+        letter-spacing: 0.3px;
+
+        &.th-mes {
+          text-align: left;
+        }
+
+        &.th-subtotal {
+          text-align: right;
+        }
+      }
+    }
+  }
+
+  tbody {
+    tr {
+      background-color: #ffffff;
+
+      td {
+        padding: 10px 14px;
+        border-bottom: 1px solid #f1f5f9;
+        color: #1e293b;
+        vertical-align: middle;
+        box-sizing: border-box;
+
+        &.td-mes {
+          text-align: left;
+
+          .td-mes-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+          }
+        }
+
+        &.td-monto {
+          text-align: right;
+          font-weight: 600;
+        }
+      }
+
+      &.mes-pasado {
+        background-color: #e6f4ea;
+
+        td {
+          background-color: #e6f4ea;
+          color: #137333;
+          border-bottom-color: #b7e1cd;
+        }
+
+        .mes-label {
+          color: #137333;
+          font-weight: 600;
+        }
+
+        td.td-monto {
+          color: #137333;
+          font-weight: 700;
+        }
+      }
+
+      &.mes-actual,
+      &.fila-mes-actual {
+        background-color: #fef7e0;
+        font-weight: bold;
+
+        td {
+          background-color: #fef7e0;
+          color: #b06000;
+          border-bottom-color: #fdd663;
+        }
+
+        .mes-label {
+          color: #b06000;
+          font-weight: 700;
+        }
+
+        td.td-monto {
+          color: #b06000;
+          font-weight: 700;
+        }
+      }
+
+      &.mes-futuro {
+        background-color: #ffffff;
+
+        td {
+          background-color: #ffffff;
+          color: #475569;
+          border-bottom-color: #f1f5f9;
+        }
+
+        .mes-label {
+          color: #475569;
+        }
+
+        td.td-monto {
+          color: #1e293b;
+        }
+      }
+    }
+  }
+}
+
+.tag-actual {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-left: 8px;
+  text-transform: uppercase;
+  font-weight: bold;
+  background-color: #b06000;
+  color: white;
+}
+
+.spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 40px;
+}
+
+:host-context(body.dark-mode) {
+  mat-card {
+    background-color: #1e293b;
+    border-color: #334155;
+  }
+
+  mat-card-header.card-header-wrapper {
+    background-color: #334155;
+    color: #ffffff;
+  }
+
+  .tabla-movimientos {
+    thead tr.header-excel,
+    thead tr {
+      background-color: #0f172a;
+
+      th,
+      th.th-mes,
+      th.th-subtotal {
+        background-color: #0f172a;
+        color: #cbd5e1;
+        border-bottom: 2px solid #334155;
+      }
+    }
+
+    tbody tr {
+      &.mes-pasado {
+        background-color: rgba(6, 78, 59, 0.35) !important;
+
+        td {
+          background-color: rgba(6, 78, 59, 0.35) !important;
+          color: #e2e8f0 !important;
+          border-bottom-color: #064e3b !important;
+        }
+
+        .mes-label {
+          color: #34d399 !important;
+          font-weight: 700 !important;
+        }
+
+        td.td-monto {
+          color: #34d399 !important;
+          font-weight: 700 !important;
+        }
+      }
+
+      &.mes-actual,
+      &.fila-mes-actual {
+        background-color: rgba(120, 53, 15, 0.45) !important;
+
+        td {
+          background-color: rgba(120, 53, 15, 0.45) !important;
+          color: #ffffff !important;
+          border-bottom-color: #f59e0b !important;
+        }
+
+        .mes-label {
+          color: #fbbf24 !important;
+          font-weight: 800 !important;
+        }
+
+        td.td-monto {
+          color: #fde047 !important;
+          font-weight: 700 !important;
+        }
+
+        .tag-actual {
+          background-color: #f59e0b !important;
+          color: #451a03 !important;
+          font-weight: 800 !important;
+        }
+      }
+
+      &.mes-futuro {
+        background-color: #1e293b !important;
+
+        &:nth-child(even) {
+          background-color: #162032 !important;
+          td {
+            background-color: #162032 !important;
+          }
+        }
+
+        td {
+          background-color: #1e293b !important;
+          color: #cbd5e1 !important;
+          border-bottom-color: #334155 !important;
+        }
+
+        .mes-label {
+          color: #cbd5e1 !important;
+        }
+
+        td.td-monto {
+          color: #f8fafc !important;
+          font-weight: 600 !important;
+        }
+      }
+    }
+  }
+}

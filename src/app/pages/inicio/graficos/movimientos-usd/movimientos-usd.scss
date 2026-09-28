@@ -1,0 +1,106 @@
+.movimientos-wrapper {
+  width: 100%;
+  max-width: 100%;
+  padding: 24px 16px;
+  margin: 0 auto 20px;
+  margin-top: 20px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  font-family: 'Inter', sans-serif;
+  box-sizing: border-box;
+
+  &.is-collapsed-horiz {
+    padding: 12px 6px;
+    .card-header-wrapper {
+      margin-bottom: 0;
+      flex-direction: column;
+      gap: 8px;
+      align-items: center;
+      h2 {
+        font-size: 14px;
+        margin-bottom: 0;
+      }
+    }
+  }
+}
+
+.card-header-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f1f5f9;
+
+  h2 {
+    margin: 0 12px;
+    font-size: 20px;
+    font-weight: 700;
+    color: #1e293b;
+    letter-spacing: -0.3px;
+    text-align: center;
+    flex: 1;
+  }
+}
+
+.btn-header-action {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #64748b;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+
+  &:hover {
+    background: #ffffff;
+    color: #1565c0;
+    border-color: #90caf9;
+    box-shadow: 0 3px 8px rgba(21, 101, 192, 0.15);
+    transform: translateY(-1px);
+  }
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.grafico-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  padding: 0 12px;
+
+  canvas {
+    display: block;
+    width: 100% !important;
+    max-width: 100%;
+    height: auto !important;
+  }
+
+  @media (max-width: 767px) {
+    min-height: 210px; // 👈 fuerza altura en móvil
+  }
+
+  @media (min-width: 768px) {
+    min-height: 400px;
+  }
+}
+
+.spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 120px;
+  width: 100%;
+}

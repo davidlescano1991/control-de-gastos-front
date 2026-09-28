@@ -1,0 +1,48 @@
+<div [class.is-collapsed]="isCollapsed()">
+  <div *ngIf="isCargando; else lista" class="spinner-wrapper">
+    <mat-spinner diameter="40" strokeWidth="4" color="primary"></mat-spinner>
+  </div>
+  <ng-template #lista>
+    <div class="tabla-wrapper">
+      <table class="tabla-fechas" aria-label="Rendimientos Positivos Mensuales">
+        <thead>
+          <tr>
+            <th colspan="100" class="col-header-rendimientos">
+              <div class="card-header-wrapper" style="margin-bottom: 0;">
+                <span>Rendimientos positivos mensuales</span>
+                <button
+                  type="button"
+                  class="btn-collapse-card"
+                  [class.collapsed]="isCollapsed()"
+                  (click)="toggleCollapse()"
+                  [title]="isCollapsed() ? 'Expandir Rendimientos Positivos' : 'Contraer Rendimientos Positivos'"
+                >
+                  <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
+                    <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+                  </svg>
+                </button>
+              </div>
+            </th>
+          </tr>
+        </thead>
+        <tbody *ngIf="!isCollapsed() && filas && filas.length > 0">
+          <tr
+            *ngFor="let fila of filas; let i = index"
+            [ngClass]="obtenerEstadoMes(fila.nombreFila, i)"
+          >
+            <td class="col-sticky-mes col-body-mes font-medium">
+              <span class="mes-label">{{ fila.nombreFila }}</span>
+            </td>
+            <td *ngFor="let cat of categorias" class="texto-derecha col-valor">
+              <span [ngStyle]="obtenerStyleRendimiento(fila.valores[cat])">
+                {{ porcentajeRestanteFinal(fila.valores[cat]) | number: '1.2-2' }} %
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </ng-template>
+</div>
+
+

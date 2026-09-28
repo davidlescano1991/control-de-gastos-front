@@ -1,0 +1,28 @@
+
+<div class="movimientos-wrapper" [class.is-collapsed]="isCollapsed()">
+  <div class="card-header-wrapper">
+    <h3>Gráfico Histórico Estimativo</h3>
+    <button
+      type="button"
+      class="btn-collapse-card"
+      [class.collapsed]="isCollapsed()"
+      (click)="toggleCollapse()"
+      [title]="isCollapsed() ? 'Expandir Gráfico Histórico' : 'Contraer Gráfico Histórico'"
+    >
+      <svg class="icon-triangle" viewBox="0 0 24 24" width="24" height="24">
+        <path fill="currentColor" d="M7 10l5 5 5-5z" />
+      </svg>
+    </button>
+  </div>
+  <ng-container *ngIf="!isCollapsed()">
+    <div class="spinner" *ngIf="isCargando; else grafico">
+      <mat-spinner diameter="40"></mat-spinner>
+    </div>
+    <ng-template #grafico>
+      <div class="grafico-wrapper">
+        <canvas baseChart [data]="chartData" [options]="chartOptions" [plugins]="chartPlugins" [type]="'line'"></canvas>
+      </div>
+    </ng-template>
+  </ng-container>
+</div>
+

@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Control de Gastos</title>
+    <script>
+      (function () {
+        var pathSegmentsToKeep = 1;
+        var location = window.location;
+        var origin =
+          location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '');
+        var pathSegments = location.pathname.split('/').filter(Boolean);
+        var repoBase =
+          pathSegmentsToKeep > 0 ? '/' + pathSegments.slice(0, pathSegmentsToKeep).join('/') : '';
+        var routePath = pathSegments.slice(pathSegmentsToKeep).join('/');
+        var redirectUrl = origin + repoBase + '/?/' + routePath;
+
+        if (location.search) {
+          redirectUrl += '&' + location.search.slice(1).replace(/&/g, '~and~');
+        }
+
+        if (location.hash) {
+          redirectUrl += location.hash;
+        }
+
+        location.replace(redirectUrl);
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>

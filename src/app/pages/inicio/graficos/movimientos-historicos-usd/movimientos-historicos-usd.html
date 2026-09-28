@@ -1,0 +1,26 @@
+<div class="movimientos-wrapper" [class.is-collapsed]="isCollapsed()">
+  <div class="card-header-wrapper">
+    <h2>Movimientos Históricos USD</h2>
+    <button
+      type="button"
+      class="btn-collapse-card"
+      [class.collapsed]="isCollapsed()"
+      (click)="toggleCollapse()"
+      [title]="isCollapsed() ? 'Expandir Movimientos Históricos USD' : 'Contraer Movimientos Históricos USD'"
+    >
+      <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
+        <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+      </svg>
+    </button>
+  </div>
+  <ng-container *ngIf="!isCollapsed()">
+    @if (!isCargando && hasData()) {
+      <div class="grafico-wrapper">
+        <canvas baseChart [data]="chartDataUSD" [options]="chartOptionsUSD" [plugins]="chartPlugins" [type]="'line'"> </canvas>
+      </div>
+    } @else {
+      <div class="spinner"><mat-spinner diameter="40"></mat-spinner></div>
+    }
+  </ng-container>
+</div>
+

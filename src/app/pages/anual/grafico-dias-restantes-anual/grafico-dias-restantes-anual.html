@@ -1,0 +1,57 @@
+<div class="movimientos-wrapper" [class.is-collapsed]="isCollapsed()">
+  <div class="card-header-wrapper">
+    <h3>
+      Días transcurridos: {{ getDiasTranscurridos() }} / {{ getTotalDias() }}
+      (<span class="porcentaje-badge" [style.--porcentaje-color]="getColorPorcentaje(porcentajeMostrar)" [style.color]="getColorPorcentaje(porcentajeMostrar)">{{ porcentajeMostrar.toFixed(2) }}%</span>)
+    </h3>
+    <button
+      type="button"
+      class="btn-collapse-card"
+      [class.collapsed]="isCollapsed()"
+      (click)="toggleCollapse()"
+      [title]="isCollapsed() ? 'Expandir Días Transcurridos' : 'Contraer Días Transcurridos'"
+    >
+      <svg class="icon-triangle" viewBox="0 0 24 24" width="24" height="24">
+        <path fill="currentColor" d="M7 10l5 5 5-5z" />
+      </svg>
+    </button>
+  </div>
+
+  <ng-container *ngIf="!isCollapsed()">
+    <div class="termometro-container">
+      <!-- Leyenda superior -->
+      <div class="termometro-legend">
+        <div class="legend-item">
+          <span class="legend-box green"></span>
+          <span class="legend-label">Transcurrido</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-box red"></span>
+          <span class="legend-label">Restante</span>
+        </div>
+      </div>
+
+      <!-- Barra Termómetro -->
+      <div class="termometro-row">
+        <div class="termometro-label">{{ getLabel() }}</div>
+        <div class="termometro-track-wrapper">
+          <div class="termometro-track">
+            <!-- Barra verde que se llena fluidamente sobre el fondo rojo -->
+            <div
+              class="termometro-fill"
+              [style.width.%]="porcentajeAnimado"
+              [style.--termometro-duration]="(animationDurationMs / 1000) + 's'"
+              [class.animating]="isAnimating"
+            ></div>
+          </div>
+          <!-- Eje de marcas numéricas -->
+          <div class="termometro-axis">
+            <span *ngFor="let tick of ticks" [style.left.%]="(tick / totalDias) * 100">
+              {{ tick }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</div>

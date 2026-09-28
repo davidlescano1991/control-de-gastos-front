@@ -1,0 +1,36 @@
+<div class="movimientos-wrapper" [class.is-collapsed]="isCollapsed()">
+  <div class="card-header-wrapper">
+    <h3>Histórico Deuda Total USD</h3>
+    <button
+      type="button"
+      class="btn-collapse-card"
+      [class.collapsed]="isCollapsed()"
+      (click)="toggleCollapse()"
+      [title]="isCollapsed() ? 'Expandir Histórico Deuda Total USD' : 'Contraer Histórico Deuda Total USD'"
+    >
+      <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
+        <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+      </svg>
+    </button>
+  </div>
+
+  <ng-container *ngIf="!isCollapsed()">
+    <div
+      *ngIf="isCargando() || isCargandoInput || !datos || datos.length === 0; else chartTpl"
+      class="spinner-wrapper"
+    >
+      <mat-spinner diameter="40" strokeWidth="4" color="primary"></mat-spinner>
+    </div>
+    <ng-template #chartTpl>
+      <div class="grafico-wrapper">
+        <canvas
+          baseChart
+          [data]="chartData"
+          [options]="chartOptions"
+          [plugins]="chartPlugins"
+          [type]="'line'"
+        ></canvas>
+      </div>
+    </ng-template>
+  </ng-container>
+</div>

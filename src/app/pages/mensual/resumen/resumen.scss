@@ -1,0 +1,117 @@
+.tabla-resumen-card {
+  margin-top: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  background-color: #ffffff;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.tabla-resumen-container {
+  max-height: 500px;
+  overflow: auto;
+  border: 1px solid #dee2e6;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+
+    th,
+    td {
+      padding: 10px;
+      white-space: nowrap;
+      border-bottom: 1px solid #dee2e6;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background-color: #f1f3f5;
+      font-weight: 600;
+      text-align: center;
+      box-shadow: inset 0 -1px 0 #dee2e6;
+    }
+
+    .col-sticky {
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      background-color: #f8f9fa;
+      text-align: left;
+      min-width: 160px;
+      max-width: 160px;
+      box-shadow: inset -1px 0 0 #dee2e6;
+    }
+
+    .entidad-visa,
+    .entidad-mastercard {
+      background-color: #768699 !important;
+      color: #ffffff !important;
+      font-weight: bold;
+    }
+
+    .entidad-naranja {
+      background-color: #ff8104 !important;
+      color: #ffffff !important;
+      font-weight: bold;
+    }
+
+    .entidad-bancor {
+      background-color: #005f5a !important;
+      color: #ffffff !important;
+      font-weight: bold;
+    }
+
+    .entidad-ml {
+      background-color: #f8cb01 !important;
+      color: #ffffff !important;
+      font-weight: bold;
+    }
+
+    .entidad-otros {
+      background-color: #c10090 !important;
+      color: #ffffff !important;
+      font-weight: bold;
+    }
+
+    th.col-sticky {
+      z-index: 3;
+      background-color: #f1f3f5;
+    }
+
+    td:not(.col-sticky) {
+      text-align: right;
+    }
+
+    .fila-total {
+      position: sticky;
+      bottom: 0;
+      z-index: 2;
+      background-color: #e9f7ef;
+      font-weight: bold;
+      box-shadow:
+        inset 0 1px 0 #dee2e6,
+        inset 0 -1px 0 #dee2e6;
+
+      td {
+        color: #2e7d32;
+        background-color: #e9f7ef;
+      }
+
+      td.col-sticky {
+        z-index: 3;
+        background-color: #e9f7ef;
+      }
+    }
+  }
+}

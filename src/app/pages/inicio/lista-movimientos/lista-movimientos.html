@@ -1,0 +1,38 @@
+<div class="movimientos-wrapper">
+  <h2>Saldos Diarios</h2>
+
+  <div *ngIf="!isCargando(); else cargando">
+    <table class="tabla-movimientos">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Tipo</th>
+          <th>Monto</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (mov of paginaActual(); track $index) {
+        <tr>
+          <td data-label="Fecha">{{ mov.fecha | date }}</td>
+          <td data-label="Tipo">{{ mov.tipo }}</td>
+          <td class="texto-derecha" data-label="Monto">{{ mov.monto | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</td>
+        </tr>
+        }@empty {
+        <tr>
+          <td colspan="3">No hay movimientos registrados</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+    <mat-paginator [length]="movimientos().length" [pageSize]="17" [pageSizeOptions]="[17,34, 60, 90, 120,365]"
+      (page)="onPageChange($event)">
+    </mat-paginator>
+  </div>
+
+  <ng-template #cargando>
+    <div class="spinner">
+      <mat-spinner diameter="40"></mat-spinner>
+    </div>
+
+  </ng-template>
+</div>

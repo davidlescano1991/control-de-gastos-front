@@ -1,0 +1,88 @@
+<div class="app-shell">
+  <mat-toolbar color="primary">
+    <span class="titulo-toolbar" routerLink="/" title="Control de Gastos">
+      <div class="icono-container">
+        <img src="assets/9346204.png" alt="Icono" class="icono-toolbar" />
+        <span class="icono-glow"></span>
+      </div>
+      <span class="titulo-texto">Control de Gastos - DML</span>
+    </span>
+    <span class="spacer"></span>
+
+    <!-- Indicador de Tiempo Real SSE -->
+    <div class="sse-status-badge" [class.online]="sseService.isConnected()" 
+         [title]="sseService.isConnected() ? 'Conectado a la API 2.0 en tiempo real' : 'Sin conexión con la API'">
+      <span class="sse-dot"></span>
+      <span class="sse-text">{{ sseService.isConnected() ? 'En Tiempo Real' : 'API Desconectada' }}</span>
+    </div>
+
+    <!-- Navegación para Escritorio -->
+    <ng-container *ngIf="!isMobile">
+      <button mat-button routerLink="/">Inicio</button>
+      <button mat-button routerLink="/mensual">Mensual</button>
+      <button mat-button routerLink="/estimativo">Estimativos</button>
+      <button mat-button routerLink="/anual">Anual</button>
+      <button mat-icon-button (click)="recargarDatos()" title="Recargar datos desde Google Sheets" aria-label="Recargar datos desde Google Sheets">
+        <mat-icon>refresh</mat-icon>
+      </button>
+      <button mat-icon-button (click)="toggleDarkMode()" class="btn-theme-toggle"
+        [title]="isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo noche'"
+        [attr.aria-label]="isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo noche'">
+        <mat-icon class="moon-icon">{{ isDarkMode ? 'light_mode' : 'dark_mode' }}</mat-icon>
+      </button>
+    </ng-container>
+
+    <!-- Menú Desplegable para Celulares -->
+    <ng-container *ngIf="isMobile">
+      <button mat-icon-button (click)="recargarDatos()" title="Recargar datos desde Google Sheets" aria-label="Recargar datos desde Google Sheets">
+        <mat-icon>refresh</mat-icon>
+      </button>
+
+      <button mat-icon-button (click)="toggleDarkMode()" class="btn-theme-toggle mobile-toggle"
+        [title]="isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo noche'"
+        [attr.aria-label]="isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo noche'">
+        <mat-icon class="moon-icon">{{ isDarkMode ? 'light_mode' : 'dark_mode' }}</mat-icon>
+      </button>
+
+      <button mat-icon-button [matMenuTriggerFor]="menuNav" aria-label="Abrir menú de navegación"
+        class="btn-menu-mobile">
+        <mat-icon>menu</mat-icon>
+      </button>
+
+      <mat-menu #menuNav="matMenu" class="menu-navegacion-mobile" xPosition="before">
+        <button mat-menu-item routerLink="/">
+          <mat-icon color="primary">home</mat-icon>
+          <span>Inicio</span>
+        </button>
+        <button mat-menu-item routerLink="/mensual">
+          <mat-icon color="primary">calendar_view_month</mat-icon>
+          <span>Mensual</span>
+        </button>
+        <button mat-menu-item routerLink="/estimativo">
+          <mat-icon color="primary">assessment</mat-icon>
+          <span>Estimativos</span>
+        </button>
+        <button mat-menu-item routerLink="/anual">
+          <mat-icon color="primary">date_range</mat-icon>
+          <span>Anual</span>
+        </button>
+        <button mat-menu-item (click)="recargarDatos()">
+          <mat-icon color="primary">refresh</mat-icon>
+          <span>Recargar datos</span>
+        </button>
+        <button mat-menu-item (click)="toggleDarkMode()">
+          <mat-icon color="primary">{{ isDarkMode ? 'light_mode' : 'dark_mode' }}</mat-icon>
+          <span>{{ isDarkMode ? 'Modo Claro' : 'Modo Noche' }}</span>
+        </button>
+      </mat-menu>
+    </ng-container>
+  </mat-toolbar>
+
+  <main class="app-content">
+    <router-outlet></router-outlet>
+  </main>
+
+  <footer class="app-footer">
+    <span class="app-version">{{ appVersion }}</span>
+  </footer>
+</div>

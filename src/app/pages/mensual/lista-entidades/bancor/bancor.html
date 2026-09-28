@@ -1,0 +1,95 @@
+<!-- Spinner mientras no hay datos -->
+<!-- <div *ngIf="isCargando(); else lista" class="spinner-wrapper">
+    <mat-spinner diameter="40" strokeWidth="4" color="primary"></mat-spinner>
+</div>
+<ng-template #lista>
+    <mat-card class="example-card" appearance="outlined" *ngIf="!isCargando() && datosMes().length > 0">
+        <mat-card-header>
+            <mat-card-title>{{ headers()[0] }}</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+            <table class="tabla-movimientos" *ngIf="datosMes().length > 0">
+
+                <tbody>
+                    <tr *ngFor="let fila of datosMes()">
+                        <td>{{ fila.descripcion }}
+                            <span *ngIf="esNuevo(fila.descripcion)" class="tag-notificacion nuevo">¡nuevo!</span>
+                            <span *ngIf="esUltima(fila.descripcion)" class="tag-notificacion ultimo">¡ultima!</span>
+                        </td>
+                        <td>
+                            {{ fila.monto }}
+                            
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </mat-card-content>
+        <mat-card-actions *ngIf="totalMes() > 0" class="acciones-total">
+            <div class="total-row">
+                <div class="total-label">
+                    <strong>Total</strong>
+                </div>
+                <div class="total-value">
+                    <strong>{{ totalMes() | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>
+                </div>
+                <p *ngIf="datosMes().length === 0">No hay datos para este mes.</p>
+            </div>
+        </mat-card-actions>
+    </mat-card>
+
+</ng-template> -->
+<div class="spinner" *ngIf="isCargando; else lista">
+  <mat-spinner diameter="40"></mat-spinner>
+</div>
+
+<ng-template #lista>
+  <mat-card class="example-card" appearance="outlined" *ngIf="datosMes().length > 0" [class.is-collapsed]="isCollapsed()">
+    <mat-card-header class="card-header-wrapper">
+      <img src="assets/logos/bancor.png" alt="Bancor" class="entidad-logo" />
+      <mat-card-title>{{ entidad }}</mat-card-title>
+      <button
+        type="button"
+        class="btn-collapse-card"
+        [class.collapsed]="isCollapsed()"
+        (click)="toggleCollapse()"
+        [title]="isCollapsed() ? 'Expandir ' + entidad : 'Contraer ' + entidad"
+      >
+        <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
+          <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+        </svg>
+      </button>
+    </mat-card-header>
+
+    <ng-container *ngIf="!isCollapsed()">
+      <mat-card-content>
+        <table class="tabla-movimientos">
+          <tbody>
+            <tr *ngFor="let fila of datosMes()">
+              <td>
+                {{ fila['descripcion'] }}
+                <span *ngIf="esNuevo(fila.descripcion)" class="tag-notificacion nuevo">¡nuevo!</span>
+                <span *ngIf="esUltima(fila.descripcion)" class="tag-notificacion ultimo">¡última!</span>
+              </td>
+              <td>{{ fila['monto'] }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </mat-card-content>
+
+      <mat-card-actions *ngIf="totalMes() > 0" class="acciones-total">
+        <div class="total-row">
+          <div class="total-label"><strong>Total</strong></div>
+          <div class="total-value">
+            <strong>{{ totalMes() | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>
+          </div>
+        </div>
+      </mat-card-actions>
+    </ng-container>
+  </mat-card>
+
+  <mat-card class="alert-card warning" *ngIf="!isCargando && datosMes().length === 0">
+    <mat-card-content>
+      <strong>- Atención:</strong> No hay datos para este mes en <strong>{{ entidad }}</strong>.
+    </mat-card-content>
+  </mat-card>
+</ng-template>

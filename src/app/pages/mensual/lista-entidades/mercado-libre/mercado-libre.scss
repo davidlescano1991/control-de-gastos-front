@@ -1,0 +1,166 @@
+html,
+body {
+  overflow-y: hidden;
+}
+
+.movimientos-wrapper {
+  padding: 30px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  overflow-y: unset;
+  max-height: unset;
+
+  h2 {
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 24px;
+    color: #2c3e50;
+  }
+}
+
+.tabla-movimientos {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+
+  thead {
+    background-color: #f0f4f8;
+
+    th {
+      text-align: center;
+      padding: 14px;
+      color: #fffcfc;
+      font-weight: 500 bold;
+      border-bottom: 2px solid #dfe6e9;
+      background-color: #768699;
+    }
+  }
+
+  tbody {
+    tr {
+      &:nth-child(even) {
+        background-color: #f9fbfc;
+      }
+
+      td {
+        padding: 10px;
+        border-bottom: 1px solid #ecf0f1;
+        color: #2d3436;
+      }
+
+      td:first-child {
+        text-align: left;
+      }
+
+      td:nth-child(2) {
+        text-align: right;
+      }
+    }
+  }
+}
+
+.fila-total {
+  background-color: #9197e7 !important;
+  color: #ffffff;
+  font-weight: bold;
+
+  td {
+    padding: 8px;
+  }
+
+  td:first-child {
+    text-align: left;
+  }
+
+  td:nth-child(2) {
+    text-align: right;
+  }
+
+  strong {
+    color: #ffffff;
+  }
+}
+
+mat-card {
+  border-radius: 8px;
+  overflow: hidden; // ✅ asegura que los hijos respeten el borde
+}
+
+mat-card-header {
+  background-color: var(--color-entidad-ml, #f8cb01) !important;
+  color: rgb(255, 255, 255) !important;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid #444;
+}
+
+mat-card-title {
+  font-size: 1.2rem;
+  font-weight: bold;
+  width: 100%;
+  text-align: center;
+  color: inherit; // hereda el blanco del header
+}
+
+.acciones-total {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px;
+  background-color: #9197e7;
+  border-top: 1px solid #ddd;
+}
+
+.total-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.total-label {
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.total-value {
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.tag-notificacion {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-left: 6px;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.tag-notificacion.ultimo {
+  background-color: #28a745;
+  color: white;
+}
+
+.tag-notificacion.nuevo {
+  background-color: #dc3545;
+  color: white;
+}
+
+.alert-card.warning {
+  background-color: #fff3cd;
+  color: #856404;
+  border-left: 5px solid #ffc107;
+  margin: 12px 0;
+  padding: 12px;
+  box-shadow: none;
+}
+
+.spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin: 50px;
+}

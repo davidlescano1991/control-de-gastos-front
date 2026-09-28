@@ -1,0 +1,188 @@
+.movimientos-wrapper {
+  margin: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16px 24px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  font-family: 'Inter', sans-serif;
+
+  &.is-collapsed {
+    padding-bottom: 16px;
+  }
+}
+
+.card-header-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+    text-align: center;
+    flex: 1;
+
+    .porcentaje-badge {
+      font-weight: 800 !important;
+      color: var(--porcentaje-color, #22c55e) !important;
+      display: inline-block;
+    }
+  }
+}
+
+.termometro-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding-top: 4px;
+}
+
+.termometro-legend {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  font-size: 12px;
+  color: #64748b;
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    .legend-box {
+      width: 14px;
+      height: 10px;
+      border-radius: 2px;
+
+      &.green {
+        background-color: #22c55e;
+      }
+      &.red {
+        background-color: #ef4444;
+      }
+    }
+  }
+}
+
+.termometro-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
+.termometro-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  white-space: nowrap;
+  min-width: 110px;
+}
+
+.termometro-track-wrapper {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.termometro-track {
+  position: relative;
+  width: 100%;
+  height: 20px;
+  background-color: #ef4444; /* Fondo 100% rojo inicial */
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.termometro-fill {
+  height: 100%;
+  background-color: #22c55e; /* Relleno verde que avanza */
+  width: 0%;
+  border-right: 1.5px solid rgba(0, 0, 0, 0.15);
+
+  &.animating {
+    transition: width var(--termometro-duration, 1.3s) cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+.termometro-axis {
+  position: relative;
+  width: 100%;
+  height: 14px;
+
+  span {
+    position: absolute;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: #64748b;
+    font-family: inherit;
+
+    &:first-child {
+      transform: translateX(0);
+    }
+    &:last-child {
+      transform: translateX(-100%);
+    }
+  }
+}
+
+/* Modo oscuro */
+:host-context(body.dark-mode) {
+  .movimientos-wrapper {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+  }
+
+  .card-header-wrapper h3 {
+    color: #f8fafc;
+
+    .porcentaje-badge {
+      color: var(--porcentaje-color, #4ade80) !important;
+    }
+  }
+
+  .termometro-legend {
+    color: #94a3b8;
+
+    .legend-item .legend-box {
+      &.green {
+        background-color: #4ade80;
+      }
+      &.red {
+        background-color: #f87171;
+      }
+    }
+  }
+
+  .termometro-label {
+    color: #cbd5e1;
+  }
+
+  .termometro-track {
+    background-color: #f87171; /* Rojo claro vibrante en dark mode */
+  }
+
+  .termometro-fill {
+    background-color: #4ade80; /* Verde claro vibrante en dark mode */
+  }
+
+  .termometro-axis span {
+    color: #94a3b8;
+  }
+}

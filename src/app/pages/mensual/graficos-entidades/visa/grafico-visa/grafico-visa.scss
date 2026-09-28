@@ -1,0 +1,25 @@
+.tabla-resumen-card {
+  margin-top: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  background-color: #ffffff;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 20px 0;
+}
+
+.grafico-wrapper {
+  position: relative;
+  width: 100%;
+  height: 280px;
+  padding: 8px 0 0 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}

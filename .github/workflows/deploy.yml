@@ -1,0 +1,48 @@
+name: Build and Deploy proyecto Angular
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout de repo privado
+        uses: actions/checkout@v3
+
+      - name: Setup Node 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Enable corepack and setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
+      - name: Instalacion de dependencias (pnpm)
+        run: pnpm install --frozen-lockfile
+
+      - name: Verificar pnpm antes de auditoría (pre-audit)
+        run: pnpm -v
+
+      - name: Ejecutar auditoría de dependencias
+        run: pnpm audit --audit-level=moderate || true
+
+      - name: Inyectar version de despliegue
+        run: sed -i "s/__APP_VERSION_VALUE__/V1.0.${{ github.run_number }}/g" src/index.html
+
+      - name: Build proyecto Angular
+        run: pnpm exec -- ng build --configuration production --base-href "/"
+
+      - name: Deploy a Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CONTROL_GASTOS }}
+          projectId: control-gastos-472318
+          target: control-gastos-dml
+          channelId: live

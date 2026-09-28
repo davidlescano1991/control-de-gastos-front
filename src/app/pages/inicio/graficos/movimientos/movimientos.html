@@ -1,0 +1,34 @@
+<div class="movimientos-wrapper" [class.is-collapsed]="isCollapsed()">
+  <div class="card-header-wrapper">
+    <button
+      type="button"
+      class="btn-header-action"
+      [class.collapsed]="isCollapsed()"
+      (click)="toggleCollapse()"
+      [title]="isCollapsed() ? 'Expandir Total Diario $' : 'Contraer Total Diario $'"
+    >
+      <mat-icon>{{ isCollapsed() ? 'expand_more' : 'expand_less' }}</mat-icon>
+    </button>
+
+    <h2>Total Diario $</h2>
+
+    <button
+      type="button"
+      class="btn-header-action"
+      (click)="onToggleHorizontalCollapse()"
+      [title]="isColDerechaContraida ? 'Expandir vista' : 'Contraer horizontalmente a la derecha'"
+    >
+      <mat-icon>{{ isColDerechaContraida ? 'chevron_left' : 'chevron_right' }}</mat-icon>
+    </button>
+  </div>
+  <ng-container *ngIf="!isCollapsed()">
+    @if (!isCargando() && isBrowser) {
+      <div class="grafico-wrapper">
+        <canvas baseChart [data]="chartData" [options]="chartOptions" [type]="'line'"> </canvas>
+      </div>
+    } @else {
+      <div class="spinner"><mat-spinner diameter="40"></mat-spinner></div>
+    }
+  </ng-container>
+</div>
+
