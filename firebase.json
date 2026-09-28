@@ -1,7 +1,6 @@
 {
   "hosting": {
     "target": "control-gastos-dml",
-    "site": "control-gastos-dml",
     "public": "dist/control-gastos-front/browser",
     "ignore": [
       "firebase.json",
