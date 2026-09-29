@@ -768,6 +768,14 @@ gantt
   * **6.6.4**: Integración de reactividad con Signals y `effect()` en `Inicio` (`src/app/pages/inicio/inicio.ts`). *(Completado)*
   * **6.6.5**: Autenticación administrativa silenciosa en segundo plano (`ensureAdminAuth`) en `AuthService` para garantizar permisos de escritura autorizados. *(Completado)*
   * **6.6.6**: Verificación y pruebas: fecha `29/09/2026` sincronizada exitosamente con fórmulas aritméticas preservadas. *(Completado)*
+  * **6.6.7**: Protección contra condiciones de carrera e idempotencia estricta (F5 / Limpieza de caché): *(Completado)*
+    * Candado síncrono `syncEnProgreso` en la primera línea de `SyncSheetsDbService` antes de cualquier `await`.
+    * Memoria de sesión `entidadesSincronizadasSesion` (`Set<string>`) para evitar consultas redundantes a la BD durante la misma sesión.
+    * Eliminación del `effect()` redundante en el constructor de `Inicio` para asegurar un flujo de ciclo de vida secuencial y ordenado.
+    * Bloqueo consultivo transaccional en PostgreSQL (`pg_advisory_xact_lock(hashtext(key))`) en `createMovementsBatch`, garantizando que peticiones simultáneas se serialicen y jamás dupliquen registros.
+  * **6.6.8**: Granularidad por Entidad/Día y Omisión de Validación sin Conexión en Vivo: *(Completado)*
+    * **Desconexión de API**: Si la aplicación no está conectada en tiempo real con la API (`!this.sseService.isConnected()`), se omite completamente cualquier validación o llamada (no consulta Google Sheets, no solicita tokens, no procesa lotes).
+    * **Idempotencia a nivel de Entidad**: La verificación se realiza por la tupla única `(fechaISO, entidad)`. Si una entidad ya existe para ese día en la BD, se descarta y no se realiza ninguna acción para ella. Únicamente se insertan aquellas entidades del día que aún no existan en la base de datos.
 
 
 

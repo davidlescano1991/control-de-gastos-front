@@ -27,50 +27,59 @@ export class SyncSheetsDbService {
 
   public isSyncing = signal<boolean>(false);
   public lastSyncStatus = signal<string>('');
+  private syncEnProgreso = false;
+  private entidadesSincronizadasSesion = new Set<string>();
 
   /**
    * Examina la hoja de Google Sheets del año en curso. Si detecta días con saldos
-   * que aún no han sido registrados en la base de datos, los almacena automáticamente
+   * que aún no han sido registrados en la base de datos para esa entidad, los almacena automáticamente
    * en lote con sus fórmulas de función completas.
    */
   async sincronizarMovimientosNuevos(anio: number = new Date().getFullYear()): Promise<SyncResult> {
-    // 1. Verificación: debe estar en línea en tiempo real con la API
+    // 1. Verificación inmediata: si está desconectada de la API en vivo, ni siquiera validar
     if (!this.sseService.isConnected()) {
-      console.log('ℹ️ [SyncSheetsDb] API no conectada en tiempo real. Se omite sincronización automática.');
       return { sincronizados: 0, fechas: [] };
     }
 
-    // 2. Prevenir sincronizaciones simultáneas
-    if (this.isSyncing()) {
+    // 2. Candado síncrono inmediato: evita cualquier condición de carrera antes del primer await
+    if (this.syncEnProgreso || this.isSyncing()) {
       return { sincronizados: 0, fechas: [] };
     }
 
-    // 3. Asegurar credenciales de ADMIN para autorizar la escritura
-    const authOk = await this.authService.ensureAdminAuth();
-    if (!authOk) {
-      console.warn('⚠️ [SyncSheetsDb] No se tienen permisos de ADMIN para sincronizar en la BD.');
-      return { sincronizados: 0, fechas: [] };
-    }
-
+    // Activamos el cerrojo sincrónico antes de llamar a ensureAdminAuth
+    this.syncEnProgreso = true;
     this.isSyncing.set(true);
-    this.lastSyncStatus.set('Comprobando nuevos movimientos en Google Sheets...');
 
     try {
+      // 3. Asegurar credenciales de ADMIN para autorizar la escritura
+      const authOk = await this.authService.ensureAdminAuth();
+      if (!authOk) {
+        console.warn('⚠️ [SyncSheetsDb] No se tienen permisos de ADMIN para sincronizar en la BD.');
+        return { sincronizados: 0, fechas: [] };
+      }
+
+      this.lastSyncStatus.set('Comprobando nuevos movimientos en Google Sheets...');
+
       // 4. Consultar movimientos existentes en la Base de Datos para este año
       const movsBD = await firstValueFrom(this.movimientosService.listarMovimientos({ year: anio }));
-      const fechasEnBD = new Set<string>();
+      // Set de claves únicas existentes en BD con granularidad por entidad: "YYYY-MM-DD_ENTIDAD"
+      const entidadesEnBD = new Set<string>();
 
       if (movsBD && movsBD.length > 0) {
         for (const m of movsBD) {
-          const fechaISO =
-            typeof m.fecha === 'string'
-              ? m.fecha.substring(0, 10)
-              : new Date(m.fecha).toISOString().substring(0, 10);
-          fechasEnBD.add(fechaISO);
+          const ent = (m.entidad || '').trim().toUpperCase();
+          if (!ent) continue;
+
+          if (typeof m.fecha === 'string') {
+            entidadesEnBD.add(`${m.fecha.substring(0, 10)}_${ent}`);
+          }
+          try {
+            entidadesEnBD.add(`${formatFechaISO(m.fecha)}_${ent}`);
+          } catch {}
         }
       }
 
-      console.log(`🔍 [SyncSheetsDb] Fechas actualmente en BD (${anio}): ${fechasEnBD.size}`);
+      console.log(`🔍 [SyncSheetsDb] Movimientos entidad-fecha actualmente en BD (${anio}): ${entidadesEnBD.size}`);
 
       // 5. Consultar Google Sheets tanto con FÓRMULAS como con VALORES FORMATEADOS
       const [resFormulas, resFormatted] = await Promise.all([
@@ -121,11 +130,15 @@ export class SyncSheetsDbService {
         const rowYear = parseInt(fechaISO.substring(0, 4), 10);
         if (rowYear !== anio) continue;
 
-        // Si ya está guardada en la base de datos, ignorar
-        if (fechasEnBD.has(fechaISO)) continue;
-
         const entidad = String(rowF[1] || rowV[1] || '').trim();
         if (!entidad || entidad.toLowerCase() === 'todo' || entidad.toLowerCase() === 'tipo') {
+          continue;
+        }
+
+        const claveEntidadDia = `${fechaISO}_${entidad.toUpperCase()}`;
+
+        // Regla estricta: Si ya está en la BD esa entidad para ese día (o ya fue sincronizada en esta sesión), NO HACE NADA para esa entidad
+        if (entidadesEnBD.has(claveEntidadDia) || this.entidadesSincronizadasSesion.has(claveEntidadDia)) {
           continue;
         }
 
@@ -213,7 +226,11 @@ export class SyncSheetsDbService {
           }
         }
 
-        fechasEnBD.add(grupo.fecha);
+        for (const mov of grupo.movimientos) {
+          const clave = `${grupo.fecha}_${mov.entidad.toUpperCase()}`;
+          entidadesEnBD.add(clave);
+          this.entidadesSincronizadasSesion.add(clave);
+        }
         sincronizadas.push(grupo.fecha);
 
         if (grupo.deuda > 0 && typeof window !== 'undefined') {
@@ -237,6 +254,7 @@ export class SyncSheetsDbService {
       this.lastSyncStatus.set('Error al sincronizar con Google Sheets.');
       return { sincronizados: 0, fechas: [] };
     } finally {
+      this.syncEnProgreso = false;
       this.isSyncing.set(false);
     }
   }

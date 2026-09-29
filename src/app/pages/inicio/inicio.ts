@@ -107,14 +107,6 @@ export class Inicio implements OnInit, OnDestroy {
     this.breakpointObserver.observe([Breakpoints.Handset]).subscribe((result) => {
       this.isMobile = result.matches;
     });
-
-    // Reacción automática: cuando la app esté conectada "En Tiempo Real", sincronizar movimientos nuevos
-    effect(() => {
-      const isOnline = this.sseService.isConnected();
-      if (isOnline && !this.isCargando()) {
-        void this.verificarYSincronizarConBD();
-      }
-    });
   }
   private handleFocus = () => {
     console.log('👁️ Ventana enfocado, refrescando datos desde Google Sheets...');
@@ -224,15 +216,17 @@ export class Inicio implements OnInit, OnDestroy {
   }
 
   private async verificarYSincronizarConBD(): Promise<void> {
-    if (this.sseService.isConnected()) {
-      try {
-        const res = await this.syncSheetsDb.sincronizarMovimientosNuevos(this.anioActual);
-        if (res.sincronizados > 0) {
-          console.log(`✨ [Inicio] ${res.sincronizados} fecha(s) guardadas automáticamente en la BD:`, res.fechas);
-        }
-      } catch (err) {
-        console.warn('⚠️ [Inicio] Error al verificar sincronización con la BD:', err);
+    // Si está desconectada de la API en vivo, ni siquiera validar
+    if (!this.sseService.isConnected()) {
+      return;
+    }
+    try {
+      const res = await this.syncSheetsDb.sincronizarMovimientosNuevos(this.anioActual);
+      if (res.sincronizados > 0) {
+        console.log(`✨ [Inicio] ${res.sincronizados} fecha(s) guardadas automáticamente en la BD:`, res.fechas);
       }
+    } catch (err) {
+      console.warn('⚠️ [Inicio] Error al verificar sincronización con la BD:', err);
     }
   }
 
