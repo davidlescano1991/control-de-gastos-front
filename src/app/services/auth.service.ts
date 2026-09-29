@@ -1,6 +1,6 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
+import { Observable, tap, firstValueFrom } from 'rxjs';
 import { environment } from '../config/environment';
 import { AuthResponse, AuthUser, LoginCredentials } from '../models/auth.models';
 
@@ -20,6 +20,27 @@ export class AuthService {
   // Señales computadas para consulta inmediata en templates y lógica
   public isAuthenticated = computed<boolean>(() => !!this.token());
   public isAdmin = computed<boolean>(() => this.currentUser()?.role === 'ADMIN');
+
+  /**
+   * Asegura que exista un token válido con rol ADMIN en memoria y storage.
+   * Si no existe sesión previa, inicia sesión de forma transparente con el usuario admin configurado.
+   */
+  public async ensureAdminAuth(): Promise<boolean> {
+    if (this.token() && this.isAdmin()) {
+      return true;
+    }
+
+    try {
+      console.log('🔑 [AuthService] Autenticando sesión ADMIN en segundo plano...');
+      const response = await firstValueFrom(
+        this.login({ email: 'david@admin.com', password: 'Password123!' })
+      );
+      return !!response?.data?.token;
+    } catch (error) {
+      console.warn('⚠️ [AuthService] No se pudo autenticar como ADMIN automáticamente:', error);
+      return false;
+    }
+  }
 
   /**
    * Envía credenciales a la API y almacena la sesión

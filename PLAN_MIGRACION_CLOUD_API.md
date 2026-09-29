@@ -751,5 +751,24 @@ gantt
     8. **Totalizador Reactivo**: 3 tarjetas de KPI (Gastos filtrados, Ingresos filtrados y Balance Neto filtrado) que se recalculan automáticamente según los filtros activos.
     9. **Navegación e Integridad Visual**: Incorporación del enlace "Cargar" en el menú de escritorio y móvil, respetando al 100% la estructura del contenedor blanco principal y sombras de `AGENTS.md`.
 
+---
+
+#### 📌 Paso 6.6: Sincronización Automática en Tiempo Real (Google Sheets ➔ Base de Datos con Funciones) (COMPLETADO)
+* **¿Qué es y por qué se hace?**
+  * Para evitar tener que cargar la operatoria diaria dos veces (en la planilla de Google Sheets y en la Web App):
+    1. **Detección Automática en Inicio**: Al abrir la pantalla de **Inicio** y estar conectado a la API en tiempo real (**"• En Tiempo Real"** vía SSE), el sistema compara las fechas cargadas en Google Sheets contra las almacenadas en la base de datos PostgreSQL.
+    2. **Preservación Fiel de Fórmulas y Funciones**: Google Sheets almacena importes como fórmulas aritméticas (ej: `=105,87+58393,95` en Galicia). Mediante `valueRenderOption: 'FORMULA'`, la API de Google Sheets extrae las fórmulas intactas y las persiste en la base de datos dentro del campo `descripcion` con el formato `[fx: =105,87+58393,95]`, a la vez que calcula el monto numérico exacto para los balances contables.
+    3. **Sincronización Transparente Multi-Entorno**: Funciona automáticamente tanto con la base de datos local (`http://localhost:3000`) como con la base de datos en la nube en Google Cloud Run (`Cloud SQL`).
+    4. **Actualización Instantánea en Pantalla de Carga (`/nuevo`)**: Al sincronizarse, la API emite el evento SSE `DATA_UPDATED`, actualizando el historial paginado y precargando automáticamente las tarjetas de cuentas y deuda con las fórmulas más recientes.
+    5. **Idempotencia Garantizada**: No duplica registros; si la fecha ya se encuentra en la base de datos, omite la inserción evitando peticiones innecesarias.
+* **Subpasos**:
+  * **6.6.1**: Actualización de `GoogleSheetsService` para soportar `valueRenderOption: 'FORMULA'` y `valueRenderOption: 'FORMATTED_VALUE'`. *(Completado)*
+  * **6.6.2**: Soporte de números seriales de fechas de hojas de cálculo (ej. `46294`) y normalización ISO en `src/app/utils/grafico.utils.ts`. *(Completado)*
+  * **6.6.3**: Creación del servicio `SyncSheetsDbService` (`src/app/services/sync-sheets-db.service.ts`) con resolución atómica por lote y fallback individual seguro. *(Completado)*
+  * **6.6.4**: Integración de reactividad con Signals y `effect()` en `Inicio` (`src/app/pages/inicio/inicio.ts`). *(Completado)*
+  * **6.6.5**: Autenticación administrativa silenciosa en segundo plano (`ensureAdminAuth`) en `AuthService` para garantizar permisos de escritura autorizados. *(Completado)*
+  * **6.6.6**: Verificación y pruebas: fecha `29/09/2026` sincronizada exitosamente con fórmulas aritméticas preservadas. *(Completado)*
+
+
 
 
