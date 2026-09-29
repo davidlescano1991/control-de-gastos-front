@@ -2,7 +2,7 @@
 import { computed, Injectable, Signal, signal, inject, WritableSignal } from '@angular/core';
 import { GoogleSheetsService } from '../services/google.sheets.service';
 import { AppConfigService } from '../services/app-config.service';
-import { Movimiento, Movimiento2 } from '../models/movimiento';
+import { Movimiento2 } from '../models/movimiento';
 import { Entidad } from '../models/entidad';
 import { firstValueFrom } from 'rxjs';
 import { Prestamo } from '../models/prestamo';
@@ -11,11 +11,18 @@ import { CotizacionStore } from './dolar.store';
 import { formatFechaEsAR, parseFechaEsAR } from '../utils/grafico.utils';
 import { SseService } from '../services/sse.service';
 
+/**
+ * Respuesta devuelta por la API de Google Sheets para consultas estándar.
+ */
 interface GoogleSheetResponse {
   range: string;
   majorDimension: 'ROWS' | 'COLUMNS';
   values: string[][];
 }
+
+/**
+ * Representa una fila procesada de la hoja mensual de estimativos diarios.
+ */
 export interface EstimativoRow {
   fecha: string;
   saldoPesos: number;
@@ -25,17 +32,29 @@ export interface EstimativoRow {
   deudaReal: number;
 }
 
+/**
+ * Estructura para el almacenamiento de entradas con versionado en LocalStorage.
+ */
 interface PersistedCacheEntry<T> {
   version: number;
   savedAt: number;
   payload: T;
 }
 
+/**
+ * Payload persistido para las tablas de resumen anual y préstamos.
+ */
 interface AnualCachePayload {
   tablaAnual: Prestamo[];
   tablaSecundaria: Prestamo[];
+  tablaGastosMensuales?: { mes: string; total: number }[];
+  tablaGastosDiarioPromedio?: { mes: string; total: number }[];
   valorOtorgado: number;
 }
+
+/**
+ * Configuración de rangos de filas para cada entidad por año en las hojas mensuales.
+ */
 export const RANGOS_ENTIDADES_2026 = {
   visa: { inicio: 1, fin: 20, headerIndex: 0 },
   mastercard: { inicio: 24, fin: 38, headerIndex: 23 },
@@ -44,6 +63,7 @@ export const RANGOS_ENTIDADES_2026 = {
   otros: { inicio: 79, fin: 90, headerIndex: 78 },
   ml: { inicio: 104, fin: 107, headerIndex: 103 },
 };
+
 export const RANGOS_ENTIDADES_2025 = {
   visa: { inicio: 1, fin: 20, headerIndex: 0 },
   mastercard: { inicio: 24, fin: 37, headerIndex: 23 },
@@ -52,6 +72,7 @@ export const RANGOS_ENTIDADES_2025 = {
   otros: { inicio: 77, fin: 88, headerIndex: 76 },
   ml: { inicio: 102, fin: 104, headerIndex: 101 },
 };
+
 export const RANGOS_ENTIDADES_2024 = {
   visa: { inicio: 1, fin: 20, headerIndex: 0 },
   mastercard: { inicio: 24, fin: 36, headerIndex: 23 },
@@ -60,6 +81,7 @@ export const RANGOS_ENTIDADES_2024 = {
   otros: { inicio: 75, fin: 86, headerIndex: 74 },
   ml: { inicio: 100, fin: 102, headerIndex: 99 },
 };
+
 export const RANGOS_ENTIDADES_2023 = {
   visa: { inicio: 1, fin: 20, headerIndex: 0 },
   mastercard: { inicio: 24, fin: 35, headerIndex: 23 },
@@ -68,6 +90,7 @@ export const RANGOS_ENTIDADES_2023 = {
   otros: { inicio: 74, fin: 84, headerIndex: 73 },
   ml: { inicio: 102, fin: 104, headerIndex: 101 },
 };
+
 export const RANGOS_ENTIDADES_2022 = {
   visa: { inicio: 1, fin: 20, headerIndex: 0 },
   mastercard: { inicio: 25, fin: 35, headerIndex: 24 },
@@ -75,6 +98,7 @@ export const RANGOS_ENTIDADES_2022 = {
   otros: { inicio: 61, fin: 71, headerIndex: 60 },
   ml: { inicio: 102, fin: 104, headerIndex: 101 },
 };
+
 export const todosLosMeses = [
   'Enero',
   'Febrero',
@@ -92,29 +116,22 @@ export const todosLosMeses = [
   'Febrero_2026',
 ];
 
+/**
+ * Store centralizado para la carga, gestión en memoria, caché local y reactividad
+ * de movimientos, estimativos diarios, tablas de préstamos anuales y tarjetas de crédito.
+ */
 @Injectable({ providedIn: 'root' })
 export class MovimientosStoreGoogle {
   private readonly cachePrefix = 'control-gastos-front';
   private readonly cacheVersion = 2;
   private readonly currentYearCacheMs = 1 * 60 * 1000;
   private readonly historicalCacheMs = 30 * 24 * 60 * 60 * 1000;
-  private _movimientos = signal<Movimiento[]>([]);
-  private _movimientos2 = signal<Movimiento2[]>([]);
-  private _entidadVisa = signal<Entidad[]>([]);
-  private _headerVisa = signal<string[]>([]);
-  private _entidadMasterGalicia = signal<Entidad[]>([]);
-  private _headerMasterGalicia = signal<string[]>([]);
-  private _entidadNaranja = signal<Entidad[]>([]);
-  private _headerNaranja = signal<string[]>([]);
-  private _entidadBancor = signal<Entidad[]>([]);
-  private _headerBancor = signal<string[]>([]);
-  private _entidadML = signal<Entidad[]>([]);
-  private _headerML = signal<string[]>([]);
-  private _entidadOtros = signal<Entidad[]>([]);
-  private mensualRaw = signal<any | null>(null); // guarda el resultado crudo
+
+  // Mapas de almacenamiento en memoria reactivos por clave (año::mes o año)
   private mensualPorMes = new Map<string, Signal<{ values: string[][] }>>();
   private estimativoPorMes = new Map<string, Signal<EstimativoRow[]>>();
-  private estimativoPorMesAnio = new Map<string, Signal<EstimativoRow[]>>();
+
+  // Tablas anuales de préstamos y secundarias
   readonly tablaAnual = signal<Prestamo[]>([]);
   readonly categoriasAnuales = computed(() => {
     const filas = this.tablaAnual();
@@ -122,7 +139,6 @@ export class MovimientosStoreGoogle {
     filas.forEach((f) => Object.keys(f.valores).forEach((cat) => set.add(cat)));
     return Array.from(set);
   });
-  readonly filaOtorgada = signal<Prestamo | null>(null);
   readonly valorOtorgado = signal<number>(0);
   readonly tablaSecundaria = signal<Prestamo[]>([]);
   readonly categoriasSecundaria = computed(() => {
@@ -131,18 +147,31 @@ export class MovimientosStoreGoogle {
     filas.forEach((f) => Object.keys(f.valores).forEach((cat) => set.add(cat)));
     return Array.from(set);
   });
-  private _anualCargado = signal(false);
-  //private _anualCargado = new Map<number, Signal<boolean>>();;
+
+  // Estado anual y locks de concurrencia
   private anualCargadoPorAnio = new Map<number, WritableSignal<boolean>>();
-  private mensualEnCarga = new Set<string>();
   private anualEnCarga = new Map<string, Promise<void>>();
   private cargaTimestamp = new Map<string, number>();
   private tablaAnualPorAnio = new Map<number, Signal<Prestamo[]>>();
   private tablaSecundariaPorAnio = new Map<number, Signal<Prestamo[]>>();
   private valorOtorgadoPorAnio = new Map<number, Signal<number>>();
+
+  // Gastos anuales agregados
+  readonly tablaGastosMensualesPorAnio = new Map<
+    number,
+    WritableSignal<{ mes: string; total: number }[]>
+  >();
+  readonly tablaGastosDiarioPromedioPorAnio = new Map<
+    number,
+    WritableSignal<{ mes: string; total: number }[]>
+  >();
+
+  // Movimientos diarios por año
   private movimientosPorAnio = new Map<number, Signal<Movimiento2[]>>();
   private movimientosEnCarga = new Map<number, Promise<void>>();
   private movimientosTimestamp = new Map<number, number>();
+
+  // Entidades (Tarjetas de crédito / Otros) indexadas por `${anio}::${mes}`
   private entidadVisaPorMes = new Map<string, Signal<Entidad[]>>();
   private headerVisaPorMes = new Map<string, Signal<string[]>>();
   private entidadMasterGaliciaPorMes = new Map<string, Signal<Entidad[]>>();
@@ -154,10 +183,12 @@ export class MovimientosStoreGoogle {
   private entidadOtrosPorMes = new Map<string, Signal<Entidad[]>>();
   private entidadMLPorMes = new Map<string, Signal<Entidad[]>>();
   private headerMLPorMes = new Map<string, Signal<string[]>>();
+
+  // Promesas de sincronización para evitar duplicidad de solicitudes HTTP
   private mensualEnCargaResumenYGrafico = new Map<string, Promise<void>>();
   private estimativoEnCarga = new Map<string, Promise<void>>();
 
-  public base = [
+  public readonly base = [
     'Enero',
     'Febrero',
     'Marzo',
@@ -171,6 +202,7 @@ export class MovimientosStoreGoogle {
     'Noviembre',
     'Diciembre',
   ];
+
   private sheets = inject(GoogleSheetsService);
   private appConfig = inject(AppConfigService);
   private dolarService = inject(DolarService);
@@ -182,12 +214,16 @@ export class MovimientosStoreGoogle {
     this.suscribirEventosSSE();
   }
 
+  /**
+   * Se suscribe al canal SSE para invalidar la caché y recargar datos automáticamente cuando ocurren mutaciones en la API.
+   */
   private suscribirEventosSSE(): void {
     this.sseService.getEvents$().subscribe((msg) => {
       if (msg.event === 'DATA_UPDATED') {
         const year = msg.data?.year || new Date().getFullYear();
         console.log(`⚡ [MovimientosStoreGoogle] Evento DATA_UPDATED recibido vía SSE para año ${year}. Refrescando store...`);
-        // 1. Invalidamos cachés en memoria del año afectado
+
+        // Invalidar cachés en memoria del año afectado
         this.movimientosPorAnio.delete(year);
         this.movimientosTimestamp.delete(year);
         this.tablaAnualPorAnio.delete(year);
@@ -196,29 +232,41 @@ export class MovimientosStoreGoogle {
         if (msg.data?.mes) {
           const nombreMes = todosLosMeses[msg.data.mes - 1];
           if (nombreMes) {
-            this.mensualPorMes.delete(nombreMes);
-            this.estimativoPorMes.delete(nombreMes);
+            this.mensualPorMes.delete(`${year}::${nombreMes}`);
+            this.estimativoPorMes.delete(`${year}::${nombreMes}`);
           }
         }
 
-        // 2. Disparamos la recarga inmediata con force = true
+        // Disparar recarga inmediata forzada
         this.cargarDesdeSheetsPorAnio(year, true);
       }
     });
   }
 
+  /**
+   * Verifica la disponibilidad de LocalStorage en el entorno de ejecución actual (evita errores en SSR).
+   */
   private puedeUsarStorage(): boolean {
     return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
   }
 
+  /**
+   * Construye una clave homogénea para el almacenamiento en LocalStorage.
+   */
   private getCacheKey(tipo: string, clave: string): string {
     return `${this.cachePrefix}:${tipo}:${clave}`;
   }
 
+  /**
+   * Retorna el tiempo de vida (TTL) adecuado para la caché según si el año es en curso o histórico.
+   */
   private getCacheTtl(anio: number): number {
     return anio === new Date().getFullYear() ? this.currentYearCacheMs : this.historicalCacheMs;
   }
 
+  /**
+   * Recupera una entrada persistida en LocalStorage validando versión y expiración.
+   */
   private leerDesdeStorage<T>(
     tipo: string,
     clave: string,
@@ -249,6 +297,9 @@ export class MovimientosStoreGoogle {
     }
   }
 
+  /**
+   * Guarda una entrada versionada en LocalStorage.
+   */
   private guardarEnStorage<T>(tipo: string, clave: string, payload: T): void {
     if (!this.puedeUsarStorage()) return;
 
@@ -264,6 +315,9 @@ export class MovimientosStoreGoogle {
     }
   }
 
+  /**
+   * Hidrata los datos mensuales desde LocalStorage a memoria si aún no están cargados.
+   */
   private hidratarMensualDesdeCache(anio: number, mes: string): boolean {
     const clave = `${anio}::${mes}`;
     if (this.mensualPorMes.has(clave)) return true;
@@ -275,6 +329,9 @@ export class MovimientosStoreGoogle {
     return true;
   }
 
+  /**
+   * Hidrata los estimativos diarios desde LocalStorage a memoria si aún no están cargados.
+   */
   private hidratarEstimativoDesdeCache(anio: number, hoja: string): boolean {
     const clave = `${anio}::${hoja}`;
     if (this.estimativoPorMes.has(clave)) return true;
@@ -286,6 +343,9 @@ export class MovimientosStoreGoogle {
     return true;
   }
 
+  /**
+   * Aplica un payload de tabla anual en los signals y mapas reactivos del store.
+   */
   private aplicarTablaAnual(anio: number, payload: AnualCachePayload, savedAt = Date.now()): void {
     this.valorOtorgado.set(payload.valorOtorgado);
     this.tablaAnual.set(payload.tablaAnual);
@@ -293,90 +353,85 @@ export class MovimientosStoreGoogle {
     this.tablaAnualPorAnio.set(anio, signal(payload.tablaAnual));
     this.tablaSecundariaPorAnio.set(anio, signal(payload.tablaSecundaria));
     this.valorOtorgadoPorAnio.set(anio, signal(payload.valorOtorgado));
+    if (payload.tablaGastosMensuales) {
+      this.tablaGastosMensualesPorAnio.set(anio, signal(payload.tablaGastosMensuales));
+    }
+    if (payload.tablaGastosDiarioPromedio) {
+      this.tablaGastosDiarioPromedioPorAnio.set(anio, signal(payload.tablaGastosDiarioPromedio));
+    }
     this.setAnualCargado(anio, true);
     this.cargaTimestamp.set(`Anual ${anio}`, savedAt);
   }
 
+  /**
+   * Actualiza el estado reactivo de carga anual para un año específico.
+   */
   private setAnualCargado(anio: number, cargado: boolean): void {
     const existente = this.anualCargadoPorAnio.get(anio);
     if (!existente) {
       this.anualCargadoPorAnio.set(anio, signal(cargado));
       return;
     }
-
     existente.set(cargado);
   }
 
-  get anualCargado() {
-    return this._anualCargado();
-  }
-  get movimientos() {
-    return this._movimientos.asReadonly();
-  }
-  get movimientos2() {
-    return this._movimientos2.asReadonly();
+  /**
+   * Consulta si los datos anuales de un año ya se encuentran en memoria.
+   */
+  getAnualCargado(anio: number): boolean {
+    if (!this.anualCargadoPorAnio.has(anio)) {
+      this.anualCargadoPorAnio.set(anio, signal(false));
+    }
+    return this.anualCargadoPorAnio.get(anio)!();
   }
 
-  /* getMensualPorMes(anio: number, mes: string): { values: string[][] } | null {
-        const clave = `${anio}_${mes}`;
-        return this.mensualPorMes.get(clave)?.() ?? null;
-    } */
-  /*  getMensualPorMes(anio: number, hoja: string): { values: string[][] } | null {
-         return this.mensualPorMes.get(hoja)?.() ?? null;
-     } */
-  /*  getMensualPorMes(anio: number, hoja: string): { values: string[][] } | null {
-         const clave = `${anio}::${hoja}`;
-         return this.mensualPorMes.get(clave)?.() ?? null;
-     } */
+  /**
+   * Retorna los datos crudos de una hoja mensual específica (`${anio}::${hoja}`).
+   */
   getMensualPorMes(anio: number, hoja: string): { values: string[][] } | null {
     const clave = `${anio}::${hoja}`;
     const signalHoja = this.mensualPorMes.get(clave);
     return signalHoja ? signalHoja() : null;
   }
+
+  /**
+   * Devuelve la lista de meses aplicable para un año (incorporando extensiones configuradas).
+   */
   getMesesParaResumen(anio: number): string[] {
     const base = this.base;
     try {
-      // Prefer AppConfig-provided months; fallback to built-in base
-      const meses = this.appConfig.getMesesForYear
+      return this.appConfig.getMesesForYear
         ? this.appConfig.getMesesForYear(anio, base)
         : [...base, ...(this.appConfig.raw?.mesesExtraPorAnio?.[String(anio)] ?? [])];
-      return meses;
-    } catch (err) {
+    } catch {
       return base;
     }
   }
+
+  /**
+   * Calcula el porcentaje pendiente de pago por categoría respecto a lo prestado/otorgado.
+   */
   calcularPorcentajePendiente(): Record<string, number> {
-    const totalOtorgado = this.tablaAnual()[0]; // 👈 primera fila: "Prestado"
-    const totalPendiente = this.calcularTotalesPendientes(); // 👈 ya excluye primera y última
+    const totalOtorgado = this.tablaAnual()[0];
+    if (!totalOtorgado?.valores) return {};
+    const totalPendiente = this.calcularTotalesPendientes();
 
     const porcentajes: Record<string, number> = {};
-    console.log(`entro al for...`);
     for (const cat of Object.keys(totalOtorgado.valores)) {
       const otorgado = totalOtorgado.valores[cat] ?? 0;
       const pendiente = totalPendiente[cat] ?? 0;
-      console.log(`pendiente: ${pendiente} / Otorgado: ${otorgado}`);
       const porcentaje = otorgado > 0 ? (pendiente / otorgado) * 100 : 0;
-      porcentajes[cat] = Math.round(porcentaje * 100) / 100; // redondeado a 2 decimales
+      porcentajes[cat] = Math.round(porcentaje * 100) / 100;
     }
 
     return porcentajes;
   }
-  /* calcularTotalGlobalPendiente(): number {
-        const filas = this.tablaAnual();
-        const ultimaFila = filas.at(-1); // 👈 última fila de la hoja
 
-        if (!ultimaFila) return 0;
-
-        const valores = ultimaFila.valores;
-        const total = Object.values(valores).reduce((acc, val) => acc + (val ?? 0), 0);
-
-        return Math.round(total * 100) / 100; // redondeado a 2 decimales
-    } */
+  /**
+   * Calcula los totales pendientes de pago en la tabla anual excluyendo los cancelados (marcados en azul).
+   */
   calcularTotalesPendientes(): Record<string, number> {
-    //const filas = this.tablaAnual();
-    //const filas = this.tablaAnual().slice(1,-1);
     const filas = this.tablaAnual().slice(1);
-    //console.log(`total pendiente ${JSON.stringify(this.tablaAnual().slice(1))}`)
     const totales: Record<string, number> = {};
 
     for (const fila of filas) {
@@ -385,9 +440,7 @@ export class MovimientosStoreGoogle {
         const valor = fila.valores[cat] ?? 0;
 
         if (color.toLowerCase() !== '#0000ff') {
-          //console.log(`calcularTotalesPendientes() valor: ${valor}`)
           totales[cat] = (totales[cat] ?? 0) + valor;
-          //console.log(`calcularTotalesPendientes() totales[${cat}]: ${JSON.stringify(totales[cat])}`)
         }
       }
     }
@@ -395,101 +448,15 @@ export class MovimientosStoreGoogle {
     return totales;
   }
 
-  async cargarEntidadesDeMes(mes: string): Promise<void> {
-    await this.asegurarMensual(mes, 'Entidades');
-
-    const res = this.getMensual(mes);
-    if (!res?.values) return;
-
-    const valores = res.values;
-    this.mensualRaw.set(res); // opcional si querés guardar el crudo
-
-    const rangosIniciales = this.ValidarRangoEntidades(new Date().getFullYear());
-    Object.entries(rangosIniciales).forEach(([entidad, { inicio, fin, headerIndex }]) => {
-      const headers = valores[headerIndex] ?? [];
-      const colIndex = headers.findIndex(
-        (h: string | undefined) => this.normalizar(h) === this.normalizar(mes),
-      );
-
-      if (colIndex === -1 && entidad != 'otros') {
-        console.warn(`❌ No se encontró la columna para ${mes} en ${entidad}`);
-        return;
-      }
-      let registros;
-      let headersFiltrados: any = {};
-      if (entidad === 'otros') {
-        registros = valores
-          .slice(inicio, fin + 1)
-          .filter((fila: string[]) => {
-            const monto = fila[1]?.trim();
-            return (
-              fila.length >= 2 &&
-              monto !== '' &&
-              !isNaN(parseFloat(monto.replace(/\./g, '').replace(',', '.').replace('$', '')))
-            );
-          })
-          .map((fila: string[]) => ({
-            descripcion: fila[0],
-            monto: fila[1],
-          }));
-        console.log('Registros en otros: ', JSON.stringify(registros));
-      } else {
-        registros = valores
-          .slice(inicio, fin + 1)
-          .filter((fila: string[]) => {
-            const monto = fila[colIndex]?.trim();
-            return (
-              fila.length > colIndex &&
-              monto !== '' &&
-              !isNaN(parseFloat(monto.replace(/\./g, '').replace(',', '.').replace('$', '')))
-            );
-          })
-          .map((fila: string[]) => ({
-            descripcion: fila[0],
-            monto: fila[colIndex],
-          }));
-
-        headersFiltrados = [headers[0], headers[colIndex]];
-      }
-      switch (entidad) {
-        case 'visa':
-          this._entidadVisa.set(registros);
-          this._headerVisa.set(headersFiltrados);
-          break;
-        case 'mastercard':
-          this._entidadMasterGalicia.set(registros);
-          this._headerMasterGalicia.set(headersFiltrados);
-          break;
-        case 'naranja':
-          this._entidadNaranja.set(registros);
-          this._headerNaranja.set(headersFiltrados);
-          break;
-        case 'bancor':
-          this._entidadBancor.set(registros);
-          this._headerBancor.set(headersFiltrados);
-          break;
-        case 'ml':
-          this._entidadML.set(registros);
-          this._headerML.set(headersFiltrados);
-          break;
-        case 'otros':
-          this._entidadOtros.set(registros);
-          break;
-      }
-    });
-  }
-
+  /**
+   * Carga y procesa los registros de tarjetas y entidades para un mes y año específicos.
+   */
   async cargarEntidadesDeMesPorAnio(anio: number, hoja: string): Promise<void> {
     const clave = `${anio}::${hoja}`;
-
-    //await this.asegurarMensualPorAnio(anio, hoja, 'Entidades');
-
-    const res = this.getMensual(clave);
+    const res = this.mensualPorMes.get(clave)?.() ?? null;
     if (!res?.values) return;
-    //console.warn(`------> res es igual a ${JSON.stringify(res)} `);
-    const valores = res.values;
-    this.mensualRaw.set(res); // opcional: guarda el crudo
 
+    const valores = res.values;
     const objetoEntidades = this.ValidarRangoEntidades(anio);
 
     Object.entries(objetoEntidades).forEach(([entidad, { inicio, fin, headerIndex }]) => {
@@ -503,8 +470,8 @@ export class MovimientosStoreGoogle {
         return;
       }
 
-      let registros;
-      let headersFiltrados: any = {};
+      let registros: Entidad[];
+      let headersFiltrados: string[] = [];
 
       if (entidad === 'otros') {
         registros = valores
@@ -539,61 +506,46 @@ export class MovimientosStoreGoogle {
 
         headersFiltrados = [headers[0], headers[colIndex]];
       }
+
       switch (entidad) {
         case 'visa':
-          console.warn(`Entidad Visa clave ${clave} registros ${JSON.stringify(registros)}`);
           this.entidadVisaPorMes.set(clave, signal(registros));
           this.headerVisaPorMes.set(clave, signal(headersFiltrados));
-          /*  this._entidadVisa.set(registros);
-                     this._headerVisa.set(headersFiltrados); */
           break;
         case 'mastercard':
-          /* this._entidadMasterGalicia.set(registros);
-                    this._headerMasterGalicia.set(headersFiltrados); */
-          console.warn(
-            `Entidad master-galicia clave ${clave} registros ${JSON.stringify(registros)}`,
-          );
           this.entidadMasterGaliciaPorMes.set(clave, signal(registros));
           this.headerMasterGaliciaPorMes.set(clave, signal(headersFiltrados));
           break;
         case 'naranja':
-          /* this._entidadNaranja.set(registros);
-                    this._headerNaranja.set(headersFiltrados); */
-          console.warn(`Entidad naranja clave ${clave} registros ${JSON.stringify(registros)}`);
           this.entidadNaranjaPorMes.set(clave, signal(registros));
           this.headerNaranjaPorMes.set(clave, signal(headersFiltrados));
           break;
         case 'bancor':
-          /* this._entidadBancor.set(registros);
-                    this._headerBancor.set(headersFiltrados); */
-          console.warn(`Entidad bancor clave ${clave} registros ${JSON.stringify(registros)}`);
           this.entidadBancorPorMes.set(clave, signal(registros));
           this.headerBancorPorMes.set(clave, signal(headersFiltrados));
           break;
         case 'ml':
-          console.warn(`Entidad ML clave ${clave} registros ${JSON.stringify(registros)}`);
           this.entidadMLPorMes.set(clave, signal(registros));
           this.headerMLPorMes.set(clave, signal(headersFiltrados));
           break;
         case 'otros':
-          /* this._entidadOtros.set(registros); */
-          console.warn(`Entidad otros clave ${clave} registros ${JSON.stringify(registros)}`);
           this.entidadOtrosPorMes.set(clave, signal(registros));
           break;
       }
-
-      console.log(`📦 Registros de ${entidad}:`, registros);
     });
   }
 
+  /**
+   * Retorna los rangos de índices de filas para las entidades según el año.
+   */
   ValidarRangoEntidades(
     anioValidar: number,
   ): Record<string, { inicio: number; fin: number; headerIndex: number }> {
     try {
       const cfg = this.appConfig?.getEntityRangesForYear?.(anioValidar);
       if (cfg && Object.keys(cfg).length > 0) return cfg as any;
-    } catch (err) {
-      // ignore and fallback to built-in constants
+    } catch {
+      // Fallback a constantes locales
     }
 
     if (anioValidar === 2026) return RANGOS_ENTIDADES_2026;
@@ -602,120 +554,16 @@ export class MovimientosStoreGoogle {
     if (anioValidar === 2023) return RANGOS_ENTIDADES_2023;
     return RANGOS_ENTIDADES_2022;
   }
-  async cargarMensual(mes: string): Promise<void> {
-    if (this.mensualPorMes.has(mes)) return; // ya está cargado
 
-    const res = (await firstValueFrom(this.sheets.obtenerMensual(mes, 'A1:B100'))) as {
-      values: string[][];
-    };
-    const s = signal<{ values: string[][] }>(res);
-    console.log('--> el objeto mensual es: ', JSON.stringify(s));
-    this.mensualPorMes.set(mes, s);
-  }
-  async asegurarMensual(hojaBase: string, caller?: string): Promise<void> {
-    if (this.mensualPorMes.has(hojaBase)) return;
-    if (this.mensualEnCarga.has(hojaBase)) return;
-
-    console.log(`📦 [${caller ?? 'desconocido'}] cargando desde API: ${hojaBase}`);
-    this.mensualEnCarga.add(hojaBase);
-
-    try {
-      const res = (await firstValueFrom(this.sheets.obtenerMensual(hojaBase, 'A1:K500'))) as {
-        values: string[][];
-      };
-      const s = signal<{ values: string[][] }>(res);
-      this.mensualPorMes.set(hojaBase, s);
-    } catch (err) {
-      console.error(`❌ Error al cargar ${hojaBase}`, err);
-    } finally {
-      this.mensualEnCarga.delete(hojaBase);
-    }
-  }
-
-  async asegurarEstimativo(hojaBase: string, caller?: string): Promise<void> {
-    console.log(`📊 [${caller ?? 'desconocido'}] cargando estimativo: ${hojaBase}`);
-    if (this.estimativoPorMes.has(hojaBase)) return;
-
-    const res = (await firstValueFrom(
-      this.sheets.obtenerMensual(hojaBase, 'A1:F500'),
-    )) as GoogleSheetResponse;
-    const rows = res.values ?? [];
-
-    const normalizados = rows
-      .slice(1)
-      .filter((r) => r.length >= 6 && r[0])
-      .map((r) => ({
-        fecha: r[0],
-        saldoPesos: this.parseMoneda(r[1]),
-        saldoUSD: this.parseMoneda(r[2]),
-        deuda: this.parseMoneda(r[3]),
-        real: r[4] ? this.parseMoneda(r[4]) : null,
-        deudaReal: this.parseMoneda(r[5]),
-      }));
-
-    // Si la columna USD viene vacía (0), intentamos calcular USD a partir de Pesos usando cotización por fecha
-    await this.enriquecerSaldoUSD(normalizados);
-
-    //this.estimativoPorMes.set(hojaBase, signal(normalizados));
-
-    this.estimativoPorMes.set(hojaBase, signal<EstimativoRow[]>(normalizados));
-    console.log('✅ Guardado en estimativoPorMes con clave:', hojaBase);
-  }
-
-  async asegurarEstimativoAnio(anio: number, hojaBase: string, caller?: string): Promise<void> {
-    console.log(`📊 [${caller ?? 'desconocido'}] cargando estimativo: ${hojaBase} anio ${anio}`);
-
-    const claveClavel = `${anio}::${hojaBase}`;
-    if (this.estimativoPorMes.has(hojaBase)) return;
-
-    if (this.estimativoEnCarga.has(claveClavel)) {
-      return await this.mensualEnCargaResumenYGrafico.get(claveClavel); // 👈 espera la carga en curso
-    }
-    const promesa = (async () => {
-      try {
-        const res = (await firstValueFrom(
-          this.sheets.obtenerMensualAnio(anio, hojaBase, 'A1:F500'),
-        )) as GoogleSheetResponse;
-        const rows = res.values ?? [];
-
-        const normalizados = rows
-          .slice(1)
-          .filter((r) => r.length >= 6 && r[0])
-          .map((r) => ({
-            fecha: r[0],
-            saldoPesos: this.parseMoneda(r[1]),
-            saldoUSD: this.parseMoneda(r[2]),
-            deuda: this.parseMoneda(r[3]),
-            real: r[4] ? this.parseMoneda(r[4]) : null,
-            deudaReal: this.parseMoneda(r[5]),
-          }));
-        // Enriquecer con USD calculado si la columna USD viene vacía
-        await this.enriquecerSaldoUSD(normalizados);
-
-        this.estimativoPorMes.set(claveClavel, signal<EstimativoRow[]>(normalizados));
-        console.log('✅✅ Guardado en estimativoPorMes con clave:', claveClavel);
-      } catch (err) {
-        console.error(`❌ Error al cargar estimativo: ${hojaBase} anio ${anio}`, err);
-      }
-    })();
-
-    try {
-      this.estimativoEnCarga.set(claveClavel, promesa);
-      await promesa;
-    } finally {
-      this.estimativoEnCarga.delete(claveClavel);
-    }
-  }
+  /**
+   * Asegura la carga por lotes de estimativos diarios para una lista de meses y un año determinado.
+   */
   async asegurarEstimativoAnioRange(
     anio: number,
     hojasBase: string[],
     caller?: string,
     force = false,
   ): Promise<void> {
-    console.log(
-      `📊 [${caller ?? 'desconocido'}] cargando estimativo: ${JSON.stringify(hojasBase)} anio ${anio}`,
-    );
-
     if (!force) {
       hojasBase.forEach((hoja) => {
         this.hidratarEstimativoDesdeCache(anio, hoja);
@@ -727,32 +575,28 @@ export class MovimientosStoreGoogle {
       if (todosDisponibles) return;
     }
 
-    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
     const rangoHojas = this.resolverNombreHoja(anio, hojasBase.join(', '));
-    console.error(`--- RangoHojas: ${anio}::${rangoHojas} `);
     const claveCarga = `${anio}::${rangoHojas}`;
     if (this.estimativoEnCarga.has(claveCarga)) {
-      return await this.estimativoEnCarga.get(claveCarga); // 👈 espera la carga en curso
+      return await this.estimativoEnCarga.get(claveCarga);
     }
+
     const promesa = (async () => {
       try {
         console.log(
           `📦 asegurarEstimativoAnioRange() [${caller ?? 'desconocido'}] cargando desde API: ${rangoHojas} (${anio})`,
         );
-        ////////////////////////
         const res: any = await firstValueFrom(
           this.sheets.obtenerMensualBatch(anio, hojasBase, 'A1:F500'),
         );
 
-        // res.valueRanges tendrá un array con los datos de cada mes
         for (let i = 0; i < (res.valueRanges?.length ?? 0); i++) {
           const vr = res.valueRanges[i];
           const mes = hojasBase[i];
           const valores = vr.values ?? [];
           const claveClavel = `${anio}::${mes}`;
 
-          const normalizados = valores
+          const normalizados: EstimativoRow[] = valores
             .slice(1)
             .filter((r: string | any[]) => r.length >= 6 && r[0])
             .map((r: string[]) => ({
@@ -763,12 +607,11 @@ export class MovimientosStoreGoogle {
               real: r[4] ? this.parseMoneda(r[4]) : null,
               deudaReal: this.parseMoneda(r[5]),
             }));
-          // Intentamos enriquecer con USD calculado si está vacio
+
           await this.enriquecerSaldoUSD(normalizados);
 
           this.estimativoPorMes.set(claveClavel, signal<EstimativoRow[]>(normalizados));
           this.guardarEnStorage('estimativo', claveClavel, normalizados);
-          console.log('✅✅ Guardado en estimativoPorMes con clave:', claveClavel);
         }
       } catch (err) {
         console.warn(`⚠️ Error en asegurarEstimativoAnioRange para ${anio} (${hojasBase.join(', ')}), hidratando desde cache:`, err);
@@ -783,52 +626,10 @@ export class MovimientosStoreGoogle {
       this.estimativoEnCarga.delete(claveCarga);
     }
   }
-  /* getEstimados(anio: number, hoja: string): any {
-        const clave = `${anio}::${hoja}`;
-        console.warn(`Estimados clave ${clave} `);
-        return this.estimativoPorMes.get(clave)?.() ?? [];
-    } */
 
-  async asegurarAnual(caller?: string): Promise<void> {
-    console.log(`📊 [${caller ?? 'desconocido'}] cargando anual`);
-    if (this._movimientos().length > 0) return;
-
-    const res = (await firstValueFrom(this.sheets.obtenerMensual('Anual 2025', 'N83:Z101'))) as {
-      values: string[][];
-    };
-    const filas = res.values;
-    const headers = filas[0];
-    const movimientos = filas.slice(1).map((row: any[]) => {
-      const obj: any = {};
-      headers.forEach((key: string, i: number) => {
-        obj[key.toLowerCase()] = row[i];
-      });
-
-      // Convertir fecha "dd/MM/yyyy" → Date
-      const partes = obj.fecha?.split('/');
-      if (partes?.length === 3) {
-        const [dia, mes, anio] = partes;
-        obj.fecha = new Date(+anio, +mes - 1, +dia);
-      }
-
-      // Convertir monto "51.500,00" → 51500.00
-      if (typeof obj.monto === 'string') {
-        const limpio = obj.monto.replace(/\./g, '').replace(/\$/g, '').replace(',', '.');
-        obj.monto = parseFloat(limpio);
-      }
-
-      // Convertir monto "51.500,00" → 51500.00
-      if (typeof obj.deudapesos === 'string') {
-        console.log('sheet deuda pesos', JSON.stringify(obj.deudapesos));
-        const limpio = obj.deudapesos.replace(/\./g, '').replace(/\$/g, '').replace(',', '.');
-        obj.deudapesos = parseFloat(limpio);
-      }
-      return obj as Movimiento;
-    });
-
-    this._movimientos.set(movimientos);
-  }
-
+  /**
+   * Carga una hoja mensual individual para un año dado garantizando deduplicación de llamadas en curso.
+   */
   async asegurarMensualPorAnio(anio: number, hoja: string, caller?: string): Promise<void> {
     const hojaReal = this.resolverNombreHoja(anio, hoja);
     const clave = `${anio}::${hoja}`;
@@ -836,7 +637,7 @@ export class MovimientosStoreGoogle {
     if (this.mensualPorMes.has(clave)) return;
 
     if (this.mensualEnCargaResumenYGrafico.has(clave)) {
-      return await this.mensualEnCargaResumenYGrafico.get(clave); // 👈 espera la carga en curso
+      return await this.mensualEnCargaResumenYGrafico.get(clave);
     }
 
     const promesa = (async () => {
@@ -855,6 +656,10 @@ export class MovimientosStoreGoogle {
     await promesa;
     this.mensualEnCargaResumenYGrafico.delete(clave);
   }
+
+  /**
+   * Carga en lote un rango de hojas mensuales para un año específico, con fallback individual ante fallos de hoja única.
+   */
   async asegurarMensualPorAnioRange(
     anio: number,
     meses: string[],
@@ -879,17 +684,14 @@ export class MovimientosStoreGoogle {
           this.sheets.obtenerMensualBatch(anio, meses, 'A1:K500'),
         );
 
-        // res.valueRanges tendrá un array con los datos de cada mes
-        res.valueRanges?.forEach((vr: { values: never[] }, i: number) => {
+        res.valueRanges?.forEach((vr: { values: string[][] }, i: number) => {
           const mes = meses[i];
           const valores = vr?.values ?? [];
-          console.log(`Mes ${mes}:`, valores);
           const clave = `${anio}::${mes}`;
           const payload = { values: valores };
           this.mensualPorMes.set(clave, signal(payload));
           this.guardarEnStorage('mensual', clave, payload);
         });
-        console.log('✅ mensualPorMes cargado en batch:', this.mensualPorMes);
       } catch (batchErr) {
         console.warn(
           `⚠️ Error en batchGet mensual para ${anio}, intentando consulta por mes individual...`,
@@ -914,150 +716,26 @@ export class MovimientosStoreGoogle {
     })();
     await promesa;
   }
-  private resolverNombreHoja(anio: number, hoja: string): string {
-    // Si la hoja ya viene con año, usala tal cual
-    if (hoja.includes('_')) return hoja;
 
-    // Si el año requiere hoja con sufijo, agregalo
+  /**
+   * Normaliza el nombre de la hoja contemplando compatibilidad histórica con sufijos de año.
+   */
+  private resolverNombreHoja(anio: number, hoja: string): string {
+    if (hoja.includes('_')) return hoja;
     return anio >= anio + 1 ? `${hoja}_${anio}` : hoja;
   }
-  async cargarMovimientosPorAnio(anio: number): Promise<void> {
-    const clave = `Anual ${anio}`;
-    console.log(`Inicia cargarMovimientosPorAnio(${anio})`);
-    if (this.movimientosPorAnio.has(anio)) return;
 
-    const res = (await firstValueFrom(this.sheets.obtenerMensual(clave, 'N83:Z101'))) as {
-      values: string[][];
-    };
-    const filas = res.values;
-    const headers = filas[0];
-    const movimientos = filas.slice(1).map((row: any[]) => {
-      const obj: any = {};
-      headers.forEach((key: string, i: number) => {
-        obj[key.toLowerCase()] = row[i];
-      });
-
-      const partes = obj.fecha?.split('/');
-      if (partes?.length === 3) {
-        const [dia, mes, anio] = partes;
-        obj.fecha = new Date(+anio, +mes - 1, +dia);
-      }
-
-      if (typeof obj.monto === 'string') {
-        const limpio = obj.monto.replace(/\./g, '').replace(/\$/g, '').replace(',', '.');
-        obj.monto = parseFloat(limpio);
-      }
-
-      if (typeof obj.deudapesos === 'string') {
-        const limpio = obj.deudapesos.replace(/\./g, '').replace(/\$/g, '').replace(',', '.');
-        obj.deudapesos = parseFloat(limpio);
-      }
-
-      return obj as Movimiento2;
-    });
-    console.log(`cargarMovimientosPorAnio(${anio}) movimientos: `, JSON.stringify(movimientos));
-    this.movimientosPorAnio.set(anio, signal(movimientos));
-  }
-
-  async cargarTablaAnual(): Promise<void> {
-    /* const raw = await firstValueFrom(
-            this.sheets.obtenerMensual('Anual 2025', 'N83:Z98')
-        ) as { values: string[][] };
-
- */
-    const raw: any = await firstValueFrom(this.sheets.obtenerMensualAnual('Anual 2025', 'N83:Z99'));
-
-    // Extraer monto de N84
-    const montoCelda = raw.sheets?.[0]?.data?.[0]?.rowData?.[1]?.values?.[0];
-    const montoCrudo = montoCelda?.effectiveValue?.numberValue ?? 0;
-    //console.log('monto crudo:', montoCrudo);
-    this.valorOtorgado.set(montoCrudo);
-    //Color
-    const hoja = raw.sheets[0];
-    const datos = hoja.data[0].rowData;
-
-    const encabezados = datos[0].values
-      .slice(1)
-      .map((c: { effectiveValue: { stringValue: any } }) => c.effectiveValue?.stringValue || '');
-    // Procesar filas
-    const movimientos = datos.slice(1).map((row: { values: any[] }, i: number) => {
-      const nombreFila = row.values[0].effectiveValue?.stringValue || '';
-      const valores: Record<string, number> = {};
-      const colores: Record<string, string> = {};
-
-      row.values.slice(1).forEach(
-        (
-          celda: {
-            userEnteredFormat: any;
-            effectiveValue: { numberValue: number };
-            textFormatRuns: { format: { foregroundColor: { rgbColor: any } } }[];
-          },
-          i: string | number,
-        ) => {
-          const categoria = encabezados[i];
-          const valor = celda.effectiveValue?.numberValue ?? 0;
-          //const color = celda.textFormatRuns?.[0]?.format?.foregroundColor?.rgbColor;
-          const color = celda.userEnteredFormat?.textFormat?.foregroundColor;
-
-          valores[categoria] = valor;
-          colores[categoria] = color ? this.rgbToHex(color) : '';
-        },
-      );
-
-      return {
-        nombreFila,
-        valores,
-        valoresPrestamo: {},
-        colores, // 👈 esto lo agrega al objeto
-      };
-    });
-
-    this.tablaAnual.set(movimientos);
-  }
-
-  async cargarTablaAnualAll(): Promise<void> {
-    const clave = 'Anual 2025';
-    const ahora = Date.now();
-    const vencimientoMs = 10 * 60 * 1000; // 1 minutos
-
-    const ultimaCarga = this.cargaTimestamp.get(clave) ?? 0;
-    const expirado = ahora - ultimaCarga > vencimientoMs;
-
-    if (this._anualCargado() && !expirado) return;
-    if (this.anualEnCarga.has(clave)) return await this.anualEnCarga.get(clave);
-
-    const promesa = (async () => {
-      const raw: any = await firstValueFrom(this.sheets.obtenerMensualAnual(clave, 'N16:Z99'));
-      const datos = raw.sheets?.[0]?.data?.[0]?.rowData ?? [];
-      console.log(
-        `datos `,
-        JSON.stringify(datos?.[84 - 16]?.values?.[0]?.effectiveValue?.numberValue),
-      );
-      const montoCrudo = datos?.[84 - 16]?.values?.[0]?.effectiveValue?.numberValue ?? 0;
-      this.valorOtorgado.set(montoCrudo);
-
-      const tablaPrestamos = this.extraerTablaDesdeRango(datos, 67, 82, 0);
-      this.tablaAnual.set(tablaPrestamos);
-
-      const otraTabla = this.extraerTablaDesdeRango(datos, 0, 12, 1);
-      this.tablaSecundaria.set(otraTabla);
-
-      this._anualCargado.set(true);
-      this.cargaTimestamp.set(clave, Date.now()); // 👈 actualiza timestamp
-    })();
-
-    this.anualEnCarga.set(clave, promesa);
-    await promesa;
-    this.anualEnCarga.delete(clave);
-  }
+  /**
+   * Carga la totalidad de las tablas anuales (préstamos, secundaria y gastos mensuales) para el año solicitado.
+   */
   async cargarTablaAnualAllXAnio(anio: number, force = false): Promise<void> {
     const clave = `Anual ${anio}`;
     const ahora = Date.now();
-    const vencimientoMs = 10 * 60 * 1000; // 1 minutos
+    const vencimientoMs = 10 * 60 * 1000;
 
     const ultimaCarga = this.cargaTimestamp.get(clave) ?? 0;
     const expirado = ahora - ultimaCarga > vencimientoMs;
-    console.warn(`Inicia método cargarTablaAnualAllXAnio(anio : ${anio})`);
+
     if (this.getAnualCargado(anio) && !expirado && !force) {
       const tablaPrestamos = this.tablaAnualPorAnio.get(anio)?.() ?? [];
       const otraTabla = this.tablaSecundariaPorAnio.get(anio)?.() ?? [];
@@ -1082,20 +760,11 @@ export class MovimientosStoreGoogle {
     if (this.anualEnCarga.has(clave) && !force) return await this.anualEnCarga.get(clave);
 
     const promesa = (async () => {
-      console.warn(
-        `this.sheets.obtenerMensualAnualAnio(anio:${anio}, clave:${clave}, rango:N15:AA99)`,
-      );
       const raw: any = await firstValueFrom(
         this.sheets.obtenerMensualAnualAnio(anio, clave, 'N15:AA99'),
       );
       const datos = raw.sheets?.[0]?.data?.[0]?.rowData ?? [];
-      //console.log(`datos `, JSON.stringify(datos))
-      //const montoCrudo = datos?.[84 - 16]?.values?.[0]?.effectiveValue?.numberValue ?? 0;
       const montoCrudo = datos?.[69]?.values?.[0]?.effectiveValue?.numberValue ?? 0;
-      console.log(
-        `montoCrudo `,
-        JSON.stringify(datos?.[69]?.values?.[0]?.effectiveValue?.numberValue),
-      );
       this.valorOtorgado.set(montoCrudo);
 
       const filaFinPrestamos = this.getFilasTablaAnual(anio);
@@ -1107,12 +776,11 @@ export class MovimientosStoreGoogle {
         true,
         'Total a devolver',
       );
-      //console.log(`tabla prestamos `, JSON.stringify(tablaPrestamos))
-      this.tablaAnual.set(tablaPrestamos);
-      console.warn(`...Inicia OtraTabla`);
+
       const otraTabla = this.extraerTablaDesdeRangoAnual(datos, 2, 13, 1);
       const gastosMensuales = this.extraerGastosMensualesDesdeRangoAnual(datos);
       const gastosDiarioPromedio = this.extraerGastosDiarioPromedioDesdeRangoAnual(datos);
+
       this.tablaSecundaria.set(otraTabla);
       this.tablaGastosMensualesPorAnio.set(anio, signal(gastosMensuales));
       this.tablaGastosDiarioPromedioPorAnio.set(anio, signal(gastosDiarioPromedio));
@@ -1121,7 +789,7 @@ export class MovimientosStoreGoogle {
       this.valorOtorgadoPorAnio.set(anio, signal(montoCrudo));
 
       this.setAnualCargado(anio, true);
-      this.cargaTimestamp.set(clave, Date.now()); // 👈 actualiza timestamp
+      this.cargaTimestamp.set(clave, Date.now());
       this.guardarEnStorage('anual', String(anio), {
         tablaAnual: tablaPrestamos,
         tablaSecundaria: otraTabla,
@@ -1136,20 +804,23 @@ export class MovimientosStoreGoogle {
     this.anualEnCarga.delete(clave);
   }
 
-  tablaGastosMensualesPorAnio = new Map<number, WritableSignal<{ mes: string; total: number }[]>>();
-  tablaGastosDiarioPromedioPorAnio = new Map<
-    number,
-    WritableSignal<{ mes: string; total: number }[]>
-  >();
-
+  /**
+   * Obtiene los gastos mensuales consolidados para el año indicado.
+   */
   getGastosMensualesAnio(anio: number): { mes: string; total: number }[] {
     return this.tablaGastosMensualesPorAnio.get(anio)?.() ?? [];
   }
 
+  /**
+   * Obtiene el promedio de gasto diario por mes para el año indicado.
+   */
   getGastosDiarioPromedioAnio(anio: number): { mes: string; total: number }[] {
     return this.tablaGastosDiarioPromedioPorAnio.get(anio)?.() ?? [];
   }
 
+  /**
+   * Extrae la serie mensual de gastos desde las celdas de la hoja anual.
+   */
   private extraerGastosMensualesDesdeRangoAnual(datos: any[]): { mes: string; total: number }[] {
     const resultados: { mes: string; total: number }[] = [];
     const filaInicio = 29;
@@ -1174,6 +845,9 @@ export class MovimientosStoreGoogle {
     return resultados;
   }
 
+  /**
+   * Extrae la serie de gasto diario promedio mensual desde las celdas de la hoja anual.
+   */
   private extraerGastosDiarioPromedioDesdeRangoAnual(
     datos: any[],
   ): { mes: string; total: number }[] {
@@ -1200,18 +874,20 @@ export class MovimientosStoreGoogle {
     return resultados;
   }
 
+  /**
+   * Parsea celdas con formato, valor efectivo y color de texto a objetos `Prestamo`.
+   */
   private extraerTablaDesdeRangoAnual(
     datos: any[],
     filaInicio: number,
     filaFin: number,
-    //columnas: number[],
     columnas: number,
     usarEncabezadoPorColumna = false,
     ultimaFilaMensaje = '',
   ): Prestamo[] {
     const prestamos: Prestamo[] = [];
     const colum = Array.from({ length: columnas }, (_, i) => i + 1);
-    // Si se pide encabezado por columna, lo extraemos
+
     const encabezados = usarEncabezadoPorColumna
       ? colum.map((colIdx) => {
           const celda = datos[filaInicio - 1]?.values?.[colIdx];
@@ -1219,14 +895,11 @@ export class MovimientosStoreGoogle {
         })
       : [];
 
-    // Si no se pide por columna, usamos el primero no vacío
     const encabezadoGlobal = !usarEncabezadoPorColumna
       ? (datos[filaInicio - 1]?.values
           ?.find((c: any) => c?.effectiveValue?.stringValue)
           ?.effectiveValue?.stringValue?.toLowerCase() ?? 'sin_encabezado')
       : null;
-
-    //console.log("🧠 Encabezados:", usarEncabezadoPorColumna ? encabezados : encabezadoGlobal);
 
     for (let i = filaInicio; i <= filaFin && i < datos.length; i++) {
       const row = datos[i];
@@ -1241,29 +914,29 @@ export class MovimientosStoreGoogle {
         const celda = row.values[colIdx];
         const valor = celda?.effectiveValue?.numberValue ?? 0;
         const color = celda?.userEnteredFormat?.textFormat?.foregroundColor;
-
         const categoria = usarEncabezadoPorColumna ? encabezados[j] : encabezadoGlobal;
 
         valores[categoria] = valor;
         colores[categoria] = color ? this.rgbToHex(color) : '';
-
-        //console.log(`Fila ${i} (${nombreFila}) → columna ${colIdx} = ${valor} → categoría '${categoria}'`);
       });
 
       prestamos.push({ nombreFila, valores, valoresPrestamo: {}, colores });
     }
 
-    //console.log("✅ Prestamos generados:", JSON.stringify(prestamos));
     return prestamos;
   }
+
+  /**
+   * Retorna el número de fila final de la tabla anual de préstamos según la configuración del año.
+   */
   getFilasTablaAnual(anio: number): number {
     try {
       const cfg = this.appConfig.getFilasTablaAnualForYear
         ? this.appConfig.getFilasTablaAnualForYear(anio)
         : this.appConfig.raw?.filasTablaAnualPorAnio?.[String(anio)];
       if (typeof cfg === 'number') return cfg;
-    } catch (err) {
-      // ignore and fallback
+    } catch {
+      // Fallback a constantes conocidas
     }
 
     if (anio === 2026) return 84;
@@ -1271,77 +944,20 @@ export class MovimientosStoreGoogle {
     if (anio === 2024) return 83;
     return 82;
   }
-  getAnualCargado(anio: number): boolean {
-    if (!this.anualCargadoPorAnio.has(anio)) {
-      //this.anualCargadoPorAnio.clear();//lo hice yo
-      this.anualCargadoPorAnio.set(anio, signal(false));
-    }
-    return this.anualCargadoPorAnio.get(anio)!();
-  }
-  async getTablaAnual(anio: number): Promise<Prestamo[]> {
-    const clave = `Anual ${anio}`;
-    console.warn(`getTablaAnual ${clave}`);
 
-    // Si hay una carga en curso, esperar
-    const promesa = this.anualEnCarga.get(clave);
-    if (promesa || !this.getAnualCargado(anio)) {
-      console.log(`.....espera promesa anualEnCarga`);
-      await promesa;
-      console.log(`.....promesa anualEnCarga finalizada`);
-    }
-    // Ahora sí devolver lo cargado
-    console.warn(`tablaAnual --> ${JSON.stringify(this.tablaAnual())}`);
-    return this.tablaAnual();
-  }
-
-  private extraerTablaDesdeRango(
-    datos: any[],
-    filaInicio: number,
-    filaFin: number,
-    bloque: number,
-  ): Prestamo[] {
-    const encabezados =
-      datos[0]?.values
-        ?.slice(1)
-        ?.map((c: any) => c.effectiveValue?.stringValue?.toLowerCase() ?? '') ?? [];
-
-    const prestamos: Prestamo[] = [];
-
-    for (let i = filaInicio; i <= filaFin && i < datos.length; i++) {
-      const row = datos[i];
-      if (!row?.values) continue;
-
-      const nombreFila = row.values[0]?.effectiveValue?.stringValue ?? '';
-      const valores: Record<string, number> = {};
-      const colores: Record<string, string> = {};
-
-      row.values.slice(1).forEach((celda: any, j: number) => {
-        if (!encabezados[j]) return; // 👈 evitar undefined
-        const categoria = encabezados[j];
-        const valor = celda?.effectiveValue?.numberValue ?? 0;
-        const color = celda?.userEnteredFormat?.textFormat?.foregroundColor;
-
-        valores[categoria] = valor;
-        colores[categoria] = color ? this.rgbToHex(color) : '';
-      });
-
-      prestamos.push({
-        nombreFila,
-        valores,
-        valoresPrestamo: {},
-        colores,
-      });
-    }
-
-    return prestamos;
-  }
-
+  /**
+   * Convierte un objeto RGB (valores de 0 a 1) devuelto por Sheets API a un string hexadecimal '#rrggbb'.
+   */
   private rgbToHex(rgb: { red?: number; green?: number; blue?: number }): string {
     const r = Math.round((rgb.red ?? 0) * 255);
     const g = Math.round((rgb.green ?? 0) * 255);
     const b = Math.round((rgb.blue ?? 0) * 255);
     return '#' + [r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('');
   }
+
+  /**
+   * Parsea cadenas o números a valor numérico puro desinfectando signos de moneda y separadores de miles.
+   */
   private parseMoneda(valor: any): number {
     if (valor === undefined || valor === null) return 0;
     if (typeof valor === 'number') return valor;
@@ -1352,13 +968,15 @@ export class MovimientosStoreGoogle {
     return 0;
   }
 
-  // Extrae una fecha en formato dd/mm/yyyy desde un texto que puede contener saltos o espacios
+  /**
+   * Extrae y normaliza una fecha en formato dd/mm/yyyy desde texto con saltos de línea o espacios.
+   */
   private extraerFechaNormalizada(texto: string | undefined): string | null {
     if (!texto) return null;
     const t = texto.replace(/\r|\n/g, ' ').trim();
     const match = t.match(/(\d{1,2}\/\d{1,2}\/\d{2,4})/);
     if (match) return match[1];
-    // intentar juntar tokens si el año se rompió en dos partes, por ejemplo '08/05/20 26'
+
     const tokens = t.split(/\s+/);
     for (let i = 0; i < tokens.length; i++) {
       if (
@@ -1366,12 +984,15 @@ export class MovimientosStoreGoogle {
         tokens[i + 1] &&
         /^\d{2}$/.test(tokens[i + 1])
       ) {
-        return `${tokens[i]}${tokens[i + 1]}`; // ej. '08/05/20' + '26' => '08/05/2026' (pero quedan 2026 mal formateados)
+        return `${tokens[i]}${tokens[i + 1]}`;
       }
     }
     return null;
   }
 
+  /**
+   * Busca hacia atrás en el mapa de cotizaciones la cotización más cercana para una fecha dada.
+   */
   private obtenerCotizacionVigenteDesdeMap(
     fechaISO: string,
     cotMap: Map<string, number>,
@@ -1390,8 +1011,9 @@ export class MovimientosStoreGoogle {
     return 0;
   }
 
-  // Enriquecer filas estimativo con valor USD calculado si la columna USD viene vacía.
-  // Primero intenta usar CotizacionStore.enriquecerConDolarPorRango (consulta por rango + cache).
+  /**
+   * Enriquece las filas de estimativo diario calculando el contravalor en USD si la columna vino vacía.
+   */
   private async enriquecerSaldoUSD(normalizados: EstimativoRow[]): Promise<void> {
     if (!normalizados || normalizados.length === 0) return;
 
@@ -1400,7 +1022,6 @@ export class MovimientosStoreGoogle {
     );
     if (pendientes.length === 0) return;
 
-    // Detectar año a partir de la primera fecha disponible
     let detectedAnio: number | undefined = undefined;
     for (const p of pendientes) {
       const fechaNorm = this.extraerFechaNormalizada(p.fecha);
@@ -1428,7 +1049,6 @@ export class MovimientosStoreGoogle {
       );
 
       if (enriched && enriched.length > 0) {
-        // enriched order matches resumen order
         for (let i = 0; i < enriched.length; i++) {
           const e = enriched[i];
           const target = pendientes[i];
@@ -1441,10 +1061,9 @@ export class MovimientosStoreGoogle {
         return;
       }
     } catch (err) {
-      console.warn('⚠️ CotizacionStore enrich failed, falling back to range service', err);
+      console.warn('⚠️ CotizacionStore enrich falló, recurriendo al servicio por rango:', err);
     }
 
-    // Fallback: pedir por rango usando el servicio
     const fechas = new Set<string>();
     for (const r of pendientes) {
       const fechaNorm = this.extraerFechaNormalizada(r.fecha);
@@ -1487,60 +1106,14 @@ export class MovimientosStoreGoogle {
         }
         r.saldoUSD = rate > 0 ? Number((r.saldoPesos / rate).toFixed(2)) : 0;
       }
-      return;
     } catch (err) {
-      console.warn('❌ Error requesting dolar range', err);
+      console.warn('❌ Error al solicitar rango de dólar:', err);
     }
   }
-  isMesCargado(mes: string): boolean {
-    return this.mensualPorMes.has(mes);
-  }
 
-  getMensual(hojaBase: string): any | null {
-    return this.mensualPorMes.get(hojaBase)?.() ?? null;
-  }
-  cleanMensual(): any | null {
-    return this.mensualPorMes.clear();
-  }
-  /* getMensual2(mes: string, entidad: string): any | null {
-        return this.mensualPorMes.get(`${entidad}_${mes}`)?.() ?? null;
-    } */
-  getEstimativo(mes: string): any | null {
-    return this.estimativoPorMes.get(mes)?.() ?? null;
-  }
-  /* getEstimativoPorFecha(mes: string, fecha: string) {
-        return this.getEstimativo(mes).find(r => r.fecha === fecha);
-    } */
-  getRegistrosDeEntidadPorMes(entidad: string, mes: string): any[] {
-    const res = this.getMensual(mes);
-    if (!res?.values) return [];
-    const rangos = this.ValidarRangoEntidades(new Date().getFullYear());
-    const rango = rangos?.[entidad];
-    if (!rango) return [];
-    const { inicio, fin, headerIndex } = rango;
-    const headers = res.values[headerIndex] ?? [];
-    const colIndex = headers.findIndex(
-      (h: string | undefined) => this.normalizar(h) === this.normalizar(mes),
-    );
-
-    if (colIndex === -1) return [];
-
-    return res.values
-      .slice(inicio, fin + 1)
-      .filter((fila: string | any[]) => {
-        const monto = fila[colIndex]?.trim();
-        return (
-          fila.length > colIndex &&
-          monto !== '' &&
-          !isNaN(parseFloat(monto.replace(/\./g, '').replace(',', '.').replace('$', '')))
-        );
-      })
-      .map((fila: any[]) => ({
-        descripcion: fila[0],
-        monto: fila[colIndex],
-      }));
-  }
-
+  /**
+   * Actualiza el valor real de un día específico en la hoja estimativa mediante el proxy de Sheets.
+   */
   async actualizarSaldoReal(
     mes: string,
     fecha: string,
@@ -1559,52 +1132,9 @@ export class MovimientosStoreGoogle {
     return res;
   }
 
-  obtenerTotalesGlobalesDesdeResumen(meses: string[]): { mes: string; total: number }[] {
-    const rangos = this.ValidarRangoEntidades(new Date().getFullYear());
-    const entidades = Object.keys(rangos) as string[];
-    const resultados: { mes: string; total: number }[] = [];
-
-    for (const mes of meses) {
-      let totalMes = 0;
-
-      for (const entidad of entidades) {
-        const res = this.getMensual(mes);
-        if (!res?.values) {
-          console.warn(`❌ Datos faltantes para ${mes}`);
-          continue;
-        }
-
-        const valores = res.values;
-        const headers = valores[0] ?? [];
-        const nombreMes = this.extraerMes(mes);
-        const colIndex = headers.findIndex(
-          (h: string | undefined) => this.normalizar(h) === this.normalizar(nombreMes),
-        );
-        if (colIndex === -1) continue;
-
-        const { inicio, fin } = rangos[entidad];
-        const registros = valores.slice(inicio, fin + 1);
-
-        const subtotal = registros.reduce((sum: number, fila: string[]) => {
-          const valor = fila[colIndex];
-          const monto =
-            typeof valor === 'string'
-              ? parseFloat(valor.replace(/\./g, '').replace(',', '.').replace('$', ''))
-              : typeof valor === 'number'
-                ? valor
-                : 0;
-          return sum + (isNaN(monto) ? 0 : monto);
-        }, 0);
-
-        totalMes += subtotal;
-      }
-
-      resultados.push({ mes, total: totalMes });
-    }
-
-    return resultados;
-  }
-
+  /**
+   * Obtiene la serie de totales de saldo por mes para el resumen de todo el año considerando entidades y presupuesto.
+   */
   async obtenerTotalesGlobalesDesdeResumenSaldoAnio(
     anio: number,
     force = false,
@@ -1613,31 +1143,25 @@ export class MovimientosStoreGoogle {
     const entidades = Object.keys(objetoEntidades) as (keyof typeof objetoEntidades)[];
     const resultados: { mes: string; total: number }[] = [];
     const meses = this.base;
-    //
 
-    //
     await this.asegurarMensualPorAnioRange(
       anio,
       meses,
-      '--> storeGoogle.obtenerTotalesGlobalesDesdeResumenAnio()',
+      '--> storeGoogle.obtenerTotalesGlobalesDesdeResumenSaldoAnio()',
       force,
     );
+
     for (const mes of meses) {
       let totalMes = 0;
-      //await this.asegurarMensualPorAnio(anio, mes, "--> storeGoogle.obtenerTotalesGlobalesDesdeResumenAnio()")
       const mensl = this.getMensualPorMes(anio, mes);
-      if (!mensl?.values) {
-        //console.warn(`❌ Datos faltantes para ${mes}`);
-        continue;
-      }
+      if (!mensl?.values) continue;
+
       const celdaPresupuesto = mensl.values[20]?.[10];
       const presupuesto = this.parseMoneda(celdaPresupuesto);
+
       for (const entidad of entidades) {
         const res = this.getMensualPorMes(anio, mes);
-        if (!res?.values) {
-          //console.warn(`❌ Datos faltantes para ${mes}`);
-          continue;
-        }
+        if (!res?.values) continue;
 
         const valores = res.values;
         const headers = valores[0] ?? [];
@@ -1666,59 +1190,9 @@ export class MovimientosStoreGoogle {
     return resultados;
   }
 
-  async obtenerTotalesGastosMensualesAnio(
-    anio: number,
-    force = false,
-  ): Promise<{ mes: string; total: number }[]> {
-    const objetoEntidades = this.ValidarRangoEntidades(anio);
-    const entidades = Object.keys(objetoEntidades) as (keyof typeof objetoEntidades)[];
-    const resultados: { mes: string; total: number }[] = [];
-    const meses = this.base;
-
-    await this.asegurarMensualPorAnioRange(
-      anio,
-      meses,
-      '--> storeGoogle.obtenerTotalesGastosMensualesAnio()',
-      force,
-    );
-
-    for (const mes of meses) {
-      let totalMes = 0;
-      for (const entidad of entidades) {
-        const res = this.getMensualPorMes(anio, mes);
-        if (!res?.values) continue;
-
-        const valores = res.values;
-        const headers = valores[0] ?? [];
-        const nombreMes = this.extraerMes(mes);
-        const colIndex = headers.findIndex(
-          (h: string | undefined) => this.normalizar(h) === this.normalizar(nombreMes),
-        );
-        if (colIndex === -1) continue;
-
-        const { inicio, fin } = objetoEntidades[entidad];
-        const registros = valores.slice(inicio, fin + 1);
-
-        const subtotal = registros.reduce((sum: number, fila: string[]) => {
-          const valor = fila[colIndex];
-          const monto =
-            typeof valor === 'string'
-              ? parseFloat(valor.replace(/\./g, '').replace(',', '.').replace('$', ''))
-              : typeof valor === 'number'
-                ? valor
-                : 0;
-          return sum + (isNaN(monto) ? 0 : monto);
-        }, 0);
-
-        totalMes += subtotal;
-      }
-
-      resultados.push({ mes, total: totalMes });
-    }
-
-    return resultados;
-  }
-
+  /**
+   * Proyecta el total de cuotas futuras restantes por tarjeta/entidad a lo largo de los meses del año.
+   */
   async obtenerProyeccionTotalesFuturosAnio(
     anio: number,
     force = false,
@@ -1786,91 +1260,16 @@ export class MovimientosStoreGoogle {
     return resultados;
   }
 
-  obtenerTotalesPorEntidad(entidad: string, meses: string[]): { mes: string; total: number }[] {
-    const resultados: { mes: string; total: number }[] = [];
-
-    for (const mes of meses) {
-      const res = this.getMensual(mes);
-      if (!res?.values) {
-        console.warn(`❌ Datos faltantes para ${mes}`);
-        resultados.push({ mes, total: 0 });
-        continue;
-      }
-
-      const valores = res.values;
-      const headers = valores[0] ?? [];
-
-      const nombreMes = this.extraerMes(mes);
-      const colIndex = headers.findIndex(
-        (h: string | undefined) => this.normalizar(h) === this.normalizar(nombreMes),
-      );
-      headers.forEach((h: string, i: any) => {
-        const match = h?.toLowerCase().replace(/[\s\-]/g, '_') === nombreMes.toLowerCase();
-      });
-      if (colIndex === -1) {
-        resultados.push({ mes, total: 0 });
-        continue;
-      }
-
-      const rangos = this.ValidarRangoEntidades(new Date().getFullYear());
-      const { inicio, fin } = rangos[entidad];
-      const registros = valores.slice(inicio, fin + 1);
-
-      const subtotal = registros.reduce((sum: number, fila: Record<string, any>) => {
-        const valor = fila[colIndex];
-        const monto =
-          typeof valor === 'string'
-            ? parseFloat(valor.replace(/\./g, '').replace(',', '.').replace('$', ''))
-            : typeof valor === 'number'
-              ? valor
-              : 0;
-        return sum + (isNaN(monto) ? 0 : monto);
-      }, 0);
-
-      resultados.push({ mes, total: subtotal });
-    }
-    return resultados;
-  }
+  /**
+   * Separa el nombre del mes si contiene sufijo de año (ej. 'Enero_2026' -> 'Enero').
+   */
   private extraerMes(mesCompleto: string): string {
-    return mesCompleto.split('_')[0]; // "Enero_2026" → "Enero"
+    return mesCompleto.split('_')[0];
   }
 
-  async cargarDesdeSheets(): Promise<void> {
-    if (this._movimientos().length > 0) return;
-
-    const res = (await firstValueFrom(this.sheets.obtenerMovimientos())) as { values: string[][] };
-    const filas = res.values;
-    const headers = filas[0];
-    const movimientos = filas.slice(1).map((row: any[]) => {
-      const obj: any = {};
-      headers.forEach((key: string, i: number) => {
-        obj[key.toLowerCase()] = row[i];
-      });
-
-      // Convertir fecha "dd/MM/yyyy" → Date
-      const partes = obj.fecha?.split('/');
-      if (partes?.length === 3) {
-        const [dia, mes, anio] = partes;
-        obj.fecha = new Date(+anio, +mes - 1, +dia);
-      }
-
-      // Convertir monto "51.500,00" → 51500.00
-      if (typeof obj.monto === 'string') {
-        const limpio = obj.monto.replace(/\./g, '').replace(/\$/g, '').replace(',', '.');
-        obj.monto = parseFloat(limpio);
-      }
-
-      // Convertir monto "51.500,00" → 51500.00
-      if (typeof obj.deudapesos === 'string') {
-        console.log('sheet deuda pesos', JSON.stringify(obj.deudapesos));
-        const limpio = obj.deudapesos.replace(/\./g, '').replace(/\$/g, '').replace(',', '.');
-        obj.deudapesos = parseFloat(limpio);
-      }
-      return obj as Movimiento;
-    });
-
-    this._movimientos.set(movimientos);
-  }
+  /**
+   * Carga los movimientos detallados de un año desde la API o LocalStorage con deduplicación concurrente.
+   */
   async cargarDesdeSheetsPorAnio(anio: number, force = false): Promise<void> {
     console.log(`Inicia cargarDesdeSheetsPorAnio(${anio})`);
     const ahora = Date.now();
@@ -1878,7 +1277,7 @@ export class MovimientosStoreGoogle {
     const ultimaCarga = this.movimientosTimestamp.get(anio) ?? 0;
     const expirado = ahora - ultimaCarga > vencimientoMs;
 
-    // 1. Hidratación inmediata desde localStorage si no está en memoria (carga ultrarrápida en UI)
+    // 1. Hidratación inmediata desde localStorage
     if (!this.movimientosPorAnio.has(anio) && !force) {
       const cached = this.leerDesdeStorage<Movimiento2[]>('movimientos', String(anio), anio);
       if (cached) {
@@ -1891,7 +1290,7 @@ export class MovimientosStoreGoogle {
       }
     }
 
-    // 2. Si ya está cargado en memoria, no ha expirado y no se fuerza recarga, se retorna inmediatamente
+    // 2. Si ya está cargado en memoria, no ha expirado y no se fuerza recarga, retornar
     if (this.movimientosPorAnio.has(anio) && !expirado && !force) return;
 
     if (this.movimientosEnCarga.has(anio) && !force) return await this.movimientosEnCarga.get(anio);
@@ -1909,11 +1308,9 @@ export class MovimientosStoreGoogle {
 
         for (const fila of filas.slice(1)) {
           const [fechaRaw, tipo, montoRaw, deudaRaw] = fila;
-
           if (!fechaRaw || !montoRaw) continue;
 
           const fecha = parseFechaEsAR(fechaRaw);
-
           if (fecha.getFullYear() > anio) continue;
 
           const monto = parseFloat(montoRaw.replace(/\./g, '').replace(',', '.').replace('$', ''));
@@ -1945,6 +1342,9 @@ export class MovimientosStoreGoogle {
     console.log(`Finaliza cargarDesdeSheetsPorAnio(${anio})`);
   }
 
+  /**
+   * Limpia toda la caché de LocalStorage y reinicia los mapas de memoria del store.
+   */
   limpiarStorageYRecargar(): void {
     if (this.puedeUsarStorage()) {
       try {
@@ -1969,25 +1369,13 @@ export class MovimientosStoreGoogle {
     this.cotizacionStore.limpiarTodoCache();
   }
 
-  agregar(movimiento: Movimiento) {
-    this._movimientos.update((lista) => [...lista, movimiento]);
-    // Aquí podrías agregar lógica para escribir en Sheets si tenés OAuth
-  }
-
-  limpiar() {
-    this._movimientos.set([]);
-  }
-
+  /**
+   * Genera la lista de resumen diario calculando acumulados y diferencias día a día para un año.
+   */
   getResumenPorDia(
     anio?: number,
   ): { fecha: string; total: number; diferencia: number; deudaPesos: number }[] {
-    console.log(`getResumenPorDia(${anio}?: number)`);
-    console.log(
-      '🔍 claves disponibles en movimientosPorAnio:',
-      Array.from(this.movimientosPorAnio.keys()),
-    );
-    const movimientos = anio ? (this.movimientosPorAnio.get(anio)?.() ?? []) : this._movimientos2();
-
+    const movimientos = anio ? (this.movimientosPorAnio.get(anio)?.() ?? []) : [];
     const movimientosPorFecha = new Map<string, number>();
     const deudaPorFecha = new Map<string, number>();
 
@@ -2014,35 +1402,17 @@ export class MovimientosStoreGoogle {
       return { fecha, total, diferencia, deudaPesos };
     });
   }
-  getMovimientos(anio: number): Movimiento2[] {
-    return this.movimientosPorAnio.get(anio)?.() ?? [];
-  }
-  /* getMovimientosPorAnio(anio: number): Movimiento2[] {
-        return this._movimientos2().filter(m => {
-            const fecha = new Date(m.fecha);
-            return fecha.getFullYear() === anio;
-        });
-    } */
+
+  /**
+   * Devuelve los movimientos cargados en memoria para un año específico.
+   */
   getMovimientosPorAnio(anio: number): Movimiento2[] {
     return this.movimientosPorAnio.get(anio)?.() ?? [];
   }
-  getMovimientosOrdenados(): Movimiento[] {
-    return this.movimientos()
-      .slice()
-      .sort((a, b) => {
-        const fechaA = new Date(a.fecha).getTime();
-        const fechaB = new Date(b.fecha).getTime();
-        return fechaB - fechaA; // orden descendente
-      });
-  }
 
-  getTablaAnualPorAnio(anio: number): Prestamo[] {
-    return this.tablaAnualPorAnio.get(anio)?.() ?? [];
-  }
-
-  getValorOtorgado(anio: number): number {
-    return this.valorOtorgadoPorAnio.get(anio)?.() ?? 0;
-  }
+  /**
+   * Normaliza textos a minúsculas sin acentos ni espacios para comparaciones tolerantes.
+   */
   normalizar(texto: string | undefined): string {
     return (texto ?? '')
       .toLowerCase()
@@ -2051,87 +1421,66 @@ export class MovimientosStoreGoogle {
       .replace(/[áéíóú]/g, (c) => ({ á: 'a', é: 'e', í: 'i', ó: 'o', ú: 'u' })[c] ?? c);
   }
 
-  get entidadVisa() {
-    const ent = this._entidadVisa.asReadonly();
-    return ent;
-  }
-  get headerVisa() {
-    return this._headerVisa.asReadonly();
-  }
-
+  // Getters de entidades y encabezados indexados por `${anio}::${mes}`
   getEntidadVisa(anio: number, mes: string): Entidad[] {
-    const clave = `${anio}::${mes}`;
-    console.warn(`Entidad Visa clave ${clave} `);
-    return this.entidadVisaPorMes.get(clave)?.() ?? [];
+    return this.entidadVisaPorMes.get(`${anio}::${mes}`)?.() ?? [];
   }
 
   getHeaderVisa(anio: number, mes: string): string[] {
     return this.headerVisaPorMes.get(`${anio}::${mes}`)?.() ?? [];
   }
+
   getEntidadMasterGalicia(anio: number, mes: string): Entidad[] {
-    const clave = `${anio}::${mes}`;
-    console.warn(`Entidad Master Galicia clave ${clave} `);
-    return this.entidadMasterGaliciaPorMes.get(clave)?.() ?? [];
+    return this.entidadMasterGaliciaPorMes.get(`${anio}::${mes}`)?.() ?? [];
   }
 
   getHeaderMasterGalicia(anio: number, mes: string): string[] {
     return this.headerMasterGaliciaPorMes.get(`${anio}::${mes}`)?.() ?? [];
   }
+
   getEntidadNaranja(anio: number, mes: string): Entidad[] {
-    const clave = `${anio}::${mes}`;
-    console.warn(`Entidad Naranja clave ${clave} `);
-    return this.entidadNaranjaPorMes.get(clave)?.() ?? [];
+    return this.entidadNaranjaPorMes.get(`${anio}::${mes}`)?.() ?? [];
   }
 
   getHeaderNaranja(anio: number, mes: string): string[] {
     return this.headerNaranjaPorMes.get(`${anio}::${mes}`)?.() ?? [];
   }
+
   getEntidadBancor(anio: number, mes: string): Entidad[] {
-    const clave = `${anio}::${mes}`;
-    console.warn(`Entidad Bancor clave ${clave} `);
-    return this.entidadBancorPorMes.get(clave)?.() ?? [];
+    return this.entidadBancorPorMes.get(`${anio}::${mes}`)?.() ?? [];
+  }
+
+  getHeaderBancor(anio: number, mes: string): string[] {
+    return this.headerBancorPorMes.get(`${anio}::${mes}`)?.() ?? [];
   }
 
   getEntidadML(anio: number, mes: string): Entidad[] {
-    const clave = `${anio}::${mes}`;
-    console.warn(`Entidad ML clave ${clave} `);
-    return this.entidadMLPorMes.get(clave)?.() ?? [];
+    return this.entidadMLPorMes.get(`${anio}::${mes}`)?.() ?? [];
   }
+
   getHeaderML(anio: number, mes: string): string[] {
     return this.headerMLPorMes.get(`${anio}::${mes}`)?.() ?? [];
   }
-  getEntidadOtros(anio: number, mes: string): Entidad[] {
-    const clave = `${anio}::${mes}`;
-    console.warn(`Entidad Otros clave ${clave} `);
-    return this.entidadOtrosPorMes.get(clave)?.() ?? [];
-  }
-  async getEstimados(anio: number, hoja: string): Promise<any> {
-    const clave = `${anio}::${hoja}`;
-    console.warn(`Estimados clave ${clave}`);
 
-    // Si hay una carga en curso, esperar
+  getEntidadOtros(anio: number, mes: string): Entidad[] {
+    return this.entidadOtrosPorMes.get(`${anio}::${mes}`)?.() ?? [];
+  }
+
+  /**
+   * Retorna las filas estimativas de un mes y año aguardando la promesa de carga si está en curso.
+   */
+  async getEstimados(anio: number, hoja: string): Promise<EstimativoRow[]> {
+    const clave = `${anio}::${hoja}`;
     const promesa = this.estimativoEnCarga.get(clave);
     if (promesa) {
       await promesa;
     }
-
-    // Ahora sí devolver lo cargado
     return this.estimativoPorMes.get(clave)?.() ?? [];
   }
-  /* async getEstimadosRange(anio: number, meses: string[]): Promise<any> {
-        const listaMeses = this.resolverNombreHoja(anio,meses.join(', '))
-        const clave = `${anio}::${listaMeses}`;
-        console.warn(`Estimados clave ${listaMeses}`);
 
-        // Si hay una carga en curso, esperar
-        const promesa = this.estimativoEnCarga.get(clave);
-        if (promesa) {
-            await promesa;
-        }
-
-        // Ahora sí devolver lo cargado
-        return this.estimativoPorMes.get(clave)?.() ?? [];
-    } */
+  /**
+   * Retorna el conjunto concatenado de estimativos para un rango de meses de un año.
+   */
   async getEstimadosRange(anio: number, meses: string[]): Promise<EstimativoRow[]> {
     const resultados: EstimativoRow[] = [];
     for (const mes of meses) {
@@ -2142,48 +1491,5 @@ export class MovimientosStoreGoogle {
       resultados.push(...datos);
     }
     return resultados;
-  }
-
-  getHeaderBancor(anio: number, mes: string): string[] {
-    return this.headerBancorPorMes.get(`${anio}::${mes}`)?.() ?? [];
-  }
-  get entidadMasterGalicia() {
-    const ent = this._entidadMasterGalicia.asReadonly();
-    return ent;
-  }
-  get headerMasterGalicia() {
-    return this._headerMasterGalicia.asReadonly();
-  }
-  get entidadNaranja() {
-    const ent = this._entidadNaranja.asReadonly();
-    return ent;
-  }
-  get headerNaranja() {
-    return this._headerNaranja.asReadonly();
-  }
-  get entidadBancor() {
-    const ent = this._entidadBancor.asReadonly();
-    return ent;
-  }
-  get headerBancor() {
-    return this._headerBancor.asReadonly();
-  }
-  get entidadML() {
-    const ent = this._entidadML.asReadonly();
-    return ent;
-  }
-  get headerML() {
-    return this._headerML.asReadonly();
-  }
-
-  get entidadOtros() {
-    const ent = this._entidadOtros.asReadonly();
-    return ent;
-  }
-  resetAnual() {
-    this._anualCargado.set(false);
-    this.tablaAnual.set([]);
-    this.tablaSecundaria.set([]);
-    this.valorOtorgado.set(0);
   }
 }

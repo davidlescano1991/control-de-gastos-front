@@ -92,7 +92,8 @@ export class Anual implements OnInit, OnDestroy {
     });
   }
 
-  readonly refreshIntervalMs = 5000;
+  // Polling desactivado: Reemplazado por Server-Sent Events (SSE) en tiempo real
+  readonly refreshIntervalMs = 0;
   isCargando = signal(false);
   filas = signal<Prestamo[]>([]);
   filasSecundarias = signal<Prestamo[]>([]);

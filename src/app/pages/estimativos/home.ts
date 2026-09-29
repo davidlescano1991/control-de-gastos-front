@@ -83,7 +83,8 @@ export class HomeEstimativo implements OnInit, OnDestroy {
     'Enero_2026', 'Febrero_2026', 'Marzo_2026', 'Abril_2026'
   ]; */
   anios: number[] = [];
-  readonly refreshIntervalMs = 12000;
+  // Polling desactivado: Reemplazado por Server-Sent Events (SSE) en tiempo real
+  readonly refreshIntervalMs = 0;
   estimativoFilas = signal<EstimativoRow[]>([]);
 
   anioSeleccionado = signal<number>(new Date().getFullYear());

@@ -594,7 +594,7 @@ gantt
 
 ---
 
-#### 📌 Paso 5.5: Despliegue Continuo (CI/CD) del Frontend en Firebase Hosting con GitHub Actions
+#### 📌 Paso 5.5: Despliegue Continuo (CI/CD) del Frontend en Firebase Hosting con GitHub Actions (COMPLETADO)
 * **¿Qué es y por qué se hace de esta manera en la industria?**
   * En lugar de compilar (`ng build`) y subir los archivos manualmente desde tu computadora (lo cual consume tiempo, memoria y depende de tu conexión local), las empresas utilizan un pipeline de **Integración y Entrega Continua (CI/CD)**.
   * **Flujo Profesional de Ramas (`GitFlow`)**:
@@ -609,27 +609,25 @@ gantt
        * Despliega los archivos estáticos en **Firebase Hosting** dentro del sitio multisitio personalizado `control-gastos-dml` del proyecto GCP (`control-gastos-472318`).
     4. Tu aplicación queda publicada en internet bajo un dominio limpio y profesional con HTTPS y CDN global de Google (`https://control-gastos-dml.web.app`), accesible desde cualquier celular o PC sin depender de tu máquina local.
 * **Subpasos**:
-  * **5.5.0**: Vinculación de Firebase y Creación del Sitio Multisitio (`control-gastos-dml`) (COMPLETADO):
+  * **5.5.0**: Vinculación de Firebase y Creación del Sitio Multisitio (`control-gastos-dml`): *(Completado)*
     * Vinculación del proyecto de Google Cloud `control-gastos-472318` en la consola de Firebase.
     * Habilitación de Firebase Hosting y creación del sitio multisitio adicional `control-gastos-dml` para disponer de la URL limpia `https://control-gastos-dml.web.app`.
-  * **5.5.1**: Configuración de Firebase Hosting en el repositorio (`firebase.json` y `.firebaserc`):
-    * `firebase.json`: Configura el target o site `control-gastos-dml`, define la carpeta de salida `dist/control-gastos-front/browser` y la regla de reescritura SPA (`rewrites: [{"source": "**", "destination": "/index.html"}]`) para que el enrutamiento de Angular (`/mensual`, `/anual`, etc.) funcione al recargar sin dar error 404.
-    * `.firebaserc`: Asocia el proyecto de Google Cloud `control-gastos-472318` y mapea el target de hosting `control-gastos-dml`.
-  * **5.5.2**: Generación y Configuración del Secreto de Despliegue en GitHub:
-    * Configurar la Cuenta de Servicio (Service Account) con permisos de despliegue en Firebase Hosting.
-    * Guardar la clave JSON en GitHub: **Settings** ➔ **Secrets and variables** ➔ **Actions** bajo el nombre `FIREBASE_SERVICE_ACCOUNT_CONTROL_GASTOS`.
-  * **5.5.3**: Creación del Workflow de Despliegue Automático (`.github/workflows/deploy.yml`):
-    * Configurar el disparador en `push: branches: [main]`.
-    * Usar la acción oficial `FirebaseExtended/action-hosting-deploy@v0` apuntando al target `control-gastos-dml` con canal activo `live`.
-  * **5.5.4**: Prueba y Validación del Flujo CI/CD Completo:
-    * Confirmar cambios y pushear la rama `develop` a GitHub.
-    * Crear el Pull Request desde `develop` hacia `main` en la interfaz web de GitHub.
-    * Fusionar (*Merge*) el Pull Request.
-    * Monitorear la ejecución automática en la pestaña **Actions** de GitHub y verificar el acceso final a la web en producción.
-* **🧪 Tu Prueba de Despliegue Automático**:
-  1. Mergear el Pull Request de `develop` a `main` en GitHub.
-  2. Abrir la pestaña **Actions** en tu repositorio `davidlescano1991/control-de-gastos-front` y observar el job `build-deploy` en verde.
-  3. Ingresar a `https://control-gastos-dml.web.app` desde tu navegador o celular y comprobar que la aplicación carga conectada en tiempo real a la API en Cloud Run.
+  * **5.5.1**: Configuración de Firebase Hosting en el repositorio (`firebase.json` y `.firebaserc`): *(Completado)*
+    * `firebase.json`: Configurado con target `control-gastos-dml`, carpeta de salida `dist/control-gastos-front/browser` y regla de reescritura SPA (`rewrites: [{"source": "**", "destination": "/index.html"}]`).
+    * `.firebaserc`: Proyecto default `control-gastos-472318` y mapeo de target `control-gastos-dml`.
+  * **5.5.2**: Generación y Configuración del Secreto de Despliegue en GitHub: *(Completado)*
+    * Generación de clave privada de Service Account en Firebase Console.
+    * Configuración del secreto seguro en GitHub: `FIREBASE_SERVICE_ACCOUNT_CONTROL_GASTOS`.
+  * **5.5.3**: Creación del Workflow de Despliegue Automático (`.github/workflows/deploy.yml`): *(Completado)*
+    * Configurado con trigger en `push: branches: [main]`, compilación optimizada con base-href `/` y despliegue a Firebase Hosting vía `FirebaseExtended/action-hosting-deploy@v0`.
+  * **5.5.4**: Prueba y Validación del Flujo CI/CD Completo: *(Completado)*
+    * Commit y push en rama `develop`.
+    * Pull Request `develop` ➔ `main` creado y fusionado en GitHub.
+    * Pipeline ejecutado en GitHub Actions con resultado 100% exitoso.
+* **🧪 Tu Prueba de Despliegue Automático**: *(VERIFICADO EXITOSAMENTE)*
+  1. Pull Request fusionado exitosamente en `main`.
+  2. GitHub Actions completó el build y deploy a producción en verde.
+  3. Comprobación en `https://control-gastos-dml.web.app`: el frontend carga velozmente, en modo oscuro/claro, con certificado SSL automático de Google y el badge verde **"• En Tiempo Real"** conectado directamente a Cloud Run.
 
 
 ---
@@ -646,27 +644,26 @@ gantt
 
 ---
 
-#### 📌 Paso 6.1: Diseño del Pipeline ETL y Modo Simulación (`--dry-run`)
+#### 📌 Paso 6.1: Diseño del Pipeline ETL y Modo Simulación (`--dry-run`) (COMPLETADO)
 * **¿Qué es y por qué se hace?**
-  * Crear un script especializado en Node.js/TypeScript (`control-de-gastos-api/src/scripts/migrate_sheets_2026.ts`) capaz de leer la planilla completa del año 2026 (`sheetId2026: 1IkaaIQVs24QXswoS3gR-WJHvk3UEeEyHtnxWXZvk7R8`) utilizando la API de Google Sheets.
-  * Diseñar la lógica de mapeo y transformación para cada una de las 4 estructuras clave de la planilla:
-    1. **Pestaña `Movimientos`**: Gastos e ingresos individuales por fecha, categoría, entidad (tarjetas Bancor, Naranja, Mastercard, otros) y método de pago.
-    2. **Pestañas Mensuales (`Enero`, `Febrero`, ..., `Diciembre`)**: Datos de control mensual, subtotales por entidad y balances.
-    3. **Pestaña `Estimaciones`**: Saldo inicial (día 1), gastos diarios presupuestados, intereses a favor y la grilla de seguimiento día por día (real vs proyectado).
-    4. **Pestaña `Anual`**: Matriz consolidada de resumen para contrastar contra los totales de la base de datos.
+  * Crear un script genérico y reutilizable en Node.js/TypeScript (`control-de-gastos-api/src/scripts/migrate_excel_year.ts`) capaz de procesar el archivo Excel exportado de cualquier año (`--year=2026 --file=...`) a máxima velocidad (en segundos, sin cuotas ni límites de API de Google Sheets).
+  * Diseñar la lógica de mapeo y transformación para cada una de las estructuras clave de la planilla:
+    1. **Pestaña `Movimientos`**: Gastos e ingresos individuales por fecha, entidad/tarjeta (Visa, Mastercard, Naranja, Bancor, etc.) y monto absoluto.
+    2. **Pestañas de Estimativos (`Estimativo Enero` a `Estimativo Diciembre`)**: Saldo inicial (día 1), gastos diarios presupuestados (I1), intereses a favor (J1), presupuesto mensual (L1) y la grilla de seguimiento día por día (real vs proyectado).
+    3. **Pestañas Mensuales y Anual**: Mapeo de totales y balances para auditoría.
 * **Subpasos**:
-  * **6.1.1**: Crear interfaces de normalización y funciones de limpieza de datos:
-    * Conversión de fechas argentinas (`DD/MM/YYYY`) a timestamps estándar ISO-8601 (`DateTime`).
-    * Sanitización de importes: eliminación de signos `$`, espacios, puntos de miles y conversión de comas a puntos decimales (`$ 1.500,50` ➔ `1500.50`).
-    * Normalización de nombres de entidades para que coincidan exactamente con el enum/clasificación de la API.
-  * **6.1.2**: Implementar el flag `--dry-run`:
-    * Al ejecutar `npx ts-node src/scripts/migrate_sheets_2026.ts --dry-run`, el script procesa y valida todas las pestañas, imprime una tabla resumen en consola con la cantidad de registros encontrados y avisa si alguna fila tiene datos incompletos, **sin realizar ninguna inserción en la base de datos**.
-* **🧪 Tu Prueba Local Manual (Paso 6.1)**:
-  1. Ejecutar en terminal de la API:
+  * **6.1.1**: Interfaces de normalización y funciones de limpieza de datos: *(Completado)*
+    * Conversión de fechas seriales de Excel y formatos argentinos a timestamps UTC ISO-8601 (`DateTime`).
+    * Sanitización de importes con `Math.abs`: tanto ingresos como gastos se normalizan en valores positivos con su correspondiente flag de `tipo` ('INGRESO' | 'GASTO').
+    * Clasificación automática de entidades y categorías ('Tarjetas', 'Servicios', 'Ingresos', 'General').
+  * **6.1.2**: Implementación del flag `--dry-run`: *(Completado)*
+    * El script valida y audita la planilla completa emitiendo un informe en consola con los conteos exactos por mes y tipo, **sin escribir nada en la base de datos**.
+* **🧪 Tu Prueba Local Manual (Paso 6.1)**: *(VERIFICADO EXITOSAMENTE)*
+  1. Ejecutar en terminal de la API (`control-de-gastos-api`):
      ```bash
-     npx ts-node src/scripts/migrate_sheets_2026.ts --dry-run
+     npx tsx src/scripts/migrate_excel_year.ts --dry-run
      ```
-  2. *Resultado esperado*: Se visualiza en consola el resumen de filas detectadas por pestaña (ej: 450 movimientos, 12 meses de estimaciones, 365 días proyectados) y el mensaje verde `[Dry-Run] Simulación completada con éxito. 0 errores encontrados`.
+  2. *Resultado obtenido*: En 3 segundos auditó las 34 hojas de `Cuentas claras_2026.xlsx`, detectando **1.106 movimientos válidos de 2026**, **12 configuraciones mensuales** y **365 días proyectados** con 0 errores de formato.
 
 ---
 
