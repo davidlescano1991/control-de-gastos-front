@@ -1,0 +1,38 @@
+name: 1. Auditoría de Dependencias
+
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  audit-dependencies:
+    name: Auditoría y Calidad de Dependencias
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout de repo privado
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Enable corepack and setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
+      - name: Instalacion de dependencias (pnpm)
+        run: pnpm install --frozen-lockfile
+
+      - name: Verificar pnpm antes de auditoría (pre-audit)
+        run: pnpm -v
+
+      - name: Ejecutar auditoría de dependencias
+        run: pnpm audit --audit-level=moderate || true

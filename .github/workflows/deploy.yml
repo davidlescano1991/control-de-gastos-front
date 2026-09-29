@@ -1,42 +1,38 @@
-name: Build and Deploy proyecto Angular
+name: 3. Deploy a Firebase Hosting
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
 
 jobs:
-  build-deploy:
+  deploy:
+    name: Deploy a Firebase Hosting
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout de repo privado
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Setup Node 22.x
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22.x
+      - name: Descargar artefacto compilado previo (generado por Build en develop)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh run download --name dist-control-gastos-front --dir dist/control-gastos-front/browser || echo "No se encontró artefacto remoto, ejecutando fallback..."
 
-      - name: Enable corepack and setup pnpm
+      - name: Fallback Build (solo si no existía el artefacto previo)
+        if: hashFiles('dist/control-gastos-front/browser/index.html') == ''
         run: |
           corepack enable
           corepack prepare pnpm@latest --activate
-
-      - name: Instalacion de dependencias (pnpm)
-        run: pnpm install --frozen-lockfile
-
-      - name: Verificar pnpm antes de auditoría (pre-audit)
-        run: pnpm -v
-
-      - name: Ejecutar auditoría de dependencias
-        run: pnpm audit --audit-level=moderate || true
-
-      - name: Inyectar version de despliegue
-        run: sed -i "s/__APP_VERSION_VALUE__/V1.0.${{ github.run_number }}/g" src/index.html
-
-      - name: Build proyecto Angular
-        run: pnpm exec -- ng build --configuration production --base-href "/"
+          pnpm install --frozen-lockfile
+          sed -i "s/__APP_VERSION_VALUE__/V1.0.${{ github.run_number }}/g" src/index.html
+          pnpm exec -- ng build --configuration production --base-href "/"
 
       - name: Deploy a Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
