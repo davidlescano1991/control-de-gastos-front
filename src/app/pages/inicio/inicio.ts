@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnDestroy, OnInit, WritableSignal } from '@angular/core';
+import { Component, inject, signal, effect, OnDestroy, OnInit, WritableSignal } from '@angular/core';
 import { MatGridListModule } from '@angular/material/grid-list';
 import { MatCardContent } from '@angular/material/card';
 import { Movimientos } from './graficos/movimientos/movimientos';
@@ -23,6 +23,8 @@ import { CotizacionStore } from '../../stores/dolar.store';
 import { Movimiento2 } from '../../models/movimiento';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { parseFechaEsAR } from '../../utils/grafico.utils';
+import { SyncSheetsDbService } from '../../services/sync-sheets-db.service';
+import { SseService } from '../../services/sse.service';
 
 import { MatIconModule } from '@angular/material/icon';
 
@@ -96,12 +98,22 @@ export class Inicio implements OnInit, OnDestroy {
   private wakeLockService = inject(WakeLockService);
   private cotizacionStore = inject(CotizacionStore);
   private breakpointObserver = inject(BreakpointObserver);
+  private syncSheetsDb = inject(SyncSheetsDbService);
+  private sseService = inject(SseService);
   private refreshTimerId: number | null = null;
   private autoRefreshInProgress = false;
 
   constructor() {
     this.breakpointObserver.observe([Breakpoints.Handset]).subscribe((result) => {
       this.isMobile = result.matches;
+    });
+
+    // Reacción automática: cuando la app esté conectada "En Tiempo Real", sincronizar movimientos nuevos
+    effect(() => {
+      const isOnline = this.sseService.isConnected();
+      if (isOnline && !this.isCargando()) {
+        void this.verificarYSincronizarConBD();
+      }
     });
   }
   private handleFocus = () => {
@@ -199,6 +211,7 @@ export class Inicio implements OnInit, OnDestroy {
 
       const anioInicial = this.anioSeleccionado();
       await this.ObtenerResumenPorAnio(anioInicial);
+      void this.verificarYSincronizarConBD();
       console.log('fin método cargarHistoricoCompleto()');
       if (registrarEstado) {
         this.logEstado(`...finaliza método cargarHistoricoCompleto()`);
@@ -206,6 +219,19 @@ export class Inicio implements OnInit, OnDestroy {
     } finally {
       if (mostrarCarga) {
         this.isCargando.set(false);
+      }
+    }
+  }
+
+  private async verificarYSincronizarConBD(): Promise<void> {
+    if (this.sseService.isConnected()) {
+      try {
+        const res = await this.syncSheetsDb.sincronizarMovimientosNuevos(this.anioActual);
+        if (res.sincronizados > 0) {
+          console.log(`✨ [Inicio] ${res.sincronizados} fecha(s) guardadas automáticamente en la BD:`, res.fechas);
+        }
+      } catch (err) {
+        console.warn('⚠️ [Inicio] Error al verificar sincronización con la BD:', err);
       }
     }
   }

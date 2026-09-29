@@ -1,10 +1,16 @@
 import { Movimiento, Movimiento2 } from '../models/movimiento';
 import { Cotizacion } from '../models/cotizacion';
 
-export function parseFechaEsAR(fechaInput: string | Date | undefined | null): Date {
+export function parseFechaEsAR(fechaInput: string | number | Date | undefined | null): Date {
   if (!fechaInput) return new Date(0);
   if (fechaInput instanceof Date) {
     return new Date(fechaInput.getFullYear(), fechaInput.getMonth(), fechaInput.getDate());
+  }
+  // Soporte para números seriales de Excel / Google Sheets (ej. 46294)
+  if (typeof fechaInput === 'number' || /^\d{5}$/.test(String(fechaInput).trim())) {
+    const serial = Number(fechaInput);
+    const d = new Date((serial - 25569) * 86400 * 1000);
+    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
   }
   const str = String(fechaInput).trim();
   if (str.includes('T')) {
@@ -23,12 +29,20 @@ export function parseFechaEsAR(fechaInput: string | Date | undefined | null): Da
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
-export function formatFechaEsAR(dateInput: Date | string): string {
+export function formatFechaEsAR(dateInput: Date | string | number): string {
   const d = parseFechaEsAR(dateInput);
   const dia = String(d.getDate()).padStart(2, '0');
   const mes = String(d.getMonth() + 1).padStart(2, '0');
   const anio = d.getFullYear();
   return `${dia}/${mes}/${anio}`;
+}
+
+export function formatFechaISO(dateInput: Date | string | number): string {
+  const d = parseFechaEsAR(dateInput);
+  const dia = String(d.getDate()).padStart(2, '0');
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const anio = d.getFullYear();
+  return `${anio}-${mes}-${dia}`;
 }
 
 export function parseCellCoordinates(cell: string): { row: number; col: number } {

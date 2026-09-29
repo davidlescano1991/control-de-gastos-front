@@ -34,16 +34,27 @@ export class GoogleSheetsService {
     console.log('url: ' + url);
     return this.http.get(url);
   }
-  obtenerMensualAnio(anio: number, mes: string, rango = 'A1:B21') {
+  obtenerMensualAnio(anio: number, mes: string, rango = 'A1:B21', valueRenderOption?: string) {
     //V2
     const pest = `${mes}!${rango}`;
     let url = '';
     let hoja = '';
-    console.log(`obtenerMensualAnio(${anio}: number,${mes}: string, ${rango})`);
+    console.log(`obtenerMensualAnio(${anio}: number,${mes}: string, ${rango}, ${valueRenderOption ?? 'DEFAULT'})`);
     hoja = this.ValidarFormularioXAnio(anio, hoja);
     url = `https://sheets.googleapis.com/v4/spreadsheets/${hoja}/values/${pest}?key=${this.apiKey}`;
+    if (valueRenderOption) {
+      url += `&valueRenderOption=${valueRenderOption}`;
+    }
     console.log('url: ' + url + ' <<año>> ' + anio);
-    return this.http.get(url);
+    return this.http.get<{ range: string; majorDimension: string; values: (string | number)[][] }>(url);
+  }
+
+  obtenerMovimientosConFormulas(anio: number, rango = 'A1:F3000') {
+    return this.obtenerMensualAnio(anio, 'Movimientos', rango, 'FORMULA');
+  }
+
+  obtenerMovimientosFormateados(anio: number, rango = 'A1:F3000') {
+    return this.obtenerMensualAnio(anio, 'Movimientos', rango, 'FORMATTED_VALUE');
   }
   obtenerMensualBatch(anio: number, meses: string[], rango = 'A1:K500') {
     const hoja = this.ValidarFormularioXAnio(anio, rango);

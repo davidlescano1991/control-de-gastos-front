@@ -1,0 +1,45 @@
+name: 2. Build y Compilación Angular
+
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-angular:
+    name: Build Proyecto Angular
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout de repo privado
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Enable corepack and setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
+      - name: Instalacion de dependencias (pnpm)
+        run: pnpm install --frozen-lockfile
+
+      - name: Inyectar version de despliegue
+        run: sed -i "s/__APP_VERSION_VALUE__/V1.0.${{ github.run_number }}/g" src/index.html
+
+      - name: Build proyecto Angular
+        run: pnpm exec -- ng build --configuration production --base-href "/"
+
+      - name: Guardar artefacto compilado
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-control-gastos-front
+          path: dist/control-gastos-front/browser
+          retention-days: 7
