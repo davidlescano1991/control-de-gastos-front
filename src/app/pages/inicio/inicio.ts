@@ -56,7 +56,8 @@ import { SelectorAnioDelorean } from '../../common/selector-anio-delorean/select
 export class Inicio implements OnInit, OnDestroy {
   private _formBuilder = inject(FormBuilder);
   private appConfig = inject(AppConfigService);
-  readonly refreshIntervalMs = 5000;
+  // Polling desactivado: Reemplazado por Server-Sent Events (SSE) en tiempo real
+  readonly refreshIntervalMs = 0;
   isMobile = false;
   firstFormGroup = this._formBuilder.group({ firstCtrl: ['', Validators.required] });
   secondFormGroup = this._formBuilder.group({ secondCtrl: ['', Validators.required] });

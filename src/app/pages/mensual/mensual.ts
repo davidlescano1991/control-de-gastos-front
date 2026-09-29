@@ -138,7 +138,8 @@ export class Mensual implements OnInit, OnDestroy {
   ];
   private appConfig = inject(AppConfigService);
   anios: number[] = [];
-  readonly refreshIntervalMs = 5000;
+  // Polling desactivado: Reemplazado por Server-Sent Events (SSE) en tiempo real
+  readonly refreshIntervalMs = 0;
   anioSeleccionado = signal<number>(new Date().getFullYear());
   mesSeleccionado = signal(this.meses[0]);
   isCargando = signal(false);
