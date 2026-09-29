@@ -5,7 +5,7 @@ export interface Movimiento {
   tipo: string;
   categoria: string;
   descripcion: string;
-  deudapesos: number;
+  deudapesos?: number;
 }
 
 

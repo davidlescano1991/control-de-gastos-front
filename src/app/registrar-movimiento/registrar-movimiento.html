@@ -1,32 +1,357 @@
-<div class="form-container">
-  <h2>Registrar Movimiento</h2>
-  <form (ngSubmit)="guardar()" class="form-grid">
-    <label for="fecha">Fecha:</label>
-   <input
-  type="date"
-  [(ngModel)]="movimiento.fecha"
-  name="fecha"
-  required
-  pattern="\d{4}-\d{2}-\d{2}"
-/>
+<div class="movimientos-wrapper">
+  <!-- ========================================================================= -->
+  <!-- 1. SECCIÓN SUPERIOR: FORMULARIO DE CARGA RÁPIDA DE MOVIMIENTOS            -->
+  <!-- ========================================================================= -->
+  <div class="card-seccion">
+    <div class="seccion-header">
+      <div class="titulo-con-icono">
+        <mat-icon class="icono-seccion" color="primary">add_circle</mat-icon>
+        <div>
+          <h2>Cargar Saldos Diarios por Cuenta</h2>
+          <p class="subtitulo">Registra el saldo disponible por entidad/cuenta del día, la deuda y la sumatoria total.</p>
+        </div>
+      </div>
 
-    <label for="monto">Monto:</label>
-    <input type="number" [(ngModel)]="movimiento.monto" name="monto" required />
+      <!-- Selector de Fecha Principal (Día actual por defecto) -->
+      <div class="fecha-container">
+        <label for="fecha-input" class="label-fecha">
+          <mat-icon class="icono-calendario">calendar_today</mat-icon>
+          Fecha del Registro:
+        </label>
+        <input
+          id="fecha-input"
+          type="date"
+          class="input-fecha"
+          [ngModel]="fechaSeleccionada()"
+          (ngModelChange)="fechaSeleccionada.set($event)"
+          title="Seleccionar fecha"
+        />
+      </div>
+    </div>
 
-    <label for="tipo">Tipo:</label>
-    <select [(ngModel)]="movimiento.tipo" name="tipo" required>
-      <option value="Ingreso">Ingreso</option>
-      <option value="Gasto">Gasto</option>
-    </select>
+    <!-- Alert / Banner de Feedback -->
+    <div *ngIf="mensajeExito()" class="alert-banner alert-success">
+      <mat-icon>check_circle</mat-icon>
+      <span>{{ mensajeExito() }}</span>
+    </div>
+    <div *ngIf="mensajeError()" class="alert-banner alert-error">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ mensajeError() }}</span>
+    </div>
 
-    <label for="categoria">Categoría:</label>
-    <input type="text" [(ngModel)]="movimiento.categoria" name="categoria" required />
+    <!-- Panel de Resumen: Deuda (Elegante) y Sumatoria (Verde) -->
+    <div class="panel-resumen-excel">
+      <!-- Tarjeta Deuda Elegante (Armónica con la estética) -->
+      <div class="bloque-deuda-elegante" [matTooltip]="obtenerTooltipDeuda()" matTooltipPosition="above">
+        <div class="encabezado-deuda">
+          <div class="titulo-deuda-tag">
+            <mat-icon class="icono-deuda">account_balance</mat-icon>
+            <span>DEUDA REGISTRADA</span>
+          </div>
+          <span *ngIf="deudaFormula()" class="badge-fx-header" title="Fórmula activa">fx</span>
+        </div>
+        <div class="input-deuda-wrapper">
+          <span class="simbolo-moneda">$</span>
+          <input
+            type="text"
+            class="input-deuda"
+            placeholder="0,00 o =500000+547222,41"
+            [ngModel]="deudaTexto()"
+            (focus)="onDeudaFocus()"
+            (blur)="onDeudaBlur()"
+            (ngModelChange)="onDeudaChange($event)"
+            title="Ingresa el monto de deuda o fórmula (ej: =500000+547222,41)"
+          />
+          <span *ngIf="deudaFormula()" class="badge-fx-input" title="Fórmula activa">fx</span>
+        </div>
+        <small class="nota-deuda">
+          {{ deudaFormula() ? (deudaDesglose() || 'Fórmula activa') : (deudaDesglose() || 'Última deuda registrada por defecto') }}
+        </small>
+      </div>
 
-    <label for="descripcion">Descripción:</label>
-    <input type="text" [(ngModel)]="movimiento.descripcion" name="descripcion" />
+      <!-- Tarjeta Sumatoria (Texto Verde Esmeralda) -->
+      <div class="bloque-sumatoria-excel">
+        <div class="encabezado-sumatoria">
+          <mat-icon>functions</mat-icon>
+          <span>TOTAL SALDO DISPONIBLE</span>
+        </div>
+        <div class="valor-sumatoria">
+          {{ formatearMoneda(sumatoriaMovimientos()) }}
+        </div>
+        <small class="nota-sumatoria">Sumatoria de los saldos de cada cuenta ingresados abajo</small>
+      </div>
+    </div>
 
-    <button type="submit">Guardar</button>
-  </form>
+    <!-- Grilla de Carga de Cuentas (Sin columna Tipo, cada fila es el saldo de la cuenta) -->
+    <div class="tabla-carga-container">
+      <div class="tabla-carga-header">
+        <div class="col-entidad">Entidad / Cuenta</div>
+        <div class="col-monto">Saldo del Día ($ / Fórmula fx)</div>
+        <div class="col-desc">Nota / Detalle (opcional)</div>
+        <div class="col-accion"></div>
+      </div>
 
+      <div class="filas-scroll-container">
+        <div *ngFor="let fila of filas(); let i = index" class="fila-carga" [class.fila-negativa]="fila.monto !== null && fila.monto < 0">
+          <!-- Nombre de Entidad -->
+          <div class="campo-entidad">
+            <input
+              type="text"
+              class="input-tabla"
+              list="sugerencias-entidades"
+              [(ngModel)]="fila.entidad"
+              placeholder="Ej: Santander, Efectivo..."
+            />
+          </div>
+
+          <!-- Saldo con soporte de fórmulas estilo Excel (positivo o negativo) -->
+          <div class="campo-monto" [matTooltip]="obtenerTooltipFila(fila)" matTooltipPosition="above">
+            <div class="input-con-prefijo" [class.campo-con-formula]="fila.formula">
+              <span class="prefijo">$</span>
+              <input
+                type="text"
+                class="input-tabla input-numero"
+                [ngModel]="fila.montoTexto"
+                (focus)="onMontoFocus(fila)"
+                (blur)="onMontoBlur(fila)"
+                (ngModelChange)="onMontoChange(fila, $event)"
+                placeholder="0,00 o =105,87+58347,86"
+                title="Ingresa el saldo del día o fórmula (ej: =105,87+58347,86)"
+              />
+              <span *ngIf="fila.formula" class="badge-fx-tabla" title="Fórmula activa">fx</span>
+            </div>
+          </div>
+
+          <!-- Descripción opcional -->
+          <div class="campo-desc">
+            <input
+              type="text"
+              class="input-tabla input-descripcion"
+              [(ngModel)]="fila.descripcion"
+              placeholder="Detalle o nota..."
+            />
+          </div>
+
+          <!-- Botón Eliminar fila -->
+          <div class="campo-accion">
+            <button
+              type="button"
+              class="btn-quitar-fila"
+              (click)="eliminarFila(fila.id)"
+              title="Quitar esta cuenta"
+              aria-label="Quitar fila"
+            >
+              <mat-icon>delete_outline</mat-icon>
+            </button>
+        </div>
+      </div>
+
+      <!-- Datalist para autocompletado de entidades frecuentes -->
+      <datalist id="sugerencias-entidades">
+        <option value="Santander"></option>
+        <option value="Galicia"></option>
+        <option value="NX"></option>
+        <option value="ML"></option>
+        <option value="Efectivo"></option>
+        <option value="Visa Bancor"></option>
+        <option value="Mastercard"></option>
+        <option value="Naranja"></option>
+        <option value="Bancor"></option>
+        <option value="Mercado Pago"></option>
+        <option value="BBVA"></option>
+      </datalist>
+
+      <!-- Botonera de acciones del formulario -->
+      <div class="barra-acciones-formulario">
+        <div class="acciones-secundarias">
+          <button type="button" class="btn-secundario" (click)="agregarFila()">
+            <mat-icon>add</mat-icon>
+            <span>Agregar otra entidad</span>
+          </button>
+          <button type="button" class="btn-texto" (click)="restablecerFilas()">
+            <mat-icon>restart_alt</mat-icon>
+            <span>Restablecer predeterminados</span>
+          </button>
+        </div>
+
+        <button
+          type="button"
+          class="btn-guardar"
+          [disabled]="isGuardando() || (sumatoriaMovimientos() === 0 && !deuda())"
+          (click)="guardarMovimientos()"
+        >
+          <mat-spinner *ngIf="isGuardando()" diameter="20" class="spinner-inline"></mat-spinner>
+          <mat-icon *ngIf="!isGuardando()">save</mat-icon>
+          <span>{{ isGuardando() ? 'Guardando en Base de Datos...' : 'Guardar Movimientos' }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 2. SECCIÓN INFERIOR: HISTORIAL DE MOVIMIENTOS GUARDADOS EN BD CON FILTROS -->
+  <!-- ========================================================================= -->
+  <div class="card-seccion seccion-historial">
+    <div class="seccion-header">
+      <div class="titulo-con-icono">
+        <mat-icon class="icono-seccion" color="primary">history</mat-icon>
+        <div>
+          <h2>Movimientos Registrados en Base de Datos</h2>
+          <p class="subtitulo">Visualiza los movimientos almacenados, filtra por rango de fechas o descripción y consulta las sumatorias totales.</p>
+        </div>
+      </div>
+
+      <button mat-icon-button (click)="cargarHistorial()" title="Refrescar lista" aria-label="Refrescar">
+        <mat-icon>refresh</mat-icon>
+      </button>
+    </div>
+
+    <!-- Barra de Filtros Multifunción -->
+    <div class="contenedor-filtros">
+      <div class="filtro-item filtro-busqueda">
+        <label for="filtro-buscar">Buscar:</label>
+        <div class="input-con-icono">
+          <mat-icon>search</mat-icon>
+          <input
+            id="filtro-buscar"
+            type="text"
+            class="input-filtro"
+            placeholder="Buscar por entidad o descripción..."
+            [ngModel]="filtroTexto()"
+            (ngModelChange)="filtroTexto.set($event); pageIndex.set(0)"
+          />
+        </div>
+      </div>
+
+      <div class="filtro-item">
+        <label for="filtro-desde">Desde:</label>
+        <input
+          id="filtro-desde"
+          type="date"
+          class="input-filtro"
+          [ngModel]="filtroFechaDesde()"
+          (ngModelChange)="filtroFechaDesde.set($event); pageIndex.set(0)"
+        />
+      </div>
+
+      <div class="filtro-item">
+        <label for="filtro-hasta">Hasta:</label>
+        <input
+          id="filtro-hasta"
+          type="date"
+          class="input-filtro"
+          [ngModel]="filtroFechaHasta()"
+          (ngModelChange)="filtroFechaHasta.set($event); pageIndex.set(0)"
+        />
+      </div>
+
+      <div class="filtro-botones">
+        <button type="button" class="btn-filtro-rapido" (click)="aplicarFiltroRapido('hoy')">Hoy</button>
+        <button type="button" class="btn-filtro-rapido" (click)="aplicarFiltroRapido('ultimos7')">Últimos 7 días</button>
+        <button type="button" class="btn-filtro-rapido" (click)="aplicarFiltroRapido('esteMes')">Este Mes</button>
+        <button type="button" class="btn-limpiar-filtros" (click)="limpiarFiltros()" title="Limpiar todos los filtros">
+          <mat-icon>clear_all</mat-icon>
+          <span>Limpiar</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tarjeta Única de Sumatoria Total de Saldos Según Filtro -->
+    <div class="totalizador-cards-grid">
+      <div class="card-totalizador total-sumatoria-unificada">
+        <div class="encabezado-card">
+          <mat-icon>functions</mat-icon>
+          <span>SUMATORIA TOTAL DE SALDOS FILTRADOS</span>
+        </div>
+        <div class="monto-card" [class.saldo-negativo]="sumatoriaSaldosFiltrados() < 0">
+          {{ formatearMoneda(sumatoriaSaldosFiltrados()) }}
+        </div>
+        <small class="detalle-card">
+          Total consolidado de {{ movimientosFiltrados().length }} registros según el rango de fechas o búsqueda activa
+        </small>
+      </div>
+    </div>
+
+    <!-- Spinner de Carga -->
+    <div *ngIf="isCargandoHistorial()" class="spinner-container">
+      <mat-spinner diameter="40"></mat-spinner>
+      <span>Cargando saldos desde la base de datos...</span>
+    </div>
+
+    <!-- Tabla de Datos Paginada -->
+    <div *ngIf="!isCargandoHistorial()" class="tabla-historial-wrapper">
+      <table class="tabla-historial">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Entidad / Cuenta</th>
+            <th>Descripción / Detalle</th>
+            <th class="col-monto-header">Saldo / Monto</th>
+            <th class="col-deuda-header">Deuda del Día</th>
+            <th class="col-acciones-header">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let m of movimientosPaginados()" [class.fila-negativa-historial]="m.monto < 0">
+            <td class="celda-fecha">
+              <span class="fecha-badge">{{ formatearFechaCorta(m.fecha) }}</span>
+            </td>
+            <td class="celda-entidad">
+              <strong>{{ m.entidad || 'Otros' }}</strong>
+            </td>
+            <td class="celda-descripcion">{{ obtenerDescripcionLimpia(m) }}</td>
+            <td
+              class="celda-monto"
+              [class.monto-negativo]="m.monto < 0"
+              [class.monto-positivo]="m.monto >= 0"
+              [matTooltip]="obtenerTooltipHistorial(m)"
+              matTooltipPosition="left"
+            >
+              <div class="monto-valor-wrapper">
+                <span *ngIf="tieneFormulaHistorial(m)" class="badge-fx-historial" title="Calculado con fórmula">fx</span>
+                <span>{{ formatearMoneda(m.monto) }}</span>
+              </div>
+            </td>
+            <td class="celda-deuda">
+              <span *ngIf="obtenerDeudaPorFecha(m.fecha) as d" class="badge-deuda-tabla">
+                {{ formatearMoneda(d) }}
+              </span>
+              <span *ngIf="!obtenerDeudaPorFecha(m.fecha)" class="sin-deuda-texto">-</span>
+            </td>
+            <td class="celda-acciones">
+              <button
+                type="button"
+                class="btn-eliminar-historial"
+                (click)="eliminarMovimientoRegistrado(m.id)"
+                title="Eliminar registro"
+                aria-label="Eliminar"
+              >
+                <mat-icon>delete_forever</mat-icon>
+              </button>
+            </td>
+          </tr>
+
+          <!-- Estado Vacío -->
+          <tr *ngIf="movimientosFiltrados().length === 0">
+            <td colspan="6" class="celda-vacia">
+              <mat-icon class="icono-vacio">inbox</mat-icon>
+              <p>No se encontraron saldos registrados con los filtros aplicados.</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Paginador Oficial (30 por defecto con opciones de paginación) -->
+      <mat-paginator
+        [length]="movimientosFiltrados().length"
+        [pageSize]="pageSize()"
+        [pageSizeOptions]="pageSizeOptions"
+        [pageIndex]="pageIndex()"
+        (page)="onPageChange($event)"
+        aria-label="Seleccionar página de movimientos"
+        class="paginador-personalizado"
+      >
+      </mat-paginator>
+    </div>
+  </div>
 </div>
-  <app-lista-movimientos></app-lista-movimientos>
