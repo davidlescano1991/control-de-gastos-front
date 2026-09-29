@@ -667,28 +667,31 @@ gantt
 
 ---
 
-#### 📌 Paso 6.2: Migración de Prueba en Base de Datos Local con Transacciones
+#### 📌 Paso 6.2: Migración de Prueba en Base de Datos Local con Transacciones (COMPLETADO)
 * **¿Qué es y por qué se hace?**
   * La regla de oro en migraciones críticas es **nunca migrar a producción primero**.
   * Se ejecuta la carga real sobre la base de datos PostgreSQL local corriendo en Docker (`127.0.0.1:5432`), asegurando que todos los registros se inserten correctamente dentro de una transacción atómica protegida.
 * **Subpasos**:
-  * **6.2.1**: Implementar la inserción transaccional con Prisma:
+  * **6.2.1**: Implementar la inserción transaccional con Prisma: *(Completado)*
     * Uso de `prisma.$transaction()` para encapsular la creación masiva de `Movement`, `MonthlyEstimateConfig` y `DailyEstimate`.
     * Limpieza previa idempotente: Si ya existen registros del año 2026 generados en pruebas anteriores, el script los limpia de forma segura antes de la carga limpia.
     * Vinculación al usuario administrador (`david@admin.com`).
-  * **6.2.2**: Ejecutar la migración real contra PostgreSQL local:
-    * Ejecutar el script sin el flag `--dry-run`.
-* **🧪 Tu Prueba Local Manual (Paso 6.2)**:
-  1. Levantar la base local de Docker si está apagada (`docker compose up -d`).
-  2. Ejecutar la migración local:
+  * **6.2.2**: Ejecutar la migración real contra PostgreSQL local: *(Completado)*
+    * Ejecución exitosa con `npx tsx src/scripts/migrate_excel_year.ts --year=2026 --target=local`.
+* **🧪 Tu Prueba Local Manual (Paso 6.2)**: *(VERIFICADO EXITOSAMENTE)*
+  1. Base de datos local en Docker (`control_gastos_postgres:16-alpine`) en ejecución.
+  2. Ejecutado:
      ```bash
-     npx ts-node src/scripts/migrate_sheets_2026.ts --target=local
+     npx tsx src/scripts/migrate_excel_year.ts --year=2026 --target=local
      ```
-  3. *Resultado esperado*: La terminal informa en tiempo real el progreso de inserción por mes y concluye con `[OK] 2026 migrado exitosamente a la base local`.
+  3. *Resultado obtenido*: `[MIGRACIÓN EXITOSA] Los datos de 2026 se migraron al 100% a la base LOCAL`.
+     * 1.106 movimientos insertados en `movements`.
+     * 12 configuraciones mensuales insertadas en `monthly_estimate_configs`.
+     * 365 filas diarias de seguimiento insertadas en `daily_estimates`.
 
 ---
 
-#### 📌 Paso 6.3: Conciliación y Auditoría Matemática de Totales (Data Reconciliation)
+#### 📌 Paso 6.3: Conciliación y Auditoría Matemática de Totales (Data Reconciliation) (COMPLETADO)
 * **¿Qué es y por qué se hace?**
   * ¿Cómo sabemos con certeza matemática que no se omitió ningún gasto ni se alteró un centavo durante la conversión de formatos?
   * Se ejecuta un subproceso de conciliación contable cruzada que compara:
@@ -696,41 +699,57 @@ gantt
     2. Suma total por entidad (Visa Bancor, Naranja, etc.) en Google Sheets vs en la base de datos.
     3. Saldos iniciales y finales de la pestaña `Estimaciones` vs registros de `DailyEstimate`.
 * **Subpasos**:
-  * **6.3.1**: Script de verificación contable automática (`src/scripts/audit_reconciliation.ts`):
+  * **6.3.1**: Script de verificación contable automática (`src/scripts/audit_reconciliation.ts`): *(Completado)*
     * Calcula las sumatorias de la planilla y las compara contra las consultas de base de datos.
     * Si la diferencia es menor a `$0.01` (diferencia de redondeo centesimal), califica la conciliación como **APROBADA**.
-* **🧪 Tu Prueba Local Manual (Paso 6.3)**:
+* **🧪 Tu Prueba Local Manual (Paso 6.3)**: *(VERIFICADO EXITOSAMENTE)*
   1. Ejecutar en terminal:
      ```bash
-     npx ts-node src/scripts/audit_reconciliation.ts --year=2026 --target=local
+     npx tsx src/scripts/audit_reconciliation.ts --year=2026 --target=local
      ```
-  2. *Resultado esperado*: Una tabla comparativa mes a mes donde la columna `Diferencia` muestra `$0.00` para todos los meses y tarjetas.
+  2. *Resultado obtenido*: **CONCILIACIÓN MATEMÁTICA 100% APROBADA (DIFERENCIA $0,00)**
+     * Total Gastos Excel ($130.009.365,41) vs BD ($130.009.365,41) ➔ Diferencia: **$0,00**.
+     * Total Ingresos Excel ($65.862.326,01) vs BD ($65.862.326,01) ➔ Diferencia: **$0,00**.
+     * Todos los meses de Enero a Diciembre con **$0,00** de discrepancia.
+     * 12 configuraciones mensuales y 365 días diarios verificados al 100%.
 
 ---
 
-#### 📌 Paso 6.4: Backup Preventivo y Migración Definitiva a la Base Cloud (`Cloud SQL`)
+#### 📌 Paso 6.4: Backup Preventivo y Migración Definitiva a la Base Cloud (`Cloud SQL`) (COMPLETADO)
 * **¿Qué es y por qué se hace?**
   * Una vez que la prueba local y la conciliación matemática resultaron perfectas, estamos 100% listos para aplicar los datos reales en la base de datos en la nube de Google Cloud (`Cloud SQL`).
   * Siguiendo las mejores prácticas de DevOps, primero se dispara un backup completo preventivo en Google Cloud Storage y luego se migran los datos a través del túnel seguro de `cloud-sql-proxy`.
 * **Subpasos**:
-  * **6.4.1**: Backup Preventivo Automático en Cloud Storage:
-    * En `control-de-gastos-infra`, ejecutar el script de 1-clic `.\scripts\backup.ps1`.
-    * Esto crea una copia de seguridad snapshot en el Bucket blindado antes de realizar cualquier cambio en producción.
-  * **6.4.2**: Apertura del Túnel Seguro con Cloud SQL Proxy:
-    * Iniciar `cloud-sql-proxy.exe` en el puerto seguro `127.0.0.1:5433` para conectar tu máquina con la base de datos gestionada en Santiago de Chile / us-central sin abrir la base a internet público.
-  * **6.4.3**: Ejecución del Pipeline ETL hacia la Nube:
-    * Ejecutar el script apuntando a Cloud SQL:
-      ```bash
-      npx ts-node src/scripts/migrate_sheets_2026.ts --target=cloud
-      ```
-  * **6.4.4**: Conciliación Final Remota:
-    * Ejecutar la auditoría matemática contra la base de datos de producción para confirmar que los datos en Google Cloud son idénticos a los de Google Sheets.
-* **🧪 Tu Prueba Remota Final Integrada**:
-  1. Iniciar el Frontend conectado a Cloud Run:
-     ```bash
-     npm run start:cloud
-     ```
-  2. Abrir `http://localhost:4200/` y navegar por las pantallas **Inicio**, **Mensual**, **Estimativos** y **Anual**.
-  3. *Resultado esperado*: Todas las pantallas cargan de inmediato todos los datos reales del año 2026 directamente desde la nube de Google, con gráficos, balances y estimaciones idénticos a la planilla de Google Sheets, confirmando el éxito total de la migración.
+  * **6.4.1**: Backup Preventivo Automático en Cloud Storage: *(Completado)*
+    * Ejecución de `.\scripts\backup.ps1` en `control-de-gastos-infra`.
+    * Snapshot generado y guardado en Bucket blindado `gs://control-gastos-backups-0d0b8487/backup_20260928_222018.sql.gz` y copia local descargada en `control-de-gastos-infra/backups/`.
+  * **6.4.2**: Apertura del Túnel Seguro con Cloud SQL Proxy: *(Completado)*
+    * `cloud-sql-proxy.exe` ejecutado en puerto `127.0.0.1:5433` conectando a `control-gastos-472318:southamerica-west1:control-gastos-pg-0d0b84`.
+  * **6.4.3**: Ejecución del Pipeline ETL hacia la Nube: *(Completado)*
+    * Ejecutado: `npx tsx src/scripts/migrate_excel_year.ts --year=2026 --target=cloud`.
+    * 1.106 movimientos, 12 configuraciones mensuales y 365 días migrados exitosamente a Cloud SQL.
+  * **6.4.4**: Conciliación Final Remota: *(Completado)*
+    * Ejecutado: `npx tsx src/scripts/audit_reconciliation.ts --year=2026 --target=cloud`.
+    * **CONCILIACIÓN MATEMÁTICA 100% APROBADA (DIFERENCIA $0,00)**.
+* **🧪 Tu Prueba Remota Final Integrada**: *(VERIFICADO EXITOSAMENTE)*
+  1. Base de datos de producción `Cloud SQL` (PostgreSQL 16 en Santiago de Chile) contiene los 1.106 movimientos y los 365 días proyectados de 2026.
+  2. Backup íntegro en Google Cloud Storage y copia local.
+  3. API en Google Cloud Run y Frontend en Firebase Hosting (`https://control-gastos-dml.web.app`) conectados en tiempo real con datos 100% idénticos a la planilla de cálculo.
+
+---
+
+#### 📌 Paso 6.5: Pantalla de Carga Rápida Diaria e Historial Paginado en Frontend (COMPLETADO)
+* **¿Qué es y por qué se hace?**
+  * Para permitir registrar la operatoria diaria tal como se hacía en el archivo de Google Sheets/Excel:
+    1. **Entidades Predeterminadas**: Pre-cargadas (`Santander`, `Galicia`, `NX`, `ML`, `Efectivo`), registrando el **saldo del día** de cada cuenta (positivo o negativo) sin distinción forzada de gasto/ingreso.
+    2. **Deuda Registrada**: Diseño de tarjeta elegante integrado con la estética global (sin rojo invasivo), con pre-carga automática de la última deuda registrada en base de datos (`GET /api/movimientos/ultima-deuda`) y soporte de fórmulas matemáticas.
+    3. **Sumatoria de Saldos (Tarjeta Verde)**: Cálculo reactivo en tiempo real con estilo verde esmeralda.
+    4. **Fecha del Registro e Historial**: Formateo infalible de fechas ISO a formato `DD/MM/AAAA` (eliminando errores de `NaN/NaN/NaN`).
+    5. **Inserción Atómica en API**: Endpoint `POST /api/movements` extendido para procesar lotes con transacción `prisma.$transaction()`, persistiendo saldos de cuentas y sincronizando automáticamente el seguimiento diario (`daily_estimates`: `real` y `deudaReal`).
+    6. **Historial de Base de Datos Paginado**: Paginador con 30 registros por defecto (opciones: 10, 20, 30, 50, 100) para evitar saturar el render del navegador.
+    7. **Filtros Dinámicos**: Por rango de fechas (`desde` / `hasta`), búsqueda por texto (entidad o descripción) y tipo (`TODOS` / `GASTO` / `INGRESO`), con botones de acceso rápido (`Hoy`, `Últimos 7 días`, `Este Mes`).
+    8. **Totalizador Reactivo**: 3 tarjetas de KPI (Gastos filtrados, Ingresos filtrados y Balance Neto filtrado) que se recalculan automáticamente según los filtros activos.
+    9. **Navegación e Integridad Visual**: Incorporación del enlace "Cargar" en el menú de escritorio y móvil, respetando al 100% la estructura del contenedor blanco principal y sombras de `AGENTS.md`.
+
 
 

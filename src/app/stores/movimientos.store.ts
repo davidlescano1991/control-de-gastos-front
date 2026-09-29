@@ -1,6 +1,5 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { MovimientosService } from '../services/movimientos.service';
-import { Movimiento } from '../models/movimiento';
+import { MovimientosService, MovementBackendItem } from '../services/movimientos.service';
 import { SseService } from '../services/sse.service';
 
 @Injectable({ providedIn: 'root' })
@@ -8,7 +7,7 @@ export class MovimientosStore {
   private servicio = inject(MovimientosService);
   private sseService = inject(SseService);
 
-  private _movimientos = signal<Movimiento[]>([]);
+  private _movimientos = signal<MovementBackendItem[]>([]);
 
   // Computed para acceder desde componentes
   readonly lista = computed(() => this.movimientos());
@@ -36,7 +35,7 @@ export class MovimientosStore {
     });
   }
  
-  agregar(movimiento: Movimiento) {
+  agregar(movimiento: MovementBackendItem) {
     this._movimientos.update(lista => [...lista, movimiento]);
   }
 
