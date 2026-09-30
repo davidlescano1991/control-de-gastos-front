@@ -1300,10 +1300,10 @@ export class MovimientosStoreGoogle {
       try {
         let movimientos: Movimiento2[] = [];
 
-        // 1. Intentar consultar primero la API REST (PostgreSQL)
+        // 1. Intentar consultar primero la API REST (Backend unificado)
         try {
           const apiMovs = await firstValueFrom(
-            this.movimientosService.listarMovimientos({ year: anio }),
+            this.movimientosService.listarMovimientos({ year: anio, force }),
           );
 
           if (apiMovs && apiMovs.length > 0) {
@@ -1311,11 +1311,14 @@ export class MovimientosStoreGoogle {
               const d = new Date(m.fecha);
               // Si la fecha vino en UTC, normalizamos a fecha local plana
               const fechaLocal = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+              const deudaVal = m.deudapesos !== undefined && m.deudapesos !== null
+                ? Number(m.deudapesos)
+                : (m.deuda !== undefined && m.deuda !== null ? Number(m.deuda) : null);
               return {
                 fecha: fechaLocal,
-                tipo: m.tipo,
+                tipo: m.entidad || m.tipo,
                 monto: Number(m.monto),
-                deudapesos: null,
+                deudapesos: deudaVal,
               };
             });
             console.log(`⚡ [MovimientosStore] ${movimientos.length} movimientos obtenidos desde la API para ${anio}`);
