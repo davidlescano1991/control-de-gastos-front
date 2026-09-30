@@ -2,8 +2,9 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { setFeriadosDesdeServidor } from '../utils/feriados.utils';
+import { environment } from '../config/environment';
 
-interface EntityRange {
+export interface EntityRange {
   inicio: number;
   fin: number;
   headerIndex: number;
@@ -31,70 +32,112 @@ export class AppConfigService {
   private aniosAnual: number[] = [2026, 2025, 2024, 2023, 2022];
   private http = inject(HttpClient);
 
-  load(): Promise<void> {
+  async load(): Promise<void> {
     const baseHref =
       typeof document !== 'undefined'
         ? document.querySelector('base')?.getAttribute('href') || '/'
         : '/';
     const prefix = baseHref.endsWith('/') ? baseHref : baseHref + '/';
-    const urlConfig = `${prefix}assets/years-and-ranges.json`;
     const urlFeriados = `${prefix}assets/feriados.json`;
+
+    // 1. Intentamos cargar feriados
+    firstValueFrom(this.http.get<{ feriados?: Record<string, string> }>(urlFeriados))
+      .then((feriadosData) => {
+        if (feriadosData) setFeriadosDesdeServidor(feriadosData);
+      })
+      .catch((err) => console.warn('Feriados load failed, using defaults', err));
+
+    // 2. Intentamos primero obtener la configuración dinámica en vivo desde la API
+    try {
+      const apiRes = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/sheets-config/runtime-config`)
+      );
+
+      if (apiRes && apiRes.data) {
+        this.aplicarDatosRuntime(apiRes.data);
+        console.log('⚡ AppConfig cargado dinámicamente desde la API');
+        return;
+      }
+    } catch (e) {
+      console.warn('⚠️ No se pudo cargar config desde API, usando archivos locales de respaldo...', e);
+    }
+
+    // 3. Respaldo (Fallback) con los JSON estáticos de assets/
+    await this.cargarDesdeAssetsLocales(prefix);
+  }
+
+  /**
+   * Recarga la configuración directamente desde la API en caliente.
+   * Utilizado cuando el Administrador crea, edita o elimina una hoja en la UI.
+   */
+  async reloadFromApi(): Promise<void> {
+    try {
+      const apiRes = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/sheets-config/runtime-config`)
+      );
+      if (apiRes && apiRes.data) {
+        this.aplicarDatosRuntime(apiRes.data);
+        console.log('⚡ AppConfig recargado exitosamente desde la API');
+      }
+    } catch (e) {
+      console.error('Error al recargar AppConfig desde API:', e);
+    }
+  }
+
+  private aplicarDatosRuntime(data: any): void {
+    if (Array.isArray(data.aniosInicio)) this.aniosInicio = data.aniosInicio;
+    if (Array.isArray(data.aniosEstimativos)) this.aniosEstimativos = data.aniosEstimativos;
+    if (Array.isArray(data.aniosMensual)) this.aniosMensual = data.aniosMensual;
+    if (Array.isArray(data.aniosAnual)) this.aniosAnual = data.aniosAnual;
+
+    this.config = {
+      rangosEntidadesPorAnio: data.rangosEntidadesPorAnio || {},
+      mesesExtraPorAnio: data.mesesExtraPorAnio || {},
+      filasTablaAnualPorAnio: data.filasTablaAnualPorAnio || {},
+      celdaIngresoNetoPorAnio: data.celdaIngresoNetoPorAnio || {},
+      coloresEntidades: data.coloresEntidades || this.coloresEntidades,
+    };
+
+    this.aplicarColoresEntidadesCSS();
+  }
+
+  private async cargarDesdeAssetsLocales(prefix: string): Promise<void> {
+    const urlConfig = `${prefix}assets/years-and-ranges.json`;
     const urlInicio = `${prefix}assets/years-inicio.json`;
     const urlEstimativos = `${prefix}assets/years-estimativos.json`;
     const urlMensual = `${prefix}assets/years-mensual.json`;
     const urlAnual = `${prefix}assets/years-anual.json`;
 
-    return Promise.all([
-      firstValueFrom(this.http.get<AppConfig>(urlConfig)).catch((err) => {
-        console.warn('AppConfig load failed, using defaults', err);
-        return {} as AppConfig;
-      }),
-      firstValueFrom(this.http.get<{ feriados?: Record<string, string> }>(urlFeriados)).catch((err) => {
-        console.warn('Feriados load failed, using defaults', err);
-        return null;
-      }),
-      firstValueFrom(this.http.get<YearsConfig>(urlInicio)).catch((err) => {
-        console.warn('Years Inicio load failed, using defaults', err);
-        return null;
-      }),
-      firstValueFrom(this.http.get<YearsConfig>(urlEstimativos)).catch((err) => {
-        console.warn('Years Estimativos load failed, using defaults', err);
-        return null;
-      }),
-      firstValueFrom(this.http.get<YearsConfig>(urlMensual)).catch((err) => {
-        console.warn('Years Mensual load failed, using defaults', err);
-        return null;
-      }),
-      firstValueFrom(this.http.get<YearsConfig>(urlAnual)).catch((err) => {
-        console.warn('Years Anual load failed, using defaults', err);
-        return null;
-      }),
-    ])
-      .then(([cfg, feriadosData, inicioData, estimativosData, mensualData, anualData]) => {
-        this.config = cfg || {};
-        if (feriadosData) {
-          setFeriadosDesdeServidor(feriadosData);
-        }
-        if (inicioData?.anios && Array.isArray(inicioData.anios)) {
-          this.aniosInicio = inicioData.anios.map(Number).filter((n) => !Number.isNaN(n));
-        }
-        if (estimativosData?.anios && Array.isArray(estimativosData.anios)) {
-          this.aniosEstimativos = estimativosData.anios.map(Number).filter((n) => !Number.isNaN(n));
-        }
-        if (mensualData?.anios && Array.isArray(mensualData.anios)) {
-          this.aniosMensual = mensualData.anios.map(Number).filter((n) => !Number.isNaN(n));
-        }
-        if (anualData?.anios && Array.isArray(anualData.anios)) {
-          this.aniosAnual = anualData.anios.map(Number).filter((n) => !Number.isNaN(n));
-        }
-        this.aplicarColoresEntidadesCSS();
-        console.log('AppConfig, Feriados and Screen Years loaded successfully');
-      })
-      .catch((err) => {
-        console.warn('Error general al cargar configuración de servidor', err);
-        this.config = {};
-        this.aplicarColoresEntidadesCSS();
-      });
+    try {
+      const [cfg, inicioData, estimativosData, mensualData, anualData] = await Promise.all([
+        firstValueFrom(this.http.get<AppConfig>(urlConfig)).catch(() => ({} as AppConfig)),
+        firstValueFrom(this.http.get<YearsConfig>(urlInicio)).catch(() => null),
+        firstValueFrom(this.http.get<YearsConfig>(urlEstimativos)).catch(() => null),
+        firstValueFrom(this.http.get<YearsConfig>(urlMensual)).catch(() => null),
+        firstValueFrom(this.http.get<YearsConfig>(urlAnual)).catch(() => null),
+      ]);
+
+      this.config = cfg || {};
+      if (inicioData?.anios && Array.isArray(inicioData.anios)) {
+        this.aniosInicio = inicioData.anios.map(Number).filter((n) => !Number.isNaN(n));
+      }
+      if (estimativosData?.anios && Array.isArray(estimativosData.anios)) {
+        this.aniosEstimativos = estimativosData.anios.map(Number).filter((n) => !Number.isNaN(n));
+      }
+      if (mensualData?.anios && Array.isArray(mensualData.anios)) {
+        this.aniosMensual = mensualData.anios.map(Number).filter((n) => !Number.isNaN(n));
+      }
+      if (anualData?.anios && Array.isArray(anualData.anios)) {
+        this.aniosAnual = anualData.anios.map(Number).filter((n) => !Number.isNaN(n));
+      }
+
+      this.aplicarColoresEntidadesCSS();
+      console.log('AppConfig cargado exitosamente desde assets locales');
+    } catch (err) {
+      console.warn('Error general al cargar configuración desde assets locales', err);
+      this.config = {};
+      this.aplicarColoresEntidadesCSS();
+    }
   }
 
   get yearsInicio(): number[] {
@@ -167,7 +210,7 @@ export class AppConfigService {
         naranja: '#ff8104',
         bancor: '#005f5a',
         otros: '#c10090',
-        ml: '#f8cb01',
+        ml: '#ffe600',
       }
     );
   }

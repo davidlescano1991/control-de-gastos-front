@@ -860,4 +860,31 @@ gantt
   * **6.9.4**: Frontend: Eliminación de polling directo (`refreshIntervalMs = 0`), remoción de descargas redundantes en `Inicio` y suscripción reactiva en `Inicio`, `Mensual`, `Anual` y `Estimativos`. *(Completado)*
   * **6.9.5**: Verificación de compilación de producción en Frontend (`ng build`) y Backend (`tsc`) con 0 errores. *(Completado)*
 
+---
 
+#### 📌 Paso 6.10: Administración Dinámica de Hojas de Google Sheets y Configuración por Año (COMPLETADO)
+* **¿Qué es y por qué se hace?**
+  * Para erradicar definitivamente los identificadores y rangos rígidos en archivos JSON estáticos (`years-and-ranges.json`, `years-inicio.json`, `years-estimativos.json`, `years-mensual.json`, `years-anual.json`), permitiendo administrar el ciclo de vida completo de planillas (agregar años futuros como 2027, editar rangos o dar de baja años antiguos como 2022) desde la propia interfaz de usuario:
+    1. **Persistencia Dinámica de Metadatos en PostgreSQL (`google_sheet_configs.metadata`)**:
+       * Almacenamiento en columna `metadata JSONB` de:
+         * **Pantallas habilitadas**: `{ inicio: boolean, estimativos: boolean, mensual: boolean, anual: boolean }`
+         * **Rangos de celdas por entidad**: Filas de `inicio`, `fin` y fila de encabezado (`headerIndex`) para Visa Bancor, Mastercard, Naranja, Préstamos Bancor, Otros Gastos y Mercado Libre.
+         * **Parámetros anuales**: `mesesExtra` (ej. `["Enero_2028", "Febrero_2028"]`), `filasTablaAnual` (ej. `84`) y `celdaIngresoNeto` (ej. `"K21"`).
+       * Cifrado en reposo AES-256 para el `sheetId` con autolimpieza de URLs directas de navegador (`cleanSheetId`).
+    2. **Endpoint de Configuración en Tiempo Real (`GET /api/sheets-config/runtime-config`)**:
+       * Expone la lista compilada de años activos para cada pantalla y sus rangos correspondientes.
+       * `AppConfigService` en el Frontend consulta este endpoint al iniciar; si no hubiera conectividad o en offline, recurre de forma transparente a los JSON locales de respaldo.
+       * Incluye recarga en caliente (`reloadFromApi()`) para actualizar en memoria los selectores y tablas inmediatamente tras cualquier cambio administrativo.
+    3. **Pantalla de Administración Exclusiva para Administradores (`/hojas`)**:
+       * Cumplimiento estricto de la **Regla de Oro** de diseño (`AGENTS.md`): contenedor blanco `.movimientos-wrapper`, tarjetas `.sub-card` con bordes sutiles y sombras suaves, ancho homogéneo 100% y compatibilidad con tema oscuro.
+       * Formulario interactivo para Alta y Modificación con pre-llenado inteligente de rangos y checkboxes de visibilidad por pantalla.
+       * Botón de sincronización directa por año y acción de eliminación con diálogo de confirmación.
+       * Guía integrada con la URL del Webhook y código para Google Apps Script.
+* **Subpasos**:
+  * **6.10.1**: API: Soporte para columna `metadata JSONB` en `google_sheet_configs`, endpoints `/runtime-config`, `GET`, `POST` y `DELETE` en `control-de-gastos-api`. *(Completado)*
+  * **6.10.2**: Frontend: Creación de modelos (`sheet-config.models.ts`) y servicio `SheetConfigService` (`sheet-config.service.ts`). *(Completado)*
+  * **6.10.3**: Frontend: Actualización de `AppConfigService` para consumir `/runtime-config` y soportar `reloadFromApi()`. *(Completado)*
+  * **6.10.4**: Frontend: Creación de componente `HojasComponent` (`src/app/pages/hojas/`), registro en `app.routes.ts` con `authGuard` y `adminGuard`, e integración en barras de navegación (`app.html`). *(Completado)*
+  * **6.10.5**: Verificación de compilación de producción con 0 errores en Frontend (`ng build`) y Backend (`npm run build`). *(Completado)*
+  * **6.10.6**: Frontend: Unificación de la paleta violeta/lila en `UsuariosComponent` (`usuarios.scss`) y consolidación de las pestañas administrativas en un único menú desplegable **Configuración** con apertura al hacer hover (y click), visible de forma exclusiva para administradores tanto en versión de escritorio como en el menú lateral móvil. *(Completado)*
+  * **6.10.7**: Backend: Sistema robusto de migraciones automáticas versionadas por scripts SQL (`DatabaseMigratorService` en `control-de-gastos-api/src/services/database-migrator.service.ts`). Se erradicaron las sentencias DDL hardcodeadas en el código fuente de la aplicación (`src/index.ts`). Todo cambio de esquema viaja en archivos versionados e inmutables dentro de `prisma/migrations/` (ej. `20260930163000_add_metadata_to_sheet_configs/migration.sql`). Al levantar el contenedor en Google Cloud Run, la API valida contra una tabla de control `_app_migrations`, ejecuta únicamente los scripts SQL pendientes en orden cronológico y los marca como aplicados. Esto garantiza despliegues 100% automatizados, seguros y con código de servidor completamente desacoplado y libre de sentencias DDL residuales. *(Completado)*

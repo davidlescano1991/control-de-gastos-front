@@ -332,9 +332,9 @@
     letter-spacing: 0.4px;
 
     &.admin {
-      background: rgba(59, 130, 246, 0.2);
-      color: #2563eb;
-      border: 1px solid rgba(59, 130, 246, 0.3);
+      background: #f5f3ff;
+      color: #6e4dba;
+      border: 1px solid #ddd6fe;
     }
   }
 
@@ -363,6 +363,90 @@
       background: rgba(239, 68, 68, 0.1);
       transform: scale(1.1);
     }
+  }
+}
+
+/* ⚙️ DROPDOWN CONFIGURACIÓN CON HOVER */
+.dropdown-hover-wrapper {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+
+  .btn-nav-config {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+
+    .caret-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      margin-left: -2px;
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    &:hover {
+      color: #c084fc !important;
+
+      .caret-icon {
+        transform: rotate(180deg);
+      }
+    }
+  }
+}
+
+::ng-deep .menu-configuracion {
+  border-radius: 12px !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12) !important;
+  overflow: hidden;
+  padding: 6px 0 !important;
+
+  button.mat-mdc-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    padding: 0 18px;
+    height: 44px;
+    transition: all 0.2s ease;
+
+    .icon-violet {
+      color: #6e4dba !important;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
+    &:hover {
+      background-color: #f5f3ff !important;
+      color: #6e4dba !important;
+
+      .icon-violet {
+        transform: scale(1.1);
+      }
+    }
+  }
+}
+
+/* 📱 SECCIÓN CONFIGURACIÓN EN MENÚ MÓVIL */
+.mobile-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #6e4dba;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
   }
 }
 
@@ -396,8 +480,9 @@
       color: #475569;
 
       &.admin {
-        background: rgba(59, 130, 246, 0.2);
-        color: #2563eb;
+        background: #f5f3ff;
+        color: #6e4dba;
+        border: 1px solid #ddd6fe;
       }
     }
   }
@@ -421,13 +506,36 @@
       color: #cbd5e1;
 
       &.admin {
-        background: rgba(59, 130, 246, 0.3);
-        color: #93c5fd;
+        background: rgba(139, 92, 246, 0.25);
+        color: #c084fc;
+        border-color: rgba(139, 92, 246, 0.4);
       }
     }
   }
 
   .mobile-user-header .user-name-mobile {
     color: #f8fafc;
+  }
+
+  .mobile-section-header {
+    color: #c084fc;
+  }
+
+  ::ng-deep .menu-configuracion {
+    background: #0f172a !important;
+    border: 1px solid #334155;
+
+    button.mat-mdc-menu-item {
+      color: #f8fafc !important;
+
+      .icon-violet {
+        color: #c084fc !important;
+      }
+
+      &:hover {
+        background-color: rgba(139, 92, 246, 0.2) !important;
+        color: #c084fc !important;
+      }
+    }
   }
 }
