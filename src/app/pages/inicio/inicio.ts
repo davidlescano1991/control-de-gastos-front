@@ -110,17 +110,8 @@ export class Inicio implements OnInit, OnDestroy {
       this.isMobile = result.matches;
     });
   }
-  private handleFocus = () => {
-    console.log('👁️ Ventana enfocado, refrescando datos desde Google Sheets...');
-    void this.refrescarAutomaticamente();
-  };
 
-  private handleVisibilityChange = () => {
-    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-      console.log('👁️ Pestaña visible, refrescando datos desde Google Sheets...');
-      void this.refrescarAutomaticamente();
-    }
-  };
+  private sseDebounceTimer: any = null;
 
   async ngOnInit(): Promise<void> {
     this.logEstado(`...Inicializando WakeLock()`);
@@ -134,24 +125,24 @@ export class Inicio implements OnInit, OnDestroy {
     await this.cargarHistoricoCompleto();
     this.iniciarAutoRefresh();
 
-    // 📡 Suscripción reactiva en tiempo real al canal SSE
+    // 📡 Suscripción reactiva en tiempo real al canal SSE con debounce de protección
     this.sseSub = this.sseService.getEvents$().subscribe((msg) => {
       if (msg.event === 'DATA_UPDATED') {
-        console.log('⚡ [Inicio] Actualización en tiempo real recibida vía SSE. Recargando...', msg.data);
-        void this.refrescarAutomaticamente();
+        if (this.sseDebounceTimer) {
+          clearTimeout(this.sseDebounceTimer);
+        }
+        this.sseDebounceTimer = setTimeout(() => {
+          console.log('⚡ [Inicio] Actualización en tiempo real recibida vía SSE. Recargando...', msg.data);
+          void this.refrescarAutomaticamente();
+        }, 600);
       }
     });
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener('focus', this.handleFocus);
-      document.addEventListener('visibilitychange', this.handleVisibilityChange);
-    }
   }
 
   ngOnDestroy(): void {
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('focus', this.handleFocus);
-      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    if (this.sseDebounceTimer) {
+      clearTimeout(this.sseDebounceTimer);
+      this.sseDebounceTimer = null;
     }
     this.sseSub?.unsubscribe();
     this.detenerAutoRefresh();

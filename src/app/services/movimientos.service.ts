@@ -13,6 +13,7 @@ export interface MovementFilterParams {
   fechaHasta?: string;
   search?: string;
   detallado?: boolean;
+  force?: boolean;
 }
 
 export interface MovementBackendItem {
@@ -29,6 +30,8 @@ export interface MovementBackendItem {
   descripcion?: string | null;
   metodoPago?: string | null;
   comprobante?: string | null;
+  deuda?: number | null;
+  deudapesos?: number | null;
   createdAt?: string | Date;
 }
 
@@ -89,6 +92,7 @@ export class MovimientosService {
       if (filtros.fechaHasta) params = params.set('fechaHasta', filtros.fechaHasta);
       if (filtros.search) params = params.set('search', filtros.search);
       if (filtros.detallado) params = params.set('detallado', 'true');
+      if (filtros.force) params = params.set('force', 'true');
     }
 
     return this.http.get<MovementBackendItem[]>(this.apiUrl, { params });
