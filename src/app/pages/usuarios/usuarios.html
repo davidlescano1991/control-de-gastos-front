@@ -1,0 +1,234 @@
+<div class="movimientos-wrapper">
+  
+  <!-- Título Principal y Encabezado de la Sección -->
+  <div class="header-section">
+    <div class="title-with-badge">
+      <div class="header-icon-container">
+        <mat-icon class="header-icon">manage_accounts</mat-icon>
+      </div>
+      <div>
+        <h1 class="main-title">Administración de Usuarios</h1>
+        <p class="subtitle">Gestiona accesos, credenciales cifradas y roles de seguridad del sistema</p>
+      </div>
+    </div>
+    <div class="admin-badge-container">
+      <span class="admin-pill">
+        <mat-icon class="pill-icon">shield</mat-icon>
+        Zona Exclusiva Administrador
+      </span>
+    </div>
+  </div>
+
+  <!-- Mensajes de Alerta y Notificación -->
+  @if (successMessage()) {
+    <div class="alert-box success-box" role="alert">
+      <mat-icon class="alert-icon">check_circle</mat-icon>
+      <span>{{ successMessage() }}</span>
+    </div>
+  }
+
+  @if (errorMessage()) {
+    <div class="alert-box error-box" role="alert">
+      <mat-icon class="alert-icon">error_outline</mat-icon>
+      <span>{{ errorMessage() }}</span>
+    </div>
+  }
+
+  <!-- Cuadrícula Principal: Formulario a la Izquierda / Lista a la Derecha -->
+  <div class="users-grid">
+    
+    <!-- SUB-TARJETA 1: Alta de Nuevo Usuario -->
+    <div class="sub-card form-card">
+      <div class="card-header">
+        <div class="card-icon-badge">
+          <mat-icon>person_add</mat-icon>
+        </div>
+        <div>
+          <h2 class="card-title">Crear Nuevo Usuario</h2>
+          <span class="card-subtitle">La contraseña se encriptará de forma irreversible con Bcrypt</span>
+        </div>
+      </div>
+
+      <form [formGroup]="userForm" (ngSubmit)="crearUsuario()" class="create-user-form" novalidate>
+        
+        <!-- Nombre completo -->
+        <div class="input-field-group">
+          <label class="field-label" for="nombreInput">Nombre completo / Alias (opcional)</label>
+          <mat-form-field appearance="outline" class="w-100">
+            <mat-icon matPrefix class="prefix-icon">badge</mat-icon>
+            <input matInput id="nombreInput" formControlName="nombre" placeholder="Ej: Adriana Gómez" />
+          </mat-form-field>
+        </div>
+
+        <!-- Correo Electrónico -->
+        <div class="input-field-group">
+          <label class="field-label" for="emailUserInput">Correo Electrónico (Usuario de acceso)</label>
+          <mat-form-field appearance="outline" class="w-100">
+            <mat-icon matPrefix class="prefix-icon">email</mat-icon>
+            <input
+              matInput
+              id="emailUserInput"
+              type="email"
+              formControlName="email"
+              placeholder="usuario@ejemplo.com"
+            />
+            @if (userForm.get('email')?.touched && userForm.get('email')?.hasError('required')) {
+              <mat-error>El correo es obligatorio</mat-error>
+            }
+            @if (userForm.get('email')?.touched && userForm.get('email')?.hasError('email')) {
+              <mat-error>Formato de correo no válido</mat-error>
+            }
+          </mat-form-field>
+        </div>
+
+        <!-- Contraseña inicial -->
+        <div class="input-field-group">
+          <label class="field-label" for="passUserInput">Contraseña inicial (mínimo 6 caracteres)</label>
+          <mat-form-field appearance="outline" class="w-100">
+            <mat-icon matPrefix class="prefix-icon">lock</mat-icon>
+            <input
+              matInput
+              id="passUserInput"
+              [type]="hidePassword() ? 'password' : 'text'"
+              formControlName="password"
+              placeholder="••••••••"
+            />
+            <button
+              mat-icon-button
+              matSuffix
+              type="button"
+              (click)="togglePasswordVisibility()"
+              [attr.aria-label]="hidePassword() ? 'Mostrar contraseña' : 'Ocultar contraseña'"
+            >
+              <mat-icon>{{ hidePassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+            </button>
+            @if (userForm.get('password')?.touched && userForm.get('password')?.hasError('required')) {
+              <mat-error>La contraseña es requerida</mat-error>
+            }
+            @if (userForm.get('password')?.touched && userForm.get('password')?.hasError('minlength')) {
+              <mat-error>Debe contener al menos 6 caracteres</mat-error>
+            }
+          </mat-form-field>
+        </div>
+
+        <!-- Selector de Rol -->
+        <div class="input-field-group">
+          <label class="field-label" for="roleSelect">Rol y Nivel de Acceso</label>
+          <mat-form-field appearance="outline" class="w-100">
+            <mat-icon matPrefix class="prefix-icon">admin_panel_settings</mat-icon>
+            <mat-select id="roleSelect" formControlName="role">
+              <mat-option value="LECTOR">
+                <span class="role-option-title">LECTOR (Solo Lectura)</span>
+                <span class="role-option-desc">Puede visualizar dashboards, gráficos y balances.</span>
+              </mat-option>
+              <mat-option value="ADMIN">
+                <span class="role-option-title">ADMIN (Administrador Completo)</span>
+                <span class="role-option-desc">Control total: carga de gastos, edición, borrado y sync.</span>
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <!-- Botón de Creación -->
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          class="btn-create-user"
+          [disabled]="isCreatingUser() || userForm.invalid"
+        >
+          @if (isCreatingUser()) {
+            <span class="btn-spinner-wrapper">
+              <mat-spinner diameter="20" class="spinner-button"></mat-spinner>
+              <span>Registrando usuario...</span>
+            </span>
+          } @else {
+            <span class="btn-content-wrapper">
+              <mat-icon>person_add</mat-icon>
+              <span>Guardar Usuario</span>
+            </span>
+          }
+        </button>
+
+      </form>
+    </div>
+
+    <!-- SUB-TARJETA 2: Listado de Usuarios Registrados -->
+    <div class="sub-card list-card">
+      <div class="card-header space-between">
+        <div class="header-left">
+          <div class="card-icon-badge users-list-icon">
+            <mat-icon>group</mat-icon>
+          </div>
+          <div>
+            <h2 class="card-title">Usuarios Activos</h2>
+            <span class="card-subtitle">Cuentas con acceso a la plataforma</span>
+          </div>
+        </div>
+        <div class="count-badge">
+          {{ users().length }} {{ users().length === 1 ? 'Usuario' : 'Usuarios' }}
+        </div>
+      </div>
+
+      <!-- Estado de Carga -->
+      @if (isLoadingUsers()) {
+        <div class="loading-state">
+          <mat-spinner diameter="36"></mat-spinner>
+          <span>Cargando lista de usuarios...</span>
+        </div>
+      } @else {
+        <!-- Lista de Cuentas -->
+        <div class="users-list">
+          @for (u of users(); track u.id) {
+            <div class="user-row" [class.current-user-row]="u.id === authService.currentUser()?.id">
+              <div class="user-avatar" [class.admin-avatar]="u.role === 'ADMIN'">
+                {{ (u.nombre || u.email).substring(0, 1).toUpperCase() }}
+              </div>
+              
+              <div class="user-details">
+                <div class="user-name-line">
+                  <span class="user-name-text">{{ u.nombre || 'Sin nombre asignado' }}</span>
+                  @if (u.id === authService.currentUser()?.id) {
+                    <span class="you-badge">(Tú)</span>
+                  }
+                </div>
+                <span class="user-email-text">{{ u.email }}</span>
+              </div>
+
+              <div class="user-role-container">
+                <span class="role-chip" [class.admin-chip]="u.role === 'ADMIN'" [class.lector-chip]="u.role === 'LECTOR'">
+                  <mat-icon class="role-icon">{{ u.role === 'ADMIN' ? 'security' : 'visibility' }}</mat-icon>
+                  {{ u.role }}
+                </span>
+              </div>
+
+              <div class="user-actions">
+                <button
+                  mat-icon-button
+                  class="btn-delete-user"
+                  (click)="eliminarUsuario(u)"
+                  [disabled]="u.id === authService.currentUser()?.id || deletingUserId() === u.id"
+                  [title]="u.id === authService.currentUser()?.id ? 'No puedes eliminar tu propia cuenta' : 'Eliminar usuario'"
+                  aria-label="Eliminar usuario"
+                >
+                  @if (deletingUserId() === u.id) {
+                    <mat-spinner diameter="18"></mat-spinner>
+                  } @else {
+                    <mat-icon color="warn">delete_outline</mat-icon>
+                  }
+                </button>
+              </div>
+            </div>
+          } @empty {
+            <div class="empty-state">
+              <mat-icon class="empty-icon">person_off</mat-icon>
+              <p>No se encontraron usuarios registrados en la base de datos.</p>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+  </div>
+
+</div>

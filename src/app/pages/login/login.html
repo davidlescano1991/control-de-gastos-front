@@ -1,0 +1,130 @@
+<div class="login-wrapper">
+  <!-- Tarjeta Central de Inicio de Sesión -->
+  <div class="login-card-container">
+    <div class="login-card">
+      
+      <!-- Encabezado con Identidad y Logo -->
+      <div class="login-header">
+        <div class="brand-icon-wrapper">
+          <img src="assets/9346204.png" alt="Control de Gastos" class="brand-icon" />
+          <span class="brand-glow"></span>
+        </div>
+        <h1 class="login-title">Control de Gastos</h1>
+        <p class="login-subtitle">Acceso seguro a tu panel financiero</p>
+      </div>
+
+      <!-- Banner de Alerta: Sesión Expirada -->
+      @if (sessionExpired()) {
+        <div class="alert-banner warning-banner" role="alert">
+          <mat-icon class="alert-icon">timer_off</mat-icon>
+          <div class="alert-content">
+            <strong>Sesión expirada</strong>
+            <span>Tu token de seguridad ha caducado. Ingresa tus credenciales nuevamente para continuar.</span>
+          </div>
+        </div>
+      }
+
+      <!-- Banner de Alerta: Error de Autenticación -->
+      @if (errorMessage()) {
+        <div class="alert-banner error-banner" role="alert">
+          <mat-icon class="alert-icon">error_outline</mat-icon>
+          <div class="alert-content">
+            <strong>Error al ingresar</strong>
+            <span>{{ errorMessage() }}</span>
+          </div>
+        </div>
+      }
+
+      <!-- Formulario de Acceso -->
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form" novalidate>
+        
+        <!-- Campo: Correo Electrónico -->
+        <div class="form-group">
+          <label for="emailInput" class="form-label">Correo electrónico</label>
+          <mat-form-field appearance="outline" class="w-100 custom-field">
+            <mat-icon matPrefix class="field-icon">mail_outline</mat-icon>
+            <input
+              matInput
+              id="emailInput"
+              type="email"
+              formControlName="email"
+              placeholder="tu-correo@ejemplo.com"
+              autocomplete="email"
+            />
+            @if (loginForm.get('email')?.touched && loginForm.get('email')?.hasError('required')) {
+              <mat-error>El correo electrónico es requerido</mat-error>
+            }
+            @if (loginForm.get('email')?.touched && loginForm.get('email')?.hasError('email')) {
+              <mat-error>Ingresa un correo con formato válido</mat-error>
+            }
+          </mat-form-field>
+        </div>
+
+        <!-- Campo: Contraseña -->
+        <div class="form-group">
+          <div class="password-label-row">
+            <label for="passwordInput" class="form-label">Contraseña</label>
+            <a routerLink="/recuperar-password" class="forgot-link">¿Olvidaste tu contraseña?</a>
+          </div>
+          <mat-form-field appearance="outline" class="w-100 custom-field">
+            <mat-icon matPrefix class="field-icon">lock_outline</mat-icon>
+            <input
+              matInput
+              id="passwordInput"
+              [type]="hidePassword() ? 'password' : 'text'"
+              formControlName="password"
+              placeholder="••••••••"
+              autocomplete="current-password"
+            />
+            <button
+              mat-icon-button
+              matSuffix
+              type="button"
+              (click)="togglePasswordVisibility()"
+              [attr.aria-label]="hidePassword() ? 'Mostrar contraseña' : 'Ocultar contraseña'"
+              class="btn-toggle-eye"
+            >
+              <mat-icon>{{ hidePassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+            </button>
+            @if (loginForm.get('password')?.touched && loginForm.get('password')?.hasError('required')) {
+              <mat-error>La contraseña es requerida</mat-error>
+            }
+          </mat-form-field>
+        </div>
+
+        <!-- Widget de Protección contra Bots (Cloudflare Turnstile) -->
+        <div class="turnstile-wrapper">
+          <div id="turnstile-container"></div>
+        </div>
+
+        <!-- Botón de Envío -->
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          class="btn-submit"
+          [disabled]="isLoading() || loginForm.invalid"
+        >
+          @if (isLoading()) {
+            <span class="btn-loading-content">
+              <mat-spinner diameter="20" class="spinner-inline"></mat-spinner>
+              <span>Verificando credenciales...</span>
+            </span>
+          } @else {
+            <span class="btn-content">
+              <span>Iniciar Sesión</span>
+              <mat-icon class="btn-arrow-icon">arrow_forward</mat-icon>
+            </span>
+          }
+        </button>
+      </form>
+
+      <!-- Pie de Tarjeta con Información de Seguridad -->
+      <div class="login-footer">
+        <mat-icon class="shield-icon">security</mat-icon>
+        <span>Protegido con tokens JWT de alta seguridad y cifrado TLS.</span>
+      </div>
+
+    </div>
+  </div>
+</div>

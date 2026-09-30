@@ -1,6 +1,7 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap, firstValueFrom } from 'rxjs';
+import { Router } from '@angular/router';
+import { Observable, tap } from 'rxjs';
 import { environment } from '../config/environment';
 import { AuthResponse, AuthUser, LoginCredentials } from '../models/auth.models';
 
@@ -12,34 +13,47 @@ const USER_KEY = 'control_gastos_user';
 })
 export class AuthService {
   private http = inject(HttpClient);
+  private router = inject(Router);
 
   // Señales reactivas para el estado de autenticación
   public token = signal<string | null>(this.getStoredToken());
   public currentUser = signal<AuthUser | null>(this.getStoredUser());
 
   // Señales computadas para consulta inmediata en templates y lógica
-  public isAuthenticated = computed<boolean>(() => !!this.token());
+  public isAuthenticated = computed<boolean>(() => {
+    const t = this.token();
+    return !!t && !this.isTokenExpired(t);
+  });
   public isAdmin = computed<boolean>(() => this.currentUser()?.role === 'ADMIN');
 
   /**
-   * Asegura que exista un token válido con rol ADMIN en memoria y storage.
-   * Si no existe sesión previa, inicia sesión de forma transparente con el usuario admin configurado.
+   * Valida si el token JWT almacenado ha expirado verificando el timestamp 'exp'.
    */
-  public async ensureAdminAuth(): Promise<boolean> {
-    if (this.token() && this.isAdmin()) {
+  public isTokenExpired(token: string | null): boolean {
+    if (!token) return true;
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) return true;
+      const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(payloadBase64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      const decoded = JSON.parse(jsonPayload);
+      if (!decoded.exp) return false;
+      return Date.now() >= decoded.exp * 1000;
+    } catch {
       return true;
     }
+  }
 
-    try {
-      console.log('🔑 [AuthService] Autenticando sesión ADMIN en segundo plano...');
-      const response = await firstValueFrom(
-        this.login({ email: 'david@admin.com', password: 'Password123!' })
-      );
-      return !!response?.data?.token;
-    } catch (error) {
-      console.warn('⚠️ [AuthService] No se pudo autenticar como ADMIN automáticamente:', error);
-      return false;
-    }
+  /**
+   * Verifica si la sesión actual cuenta con permisos de administrador válidos.
+   */
+  public async ensureAdminAuth(): Promise<boolean> {
+    return this.isAuthenticated() && this.isAdmin();
   }
 
   /**
@@ -58,28 +72,43 @@ export class AuthService {
   }
 
   /**
-   * Cierra la sesión activa y limpia el almacenamiento
+   * Cierra la sesión activa, limpia el almacenamiento y opcionalmente redirige al login
    */
-  public logout(): void {
+  public logout(redirect: boolean = false, expired: boolean = false): void {
     if (typeof window !== 'undefined') {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
     }
     this.token.set(null);
     this.currentUser.set(null);
+
+    if (redirect) {
+      this.router.navigate(['/login'], {
+        queryParams: expired ? { expired: 'true' } : undefined,
+      });
+    }
   }
 
   /**
-   * Devuelve el token actual
+   * Devuelve el token actual siempre que no haya expirado
    */
   public getToken(): string | null {
-    return this.token();
+    const t = this.token();
+    if (t && this.isTokenExpired(t)) {
+      this.logout();
+      return null;
+    }
+    return t;
   }
 
   /**
    * Devuelve los datos del usuario actual
    */
   public getUser(): AuthUser | null {
+    if (this.isTokenExpired(this.token())) {
+      this.logout();
+      return null;
+    }
     return this.currentUser();
   }
 
@@ -94,7 +123,15 @@ export class AuthService {
 
   private getStoredToken(): string | null {
     if (typeof window === 'undefined') return null;
-    return localStorage.getItem(TOKEN_KEY);
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) return null;
+    if (this.isTokenExpired(token)) {
+      console.warn('🔒 [AuthService] El token almacenado expiró. Limpiando almacenamiento.');
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      return null;
+    }
+    return token;
   }
 
   private getStoredUser(): AuthUser | null {
