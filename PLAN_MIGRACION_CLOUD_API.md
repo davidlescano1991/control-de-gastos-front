@@ -821,9 +821,12 @@ gantt
   * **6.8.3**: Frontend: Creación de `adminGuard` y vista `UsuariosComponent` (`/usuarios`) con acceso exclusivo a administradores. *(Completado)*
   * **6.8.4**: Frontend: Vistas y flujo de recuperación de clave (`/recuperar-password` y `/restablecer-password`). *(Completado)*
   * **6.8.5**: Frontend: Integración del widget Cloudflare Turnstile en `LoginComponent` con Site Key y Secret Key oficiales. *(Completado)*
+  * **6.8.6**: Frontend & API: Control de Permisos Granular por Rol (`ADMIN` vs `LECTOR`). *(Completado)*
+    * Para usuarios con rol `LECTOR`: El formulario de carga de saldos diarios y deuda se oculta completamente; la columna `Acciones` con el botón de eliminación se retira de la tabla; la navegación muestra "Movimientos" en vez de "Cargar"; y las funciones `guardarMovimientos()` y `eliminarMovimientoRegistrado()` quedan blindadas tanto en el cliente como en la API (`requireAdmin`).
 * **🧪 Tu Prueba Local Manual (Paso 6.8)**: *(VERIFICADO EXITOSAMENTE)*
   1. Login con captcha Turnstile operativo.
   2. Panel de administración `/usuarios` con alta y baja de usuarios restringido a rol ADMIN.
   3. Recuperación de contraseña por correo Gmail SMTP probada y recibida con éxito en la bandeja de entrada.
-  4. Builds de producción (`npm run build`) verificados con 0 errores en Frontend y API.
+  4. Restricción de rol LECTOR validada: solo consulta movimientos y utiliza filtros sin acceso a carga ni eliminación.
+  5. Builds de producción (`npm run build`) verificados con 0 errores en Frontend y API.
 
