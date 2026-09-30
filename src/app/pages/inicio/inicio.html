@@ -16,9 +16,7 @@
   @if (isCargando() && mensajeEstado()) {
     <mat-card class="alert-card warning">
       <mat-card-content>
-        @for (msg of [mensajeEstado()]; track msg) {
-          <div class="msg-animated">{{ msg }}</div>
-        }
+        <div class="msg-animated">{{ mensajeEstado() }}</div>
       </mat-card-content>
     </mat-card>
   }

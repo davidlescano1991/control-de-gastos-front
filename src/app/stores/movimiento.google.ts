@@ -10,6 +10,7 @@ import { DolarService } from '../services/dolar.service';
 import { CotizacionStore } from './dolar.store';
 import { formatFechaEsAR, parseFechaEsAR } from '../utils/grafico.utils';
 import { SseService } from '../services/sse.service';
+import { MovimientosService } from '../services/movimientos.service';
 
 /**
  * Respuesta devuelta por la API de Google Sheets para consultas estándar.
@@ -208,6 +209,7 @@ export class MovimientosStoreGoogle {
   private dolarService = inject(DolarService);
   private cotizacionStore = inject(CotizacionStore);
   private sseService = inject(SseService);
+  private movimientosService = inject(MovimientosService);
 
   constructor() {
     console.log('🧠 MovimientosStoreGoogle instanciado');
@@ -215,13 +217,13 @@ export class MovimientosStoreGoogle {
   }
 
   /**
-   * Se suscribe al canal SSE para invalidar la caché y recargar datos automáticamente cuando ocurren mutaciones en la API.
+   * Se suscribe al canal SSE para invalidar la caché reactivamente cuando ocurren mutaciones en la API.
    */
   private suscribirEventosSSE(): void {
     this.sseService.getEvents$().subscribe((msg) => {
       if (msg.event === 'DATA_UPDATED') {
         const year = msg.data?.year || new Date().getFullYear();
-        console.log(`⚡ [MovimientosStoreGoogle] Evento DATA_UPDATED recibido vía SSE para año ${year}. Refrescando store...`);
+        console.log(`⚡ [MovimientosStoreGoogle] Evento DATA_UPDATED recibido vía SSE para año ${year}. Invalidando caché...`);
 
         // Invalidar cachés en memoria del año afectado
         this.movimientosPorAnio.delete(year);
@@ -236,9 +238,6 @@ export class MovimientosStoreGoogle {
             this.estimativoPorMes.delete(`${year}::${nombreMes}`);
           }
         }
-
-        // Disparar recarga inmediata forzada
-        this.cargarDesdeSheetsPorAnio(year, true);
       }
     });
   }
@@ -1295,44 +1294,73 @@ export class MovimientosStoreGoogle {
 
     if (this.movimientosEnCarga.has(anio) && !force) return await this.movimientosEnCarga.get(anio);
 
-    console.log(`📦 [Movimientos] cargando desde API para año ${anio}`);
+    console.log(`📦 [Movimientos] cargando para año ${anio} (force: ${force})`);
 
     const promesa = (async () => {
       try {
-        const clave = 'Movimientos';
-        const res = (await firstValueFrom(
-          this.sheets.obtenerMensualAnio(anio, clave, 'A1:F3000'),
-        )) as { values: string[][] };
-        const filas = res.values ?? [];
-        const movimientos: Movimiento2[] = [];
+        let movimientos: Movimiento2[] = [];
 
-        for (const fila of filas.slice(1)) {
-          const [fechaRaw, tipo, montoRaw, deudaRaw] = fila;
-          if (!fechaRaw || !montoRaw) continue;
+        // 1. Intentar consultar primero la API REST (PostgreSQL)
+        try {
+          const apiMovs = await firstValueFrom(
+            this.movimientosService.listarMovimientos({ year: anio }),
+          );
 
-          const fecha = parseFechaEsAR(fechaRaw);
-          if (fecha.getFullYear() > anio) continue;
-
-          const monto = parseFloat(montoRaw.replace(/\./g, '').replace(',', '.').replace('$', ''));
-          const deudapesos = deudaRaw
-            ? parseFloat(deudaRaw.replace(/\./g, '').replace(',', '.').replace('$', ''))
-            : null;
-
-          movimientos.push({
-            fecha,
-            tipo,
-            monto,
-            deudapesos,
-          });
+          if (apiMovs && apiMovs.length > 0) {
+            movimientos = apiMovs.map((m) => {
+              const d = new Date(m.fecha);
+              // Si la fecha vino en UTC, normalizamos a fecha local plana
+              const fechaLocal = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+              return {
+                fecha: fechaLocal,
+                tipo: m.tipo,
+                monto: Number(m.monto),
+                deudapesos: null,
+              };
+            });
+            console.log(`⚡ [MovimientosStore] ${movimientos.length} movimientos obtenidos desde la API para ${anio}`);
+          }
+        } catch (apiErr) {
+          console.warn(`⚠️ [MovimientosStore] Falló consulta a la API para ${anio}, recurriendo a Sheets fallback:`, apiErr);
         }
 
-        console.log(`✅ movimientos cargados para ${anio}:`, movimientos.length);
+        // 2. Fallback a Google Sheets si la API devolvió 0 movimientos o falló
+        if (movimientos.length === 0) {
+          console.log(`🌐 [MovimientosStore] Consultando Google Sheets fallback para ${anio}...`);
+          const clave = 'Movimientos';
+          const res = (await firstValueFrom(
+            this.sheets.obtenerMensualAnio(anio, clave, 'A1:F3000'),
+          )) as { values: string[][] };
+          const filas = res.values ?? [];
+
+          for (const fila of filas.slice(1)) {
+            const [fechaRaw, tipo, montoRaw, deudaRaw] = fila;
+            if (!fechaRaw || !montoRaw) continue;
+
+            const fecha = parseFechaEsAR(fechaRaw);
+            if (fecha.getFullYear() > anio) continue;
+
+            const monto = parseFloat(montoRaw.replace(/\./g, '').replace(',', '.').replace('$', ''));
+            const deudapesos = deudaRaw
+              ? parseFloat(deudaRaw.replace(/\./g, '').replace(',', '.').replace('$', ''))
+              : null;
+
+            movimientos.push({
+              fecha,
+              tipo,
+              monto,
+              deudapesos,
+            });
+          }
+          console.log(`✅ [MovimientosStore] ${movimientos.length} movimientos cargados desde Sheets para ${anio}`);
+        }
+
         this.movimientosPorAnio.set(Number(anio), signal(movimientos));
         this.movimientosTimestamp.set(anio, Date.now());
         this.guardarEnStorage('movimientos', String(anio), movimientos);
         this.cotizacionStore.limpiarCacheAnio(anio);
       } catch (err) {
-        console.error(`❌ Error al cargar movimientos desde API para año ${anio}`, err);
+        console.error(`❌ Error al cargar movimientos para año ${anio}`, err);
       }
     })();
 
