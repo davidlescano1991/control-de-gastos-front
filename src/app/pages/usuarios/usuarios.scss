@@ -28,11 +28,11 @@
       width: 48px;
       height: 48px;
       border-radius: 12px;
-      background: linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(59, 130, 246, 0.2) 100%);
+      background: linear-gradient(135deg, rgba(110, 77, 186, 0.12) 0%, rgba(168, 85, 247, 0.22) 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #2563eb;
+      color: #6e4dba;
 
       .header-icon {
         font-size: 28px;
@@ -62,9 +62,9 @@
     gap: 6px;
     padding: 6px 14px;
     border-radius: 999px;
-    background: rgba(37, 99, 235, 0.1);
-    color: #2563eb;
-    border: 1px solid rgba(37, 99, 235, 0.2);
+    background: #f5f3ff;
+    color: #6e4dba;
+    border: 1px solid #ddd6fe;
     font-size: 0.8rem;
     font-weight: 700;
     letter-spacing: 0.3px;
@@ -158,8 +158,8 @@
       width: 40px;
       height: 40px;
       border-radius: 10px;
-      background: #eff6ff;
-      color: #2563eb;
+      background: #f5f3ff;
+      color: #6e4dba;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -189,13 +189,13 @@
     }
 
     .count-badge {
-      background: #f1f5f9;
-      color: #475569;
+      background: #f5f3ff;
+      color: #6e4dba;
       font-size: 0.78rem;
       font-weight: 700;
       padding: 4px 10px;
       border-radius: 999px;
-      border: 1px solid #e2e8f0;
+      border: 1px solid #ddd6fe;
     }
   }
 }
@@ -220,10 +220,21 @@
 
   .w-100 {
     width: 100%;
+
+    ::ng-deep.mat-focused {
+      .mdc-notched-outline__leading,
+      .mdc-notched-outline__notch,
+      .mdc-notched-outline__trailing {
+        border-color: #6e4dba !important;
+      }
+      .mat-mdc-floating-label {
+        color: #6e4dba !important;
+      }
+    }
   }
 
   .prefix-icon {
-    color: #94a3b8;
+    color: #8b5cf6;
     margin-right: 8px;
   }
 
@@ -244,10 +255,11 @@
     border-radius: 8px;
     font-size: 0.95rem;
     font-weight: 600;
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-    color: #ffffff;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    background: linear-gradient(135deg, #6e4dba 0%, #5833a6 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(110, 77, 186, 0.32);
     margin-top: 6px;
+    transition: all 0.2s ease;
 
     .btn-content-wrapper,
     .btn-spinner-wrapper {
@@ -257,7 +269,8 @@
     }
 
     &:hover:not(:disabled) {
-      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+      box-shadow: 0 6px 18px rgba(110, 77, 186, 0.45);
+      transform: translateY(-1px);
     }
   }
 }
@@ -279,12 +292,12 @@
     transition: all 0.2s ease;
 
     &:hover {
-      background: #f1f5f9;
-      border-color: #e2e8f0;
+      background: #f5f3ff;
+      border-color: #ddd6fe;
     }
 
     &.current-user-row {
-      border-left: 4px solid #2563eb;
+      border-left: 4px solid #6e4dba;
     }
 
     .user-avatar {
@@ -300,8 +313,9 @@
       font-size: 0.95rem;
 
       &.admin-avatar {
-        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        background: linear-gradient(135deg, #6e4dba 0%, #5833a6 100%);
         color: #ffffff;
+        box-shadow: 0 2px 6px rgba(110, 77, 186, 0.3);
       }
     }
 
@@ -328,8 +342,9 @@
         .you-badge {
           font-size: 0.72rem;
           font-weight: 700;
-          color: #2563eb;
-          background: #eff6ff;
+          color: #6e4dba;
+          background: #f5f3ff;
+          border: 1px solid #ddd6fe;
           padding: 1px 6px;
           border-radius: 4px;
         }
@@ -362,13 +377,13 @@
         }
 
         &.admin-chip {
-          background: rgba(37, 99, 235, 0.12);
-          color: #2563eb;
-          border: 1px solid rgba(37, 99, 235, 0.25);
+          background: #f5f3ff;
+          color: #6e4dba;
+          border: 1px solid #ddd6fe;
         }
 
         &.lector-chip {
-          background: #e2e8f0;
+          background: #f1f5f9;
           color: #475569;
           border: 1px solid #cbd5e1;
         }
@@ -395,14 +410,14 @@
   justify-content: center;
   padding: 40px 20px;
   gap: 12px;
-  color: #64748b;
+  color: #6e4dba;
   text-align: center;
 
   .empty-icon {
     font-size: 40px;
     width: 40px;
     height: 40px;
-    color: #94a3b8;
+    color: #a78bfa;
   }
 }
 
@@ -418,8 +433,8 @@
 
     .title-with-badge {
       .header-icon-container {
-        background: rgba(59, 130, 246, 0.2);
-        color: #60a5fa;
+        background: rgba(139, 92, 246, 0.22);
+        color: #c084fc;
       }
       .main-title {
         color: #f8fafc;
@@ -430,9 +445,9 @@
     }
 
     .admin-pill {
-      background: rgba(59, 130, 246, 0.15);
-      border-color: rgba(59, 130, 246, 0.3);
-      color: #93c5fd;
+      background: rgba(139, 92, 246, 0.15);
+      border-color: rgba(139, 92, 246, 0.35);
+      color: #c084fc;
     }
   }
 
@@ -445,8 +460,8 @@
       border-bottom-color: #1e293b;
 
       .card-icon-badge {
-        background: rgba(59, 130, 246, 0.15);
-        color: #60a5fa;
+        background: rgba(139, 92, 246, 0.18);
+        color: #c084fc;
 
         &.users-list-icon {
           background: rgba(34, 197, 94, 0.15);
@@ -499,8 +514,9 @@
           color: #f8fafc;
         }
         .you-badge {
-          background: rgba(59, 130, 246, 0.2);
-          color: #93c5fd;
+          background: rgba(139, 92, 246, 0.25);
+          color: #c084fc;
+          border-color: rgba(139, 92, 246, 0.4);
         }
       }
       .user-email-text {
@@ -510,9 +526,9 @@
 
     .user-role-container .role-chip {
       &.admin-chip {
-        background: rgba(59, 130, 246, 0.25);
-        color: #93c5fd;
-        border-color: rgba(59, 130, 246, 0.4);
+        background: rgba(139, 92, 246, 0.25);
+        color: #c084fc;
+        border-color: rgba(139, 92, 246, 0.4);
       }
       &.lector-chip {
         background: #334155;

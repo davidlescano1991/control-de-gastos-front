@@ -1,0 +1,439 @@
+<div class="movimientos-wrapper">
+  <!-- ENCABEZADO PRINCIPAL -->
+  <header class="header-section">
+    <div class="header-content">
+      <div class="title-with-icon">
+        <div class="icon-circle">
+          <mat-icon>table_chart</mat-icon>
+        </div>
+        <div>
+          <h1 class="main-title">Administración de Hojas de Google Sheets</h1>
+          <p class="subtitle">
+            Gestiona las planillas externas por año, visibilidad por pantalla y rangos de celdas para cada entidad.
+          </p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button mat-flat-button color="primary" class="btn-nueva-hoja" (click)="abrirNuevoForm()" *ngIf="!showForm()">
+          <mat-icon>add</mat-icon>
+          Nueva Hoja / Año
+        </button>
+        <button mat-stroked-button class="btn-recargar" (click)="cargarHojas()" [disabled]="isLoading()">
+          <mat-icon [class.spin]="isLoading()">refresh</mat-icon>
+          Actualizar
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MENSAJES DE ESTADO / ALERTAS -->
+  <div class="alert-banner success" *ngIf="successMessage()">
+    <mat-icon>check_circle</mat-icon>
+    <span>{{ successMessage() }}</span>
+    <button mat-icon-button (click)="successMessage.set('')">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="alert-banner error" *ngIf="errorMessage()">
+    <mat-icon>error</mat-icon>
+    <span>{{ errorMessage() }}</span>
+    <button mat-icon-button (click)="errorMessage.set('')">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- SPINNER DE CARGA -->
+  <div class="loading-state" *ngIf="isLoading()">
+    <mat-spinner diameter="44"></mat-spinner>
+    <p>Cargando configuraciones de Google Sheets...</p>
+  </div>
+
+  <!-- FORMULARIO DE ALTA / EDICIÓN -->
+  <div class="form-container sub-card" *ngIf="showForm()">
+    <div class="form-header">
+      <div class="form-title">
+        <mat-icon class="icon-violet">{{ editingYear() ? 'edit' : 'add_circle' }}</mat-icon>
+        <h2>{{ editingYear() ? 'Editar Configuración: Año ' + editingYear() : 'Nueva Hoja de Cálculo' }}</h2>
+      </div>
+      <button mat-icon-button (click)="cancelarEdicion()" title="Cerrar formulario">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <form [formGroup]="sheetForm" (ngSubmit)="guardar()" class="sheet-form">
+      <!-- SECCIÓN 1: DATOS PRINCIPALES -->
+      <div class="form-section">
+        <h3 class="section-title">
+          <mat-icon>info</mat-icon>
+          Datos de la Planilla
+        </h3>
+
+        <div class="form-grid-3">
+          <!-- Año -->
+          <mat-form-field appearance="outline" class="field-item">
+            <mat-label>Año</mat-label>
+            <input matInput type="number" formControlName="year" placeholder="Ej: 2027" [readonly]="!!editingYear()" />
+            <mat-error *ngIf="sheetForm.get('year')?.hasError('required')">El año es obligatorio</mat-error>
+            <mat-error *ngIf="sheetForm.get('year')?.hasError('min') || sheetForm.get('year')?.hasError('max')">
+              Año entre 2020 y 2050
+            </mat-error>
+          </mat-form-field>
+
+          <!-- Sheet ID o URL -->
+          <mat-form-field appearance="outline" class="field-item field-span-2">
+            <mat-label>ID de Google Sheets o URL Completa</mat-label>
+            <input matInput formControlName="sheetId" placeholder="Ej: 1IkaaIQVs24QXswoS3gR... o https://docs.google.com/..." />
+            <mat-hint>Puedes pegar la URL completa del navegador; el ID se extraerá automáticamente.</mat-hint>
+            <mat-error *ngIf="sheetForm.get('sheetId')?.hasError('required')">El ID de la hoja es obligatorio</mat-error>
+          </mat-form-field>
+        </div>
+
+        <div class="form-grid-2">
+          <!-- Descripción -->
+          <mat-form-field appearance="outline" class="field-item">
+            <mat-label>Descripción / Etiqueta</mat-label>
+            <input matInput formControlName="descripcion" placeholder="Ej: Planilla de Control Gastos 2027" />
+          </mat-form-field>
+
+          <!-- Estado Activo -->
+          <div class="toggle-container">
+            <mat-slide-toggle formControlName="activo" color="primary">
+              <span class="toggle-label">Hoja Activa en el Sistema</span>
+            </mat-slide-toggle>
+            <p class="toggle-hint">Si está inactiva, no se sincronizará ni se mostrará en los selectores.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECCIÓN 2: PANTALLAS HABILITADAS -->
+      <div class="form-section">
+        <h3 class="section-title">
+          <mat-icon>visibility</mat-icon>
+          Pantallas en las que está disponible este Año
+        </h3>
+        <p class="section-desc">Selecciona en qué pantallas del sistema aparecerá este año en el selector desplegable.</p>
+
+        <div class="screens-grid">
+          <div class="screen-checkbox-card" [class.selected]="sheetForm.get('pantallaInicio')?.value">
+            <mat-checkbox formControlName="pantallaInicio" color="primary">
+              <span class="screen-title">Inicio / Dashboard</span>
+            </mat-checkbox>
+            <span class="screen-hint">Resumen de gastos, deudas y presupuesto mensual</span>
+          </div>
+
+          <div class="screen-checkbox-card" [class.selected]="sheetForm.get('pantallaEstimativos')?.value">
+            <mat-checkbox formControlName="pantallaEstimativos" color="primary">
+              <span class="screen-title">Estimativos</span>
+            </mat-checkbox>
+            <span class="screen-hint">Proyecciones día a día, saldo y desvíos presupuestarios</span>
+          </div>
+
+          <div class="screen-checkbox-card" [class.selected]="sheetForm.get('pantallaMensual')?.value">
+            <mat-checkbox formControlName="pantallaMensual" color="primary">
+              <span class="screen-title">Mensual</span>
+            </mat-checkbox>
+            <span class="screen-hint">Detalle consolidado de movimientos por mes y tarjeta</span>
+          </div>
+
+          <div class="screen-checkbox-card" [class.selected]="sheetForm.get('pantallaAnual')?.value">
+            <mat-checkbox formControlName="pantallaAnual" color="primary">
+              <span class="screen-title">Anual</span>
+            </mat-checkbox>
+            <span class="screen-hint">Cálculos interanuales, tablas históricas y balances</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECCIÓN 3: RANGOS DE ENTIDADES EN GOOGLE SHEETS -->
+      <div class="form-section">
+        <h3 class="section-title">
+          <mat-icon>table_rows</mat-icon>
+          Rangos de Entidades en la Hoja Mensual
+        </h3>
+        <p class="section-desc">Define las filas de inicio, fin y encabezado para cada tarjeta en las pestañas mensuales.</p>
+
+        <div class="ranges-table-wrapper">
+          <table class="ranges-table">
+            <thead>
+              <tr>
+                <th>Entidad / Tarjeta</th>
+                <th>Fila Inicio</th>
+                <th>Fila Fin</th>
+                <th>Fila Encabezado (Header)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Visa -->
+              <tr>
+                <td class="entity-cell">
+                  <span class="color-badge" style="background-color: #768699;"></span>
+                  <strong>Visa Bancor</strong>
+                </td>
+                <td>
+                  <input type="number" formControlName="rango_visa_inicio" class="table-input" />
+                </td>
+                <td>
+                  <input type="number" formControlName="rango_visa_fin" class="table-input" />
+                </td>
+                <td>
+                  <input type="number" formControlName="rango_visa_header" class="table-input" />
+                </td>
+              </tr>
+
+              <!-- Mastercard -->
+              <tr>
+                <td class="entity-cell">
+                  <span class="color-badge" style="background-color: #768699;"></span>
+                  <strong>Mastercard</strong>
+                </td>
+                <td>
+                  <input type="number" formControlName="rango_mastercard_inicio" class="table-input" />
+                </td>
+                <td>
+                  <input type="number" formControlName="rango_mastercard_fin" class="table-input" />
+                </td>
+                <td>
+                  <input type="number" formControlName="rango_mastercard_header" class="table-input" />
+                </td>
+              </tr>
+
+              <!-- Naranja -->
+              <tr>
+                <td class="entity-cell">
+                  <span class="color-badge" style="background-color: #ff8104;"></span>
+                  <strong>Tarjeta Naranja</strong>
+                </td>
+                <td>
+                  <input type="number" formControlName="rango_naranja_inicio" class="table-input" />
+                </td>
+                <td>
+                  <input type="number" formControlName="rango_naranja_fin" class="table-input" />
+                </td>
+                <td>
+                  <input type="number" formControlName="rango_naranja_header" class="table-input" />
+                </td>
+              </tr>
+
+              <!-- Bancor -->
+              <tr>
+                <td class="entity-cell">
+                  <span class="color-badge" style="background-color: #005f5a;"></span>
+                  <strong>Préstamos Bancor</strong>
+                </td>
+                <td>
+                  <input type="number" formControlName="rango_bancor_inicio" class="table-input" />
+                </td>
+                <td>
+                  <input type="number" formControlName="rango_bancor_fin" class="table-input" />
+                </td>
+                <td>
+                  <input type="number" formControlName="rango_bancor_header" class="table-input" />
+                </td>
+              </tr>
+
+              <!-- Otros -->
+              <tr>
+                <td class="entity-cell">
+                  <span class="color-badge" style="background-color: #c10090;"></span>
+                  <strong>Otros Gastos</strong>
+                </td>
+                <td>
+                  <input type="number" formControlName="rango_otros_inicio" class="table-input" />
+                </td>
+                <td>
+                  <input type="number" formControlName="rango_otros_fin" class="table-input" />
+                </td>
+                <td>
+                  <input type="number" formControlName="rango_otros_header" class="table-input" />
+                </td>
+              </tr>
+
+              <!-- Mercado Libre -->
+              <tr>
+                <td class="entity-cell">
+                  <span class="color-badge" style="background-color: #f8cb01;"></span>
+                  <strong>Mercado Libre</strong>
+                </td>
+                <td>
+                  <input type="number" formControlName="rango_ml_inicio" class="table-input" />
+                </td>
+                <td>
+                  <input type="number" formControlName="rango_ml_fin" class="table-input" />
+                </td>
+                <td>
+                  <input type="number" formControlName="rango_ml_header" class="table-input" />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SECCIÓN 4: OPCIONES AVANZADAS ANUALES -->
+      <div class="form-section">
+        <h3 class="section-title">
+          <mat-icon>tune</mat-icon>
+          Parámetros de la Vista Anual
+        </h3>
+
+        <div class="form-grid-3">
+          <!-- Meses Extra -->
+          <mat-form-field appearance="outline" class="field-item">
+            <mat-label>Meses Extra (separados por coma)</mat-label>
+            <input matInput formControlName="mesesExtra" placeholder="Ej: Enero_2028, Febrero_2028" />
+            <mat-hint>Pestañas adicionales proyectadas del año siguiente</mat-hint>
+          </mat-form-field>
+
+          <!-- Filas Tabla Anual -->
+          <mat-form-field appearance="outline" class="field-item">
+            <mat-label>Filas en Tabla Anual</mat-label>
+            <input matInput type="number" formControlName="filasTablaAnual" placeholder="Ej: 84" />
+            <mat-hint>Cantidad de filas a procesar en la hoja Anual</mat-hint>
+          </mat-form-field>
+
+          <!-- Celda Ingreso Neto -->
+          <mat-form-field appearance="outline" class="field-item">
+            <mat-label>Celda Ingreso Neto</mat-label>
+            <input matInput formControlName="celdaIngresoNeto" placeholder="Ej: K21" />
+            <mat-hint>Coordenada de celda de ingresos netos</mat-hint>
+          </mat-form-field>
+        </div>
+      </div>
+
+      <!-- BOTONES DE ACCIÓN DEL FORMULARIO -->
+      <div class="form-actions">
+        <button mat-button type="button" (click)="cancelarEdicion()" [disabled]="isSaving()">
+          Cancelar
+        </button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="isSaving() || sheetForm.invalid" class="btn-guardar">
+          <mat-spinner diameter="20" *ngIf="isSaving()"></mat-spinner>
+          <mat-icon *ngIf="!isSaving()">save</mat-icon>
+          <span>{{ editingYear() ? 'Guardar Cambios' : 'Registrar Hoja' }}</span>
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- LISTADO DE HOJAS CONFIGURADAS -->
+  <div class="sheets-list-section" *ngIf="!isLoading()">
+    <div class="section-header-row">
+      <h2 class="sub-header-title">Hojas de Cálculo Registradas ({{ sheets().length }})</h2>
+      <span class="security-tag">
+        <mat-icon>lock</mat-icon>
+        IDs cifrados en reposo con AES-256
+      </span>
+    </div>
+
+    <!-- TARJETAS DE HOJAS -->
+    <div class="sheets-grid" *ngIf="sheets().length > 0">
+      <div class="sheet-card sub-card" *ngFor="let s of sheets()" [class.inactive]="!s.activo">
+        <div class="sheet-card-header">
+          <div class="year-badge-wrapper">
+            <span class="year-badge">{{ s.year }}</span>
+            <span class="status-chip" [class.active]="s.activo" [class.inactive]="!s.activo">
+              {{ s.activo ? 'Activa' : 'Inactiva' }}
+            </span>
+          </div>
+
+          <div class="card-actions">
+            <!-- Botón Sincronizar -->
+            <button mat-icon-button (click)="sincronizar(s)" [disabled]="syncingYear() === s.year"
+                    matTooltip="Sincronizar movimientos de este año con PostgreSQL">
+              <mat-icon [class.spin]="syncingYear() === s.year">sync</mat-icon>
+            </button>
+            <!-- Botón Editar -->
+            <button mat-icon-button class="btn-action-edit" (click)="editarHoja(s)" matTooltip="Editar configuración y rangos">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <!-- Botón Eliminar -->
+            <button mat-icon-button color="warn" (click)="eliminarHoja(s)" [disabled]="deletingYear() === s.year"
+                    matTooltip="Eliminar configuración de este año">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <div class="sheet-card-body">
+          <h3 class="sheet-desc">{{ s.descripcion || 'Planilla de Control ' + s.year }}</h3>
+
+          <!-- ID y Enlace externo -->
+          <div class="sheet-id-row">
+            <span class="id-label">ID de Hoja:</span>
+            <code class="id-code">{{ s.sheetIdMasked }}</code>
+            <a [href]="'https://docs.google.com/spreadsheets/d/' + s.sheetId + '/edit'" target="_blank"
+               rel="noopener noreferrer" class="link-open-sheet" matTooltip="Abrir en Google Sheets">
+              <mat-icon>open_in_new</mat-icon>
+            </a>
+          </div>
+
+          <!-- Badges de Pantallas Habilitadas -->
+          <div class="screens-chips-row">
+            <span class="chips-label">Pantallas:</span>
+            <span class="chip-item" [class.enabled]="s.metadata.pantallas.inicio">
+              <mat-icon>{{ s.metadata.pantallas.inicio ? 'check' : 'close' }}</mat-icon>
+              Inicio
+            </span>
+            <span class="chip-item" [class.enabled]="s.metadata.pantallas.estimativos">
+              <mat-icon>{{ s.metadata.pantallas.estimativos ? 'check' : 'close' }}</mat-icon>
+              Estimativos
+            </span>
+            <span class="chip-item" [class.enabled]="s.metadata.pantallas.mensual">
+              <mat-icon>{{ s.metadata.pantallas.mensual ? 'check' : 'close' }}</mat-icon>
+              Mensual
+            </span>
+            <span class="chip-item" [class.enabled]="s.metadata.pantallas.anual">
+              <mat-icon>{{ s.metadata.pantallas.anual ? 'check' : 'close' }}</mat-icon>
+              Anual
+            </span>
+          </div>
+
+          <!-- Resumen de Rangos -->
+          <div class="ranges-summary-row">
+            <span class="summary-item">
+              <strong>Meses Extra:</strong> {{ s.metadata.mesesExtra.length ? s.metadata.mesesExtra.join(', ') : 'Ninguno' }}
+            </span>
+            <span class="summary-item">
+              <strong>Filas Anual:</strong> {{ s.metadata.filasTablaAnual || 84 }}
+            </span>
+            <span class="summary-item">
+              <strong>Celda Neto:</strong> {{ s.metadata.celdaIngresoNeto || 'K21' }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ESTADO VACÍO -->
+    <div class="empty-state sub-card" *ngIf="sheets().length === 0">
+      <mat-icon class="empty-icon">find_in_page</mat-icon>
+      <h3>No hay hojas de Google Sheets registradas</h3>
+      <p>Agrega la primera hoja para comenzar a sincronizar datos con PostgreSQL y visualizarlos en la app.</p>
+      <button mat-flat-button class="btn-nueva-hoja" (click)="abrirNuevoForm()">
+        <mat-icon>add</mat-icon>
+        Registrar Hoja
+      </button>
+    </div>
+  </div>
+
+  <!-- AYUDA / INFORMACIÓN DE INTEGRACIÓN -->
+  <div class="info-guide-card sub-card">
+    <div class="guide-header">
+      <mat-icon class="icon-violet">hub</mat-icon>
+      <h3>Disparador Automático de Google Sheets (Webhook)</h3>
+    </div>
+    <p>
+      Para que los cambios realizados directamente en cualquier Google Sheet se sincronicen de forma instantánea
+      con PostgreSQL y se reflejen en la aplicación en tiempo real, puedes instalar este script en <strong>Extensiones &gt; Apps Script</strong>:
+    </p>
+
+    <div class="webhook-endpoint-box">
+      <span class="endpoint-label">URL del Webhook de Sincronización:</span>
+      <code class="endpoint-code">{{ webhookUrl }}</code>
+      <button mat-button class="btn-copy-violet" (click)="copiarAlPortapapeles(webhookUrl, 'URL del Webhook copiada al portapapeles')">
+        <mat-icon>content_copy</mat-icon>
+        Copiar URL
+      </button>
+    </div>
+  </div>
+</div>

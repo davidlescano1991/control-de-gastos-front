@@ -6,6 +6,7 @@ import { HomeEstimativo } from './pages/estimativos/home';
 import { Anual } from './pages/anual/anual/anual';
 import { LoginComponent } from './pages/login/login';
 import { UsuariosComponent } from './pages/usuarios/usuarios';
+import { HojasComponent } from './pages/hojas/hojas';
 import { RecuperarPasswordComponent } from './pages/recuperar-password/recuperar-password';
 import { RestablecerPasswordComponent } from './pages/restablecer-password/restablecer-password';
 import { authGuard, publicOnlyGuard, adminGuard } from './common/guards/auth.guard';
@@ -25,6 +26,7 @@ export const routes: Routes = [
 
   // Rutas exclusivas para rol ADMIN
   { path: 'usuarios', component: UsuariosComponent, canActivate: [authGuard, adminGuard] },
+  { path: 'hojas', component: HojasComponent, canActivate: [authGuard, adminGuard] },
 
   // Redirección por defecto
   { path: '**', redirectTo: '' },

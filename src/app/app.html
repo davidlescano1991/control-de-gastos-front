@@ -27,7 +27,27 @@
         <button mat-button routerLink="/mensual">Mensual</button>
         <button mat-button routerLink="/estimativo">Estimativos</button>
         <button mat-button routerLink="/anual">Anual</button>
-        <button mat-button routerLink="/usuarios" *ngIf="authService.isAdmin()">Usuarios</button>
+
+        <!-- Dropdown Configuración exclusivo para administradores con apertura al hacer hover -->
+        <span class="dropdown-hover-wrapper" *ngIf="authService.isAdmin()" (mouseenter)="menuConfigTrigger.openMenu()">
+          <button mat-button [matMenuTriggerFor]="menuConfig" #menuConfigTrigger="matMenuTrigger" class="btn-nav-config">
+            <span>Configuración</span>
+            <mat-icon class="caret-icon">arrow_drop_down</mat-icon>
+          </button>
+          <mat-menu #menuConfig="matMenu" [overlapTrigger]="false" class="menu-configuracion">
+            <div (mouseleave)="menuConfigTrigger.closeMenu()">
+              <button mat-menu-item routerLink="/usuarios">
+                <mat-icon class="icon-violet">manage_accounts</mat-icon>
+                <span>Usuarios</span>
+              </button>
+              <button mat-menu-item routerLink="/hojas">
+                <mat-icon class="icon-violet">table_chart</mat-icon>
+                <span>Hojas de Google</span>
+              </button>
+            </div>
+          </mat-menu>
+        </span>
+
         <button mat-icon-button (click)="recargarDatos()" title="Recargar datos desde Google Sheets" aria-label="Recargar datos desde Google Sheets">
           <mat-icon>refresh</mat-icon>
         </button>
@@ -92,10 +112,22 @@
             <mat-icon color="primary">date_range</mat-icon>
             <span>Anual</span>
           </button>
-          <button mat-menu-item routerLink="/usuarios" *ngIf="authService.isAdmin()">
-            <mat-icon color="primary">manage_accounts</mat-icon>
-            <span>Gestión de Usuarios</span>
-          </button>
+
+          <!-- Sección Configuración (Solo ADMIN) en Móvil -->
+          <ng-container *ngIf="authService.isAdmin()">
+            <div class="mobile-section-header">
+              <mat-icon class="icon-violet">settings</mat-icon>
+              <span>Configuración</span>
+            </div>
+            <button mat-menu-item routerLink="/usuarios">
+              <mat-icon class="icon-violet">manage_accounts</mat-icon>
+              <span>Usuarios</span>
+            </button>
+            <button mat-menu-item routerLink="/hojas">
+              <mat-icon class="icon-violet">table_chart</mat-icon>
+              <span>Hojas de Google</span>
+            </button>
+          </ng-container>
           <button mat-menu-item (click)="recargarDatos()">
             <mat-icon color="primary">refresh</mat-icon>
             <span>Recargar datos</span>
