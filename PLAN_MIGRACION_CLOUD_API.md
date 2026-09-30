@@ -119,6 +119,10 @@ sequenceDiagram
 3. **Cero librerías pesadas:** Funciona con el estándar nativo de JavaScript (`EventSource`) y servicios reactivos de Angular (`RxJS / Subject`).
 4. **Compatible con Cloud Run:** Acepta streaming de eventos sin configuraciones complicadas.
 
+> [!NOTE]
+> **Sincronización Híbrida en Vivo con Google Sheets (Doble Pantalla)**:
+> Mientras se mantenga la carga paralela o edición directa sobre la hoja de cálculo de Google Sheets en una pantalla y el Dashboard abierto en una segunda pantalla, las vistas clave (`Inicio`, `Mensual`, `Anual` y `Estimativos`) mantienen un intervalo de refresco automático (`refreshIntervalMs = 5000` / `12000`) optimizado con comprobación de visibilidad (`document.visibilityState !== 'hidden'`). Esto garantiza que los cambios realizados en el Excel se reflejen de inmediato sin requerir clics adicionales ni foco en la ventana del navegador.
+
 ---
 
 ## 4. Arquitectura General y Flujo de Datos
@@ -829,4 +833,31 @@ gantt
   3. Recuperación de contraseña por correo Gmail SMTP probada y recibida con éxito en la bandeja de entrada.
   4. Restricción de rol LECTOR validada: solo consulta movimientos y utiliza filtros sin acceso a carga ni eliminación.
   5. Builds de producción (`npm run build`) verificados con 0 errores en Frontend y API.
+
+---
+
+#### 📌 Paso 6.9: Centralización de Sincronización Google Sheets en la API y Frontend Reactivo vía SSE (COMPLETADO)
+* **¿Qué es y por qué se hace?**
+  * Para desacoplar definitivamente el Frontend de la consulta de hojas de cálculo de Google y resolver el flujo de trabajo en doble pantalla (Excel en Pantalla 1 y Dashboard Web en Pantalla 2) con máxima eficiencia y soporte multi-entorno (`localhost` y producción):
+    1. **Traslado de Sincronización a la API (`SheetsSyncService`)**:
+       * La API (`control-de-gastos-api`) asume la responsabilidad exclusiva de consultar Google Sheets (`A1:F3000` con `FORMULA` y `FORMATTED_VALUE`), normalizar fechas ISO, detectar entidades y calcular importes y fórmulas de saldos diarios.
+       * Detección liviana por hash en memoria para evitar consultas redundantes a la base de datos si la hoja no ha cambiado.
+       * Inserción transaccional en PostgreSQL mediante `movementService.createMovementsBatch`, sincronizando automáticamente saldos, deuda y la tabla `daily_estimates`.
+       * Emisión inmediata del evento SSE `DATA_UPDATED` a todos los Frontends conectados tan pronto se guardan registros nuevos.
+    2. **Soporte Localhost y Producción (Poller Condicionado a Clientes SSE Activos)**:
+       * Para soportar pruebas en `localhost:3000` y `localhost:4200` (donde Google Sheets no puede enviar webhooks directos a una IP privada) sin saturar recursos:
+       * El sincronizador en la API corre un ciclo periódico (cada 8 segundos), pero **únicamente si hay al menos 1 cliente conectado al canal SSE** (`sseService.getConnectedCount() > 0`).
+       * Si nadie tiene abierta la aplicación web, el sincronizador se apaga automáticamente (`0 peticiones, 0 consumo`).
+    3. **Endpoint Webhook para Google Apps Script (`POST /api/sync/sheets`)**:
+       * Permite que un trigger `onChange` o `onEdit` en Google Sheets notifique a la API en la nube para actualizaciones instantáneas en milisegundos.
+    4. **Frontend 100% Reactivo (Cero Polling)**:
+       * Se erradicó por completo el polling directo desde el navegador (`refreshIntervalMs = 0` en `Inicio`, `Mensual`, `Anual` y `Estimativos`).
+       * Las vistas se suscriben reactivamente a `sseService.getEvents$()`: al recibir `DATA_UPDATED`, refrescan sus gráficos y tablas sin requerir clics ni foco en la ventana del navegador.
+* **Subpasos**:
+  * **6.9.1**: Creación de `SheetsSyncService` (`control-de-gastos-api/src/services/sheets-sync.service.ts`). *(Completado)*
+  * **6.9.2**: Creación de rutas de sincronización `POST /api/sync/sheets` (`control-de-gastos-api/src/routes/sync.routes.ts`). *(Completado)*
+  * **6.9.3**: Activación del poller condicionado a clientes SSE en `control-de-gastos-api/src/index.ts`. *(Completado)*
+  * **6.9.4**: Frontend: Eliminación de polling directo (`refreshIntervalMs = 0`), remoción de descargas redundantes en `Inicio` y suscripción reactiva en `Inicio`, `Mensual`, `Anual` y `Estimativos`. *(Completado)*
+  * **6.9.5**: Verificación de compilación de producción en Frontend (`ng build`) y Backend (`tsc`) con 0 errores. *(Completado)*
+
 

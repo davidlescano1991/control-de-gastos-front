@@ -7,6 +7,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MovimientosStoreGoogle } from '../../../stores/movimiento.google';
 import { WakeLockService } from '../../../services/wake-lock.service';
 import { AppConfigService } from '../../../services/app-config.service';
+import { SseService } from '../../../services/sse.service';
+import { Subscription } from 'rxjs';
 import { Prestamo } from '../../../models/prestamo';
 import { GraficoSaldoAnual } from '../grafico-saldo-anual/grafico-saldo-anual';
 import { GraficoDiasRestantesAnual } from '../grafico-dias-restantes-anual/grafico-dias-restantes-anual';
@@ -92,7 +94,7 @@ export class Anual implements OnInit, OnDestroy {
     });
   }
 
-  // Polling desactivado: Reemplazado por Server-Sent Events (SSE) en tiempo real
+  // Polling desactivado: delegado a la API con notificaciones SSE en tiempo real
   readonly refreshIntervalMs = 0;
   isCargando = signal(false);
   filas = signal<Prestamo[]>([]);
@@ -104,6 +106,8 @@ export class Anual implements OnInit, OnDestroy {
   readonly Math = Math;
   private appConfig = inject(AppConfigService);
   private cotizacionStore = inject(CotizacionStore);
+  private sseService = inject(SseService);
+  private sseSub: Subscription | null = null;
   anios: number[] = [];
   readonly anioActual = new Date().getFullYear();
   anioSeleccionado = signal<number>(this.anioActual);
@@ -208,9 +212,18 @@ export class Anual implements OnInit, OnDestroy {
     console.log(`El año en onInit() es ${anio}`);
     await this.Inicio();
     this.iniciarAutoRefresh();
+
+    // 📡 Suscripción reactiva en tiempo real al canal SSE
+    this.sseSub = this.sseService.getEvents$().subscribe((msg) => {
+      if (msg.event === 'DATA_UPDATED') {
+        console.log('⚡ [Anual] Actualización en tiempo real recibida vía SSE. Recargando...', msg.data);
+        void this.refrescarAutomaticamente();
+      }
+    });
   }
 
   ngOnDestroy(): void {
+    this.sseSub?.unsubscribe();
     this.detenerAutoRefresh();
     void this.wakeLockService.releaseWakeLock();
   }
@@ -764,6 +777,7 @@ export class Anual implements OnInit, OnDestroy {
   }
 
   private async refrescarAutomaticamente() {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     if (this.autoRefreshInProgress || this.isCargando()) return;
     this.autoRefreshInProgress = true;
 

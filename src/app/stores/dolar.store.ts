@@ -191,7 +191,7 @@ export class CotizacionStore {
         // 1. Convertir fechas del resumen a objetos Date
         console.warn(` 1. Convertir fechas del resumen a objetos Date ${msj}`);
         const fechas = resumen.map((item) => parseFechaEsAR(item.fecha));
-        console.log(`Fechas en EnriquecerConDolarPorRango() ${JSON.stringify(fechas)}`);
+        //console.log(`Fechas en EnriquecerConDolarPorRango() ${JSON.stringify(fechas)}`);
         // 2. Calcular fecha mínima y máxima
         console.warn(` 2. Calcular fecha mínima y máxima ${msj}`);
         const fechaMin = new Date(Math.min(...fechas.map((f) => f.getTime())));
