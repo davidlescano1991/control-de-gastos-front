@@ -23,7 +23,7 @@
       <!-- Navegación para Escritorio -->
       <ng-container *ngIf="!isMobile">
         <button mat-button routerLink="/">Inicio</button>
-        <button mat-button routerLink="/nuevo">Cargar</button>
+        <button mat-button routerLink="/nuevo">{{ authService.isAdmin() ? 'Cargar' : 'Movimientos' }}</button>
         <button mat-button routerLink="/mensual">Mensual</button>
         <button mat-button routerLink="/estimativo">Estimativos</button>
         <button mat-button routerLink="/anual">Anual</button>
@@ -77,8 +77,8 @@
             <span>Inicio</span>
           </button>
           <button mat-menu-item routerLink="/nuevo">
-            <mat-icon color="primary">add_circle</mat-icon>
-            <span>Cargar Movimientos</span>
+            <mat-icon color="primary">{{ authService.isAdmin() ? 'add_circle' : 'receipt_long' }}</mat-icon>
+            <span>{{ authService.isAdmin() ? 'Cargar Movimientos' : 'Ver Movimientos' }}</span>
           </button>
           <button mat-menu-item routerLink="/mensual">
             <mat-icon color="primary">calendar_view_month</mat-icon>

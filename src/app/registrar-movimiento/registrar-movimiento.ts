@@ -15,6 +15,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MovimientosService, MovementBackendItem } from '../services/movimientos.service';
 import { SseService } from '../services/sse.service';
 import { MovimientosStoreGoogle } from '../stores/movimiento.google';
+import { AuthService } from '../services/auth.service';
 
 export interface DailyRowItem {
   id: string;
@@ -59,6 +60,10 @@ export class RegistrarMovimiento implements OnInit {
   private movimientosService = inject(MovimientosService);
   private sseService = inject(SseService);
   private googleStore = inject(MovimientosStoreGoogle);
+  private authService = inject(AuthService);
+
+  // Rol del usuario actual
+  public isAdmin = this.authService.isAdmin;
 
   // Fecha por defecto: hoy en formato YYYY-MM-DD
   fechaSeleccionada = signal<string>(this.obtenerFechaHoyISO());
@@ -731,6 +736,11 @@ export class RegistrarMovimiento implements OnInit {
    * Guarda los saldos por cuenta ingresados y sincroniza la deuda en la base de datos PostgreSQL.
    */
   guardarMovimientos(): void {
+    if (!this.isAdmin()) {
+      this.mostrarError('Permiso denegado: solo usuarios con rol Administrador pueden registrar o modificar saldos.');
+      return;
+    }
+
     const fecha = this.fechaSeleccionada();
     if (!fecha) {
       this.mostrarError('Por favor selecciona una fecha válida.');
@@ -801,6 +811,11 @@ export class RegistrarMovimiento implements OnInit {
    * Elimina un movimiento registrado previamente en la base de datos.
    */
   eliminarMovimientoRegistrado(id: string): void {
+    if (!this.isAdmin()) {
+      this.mostrarError('Permiso denegado: solo usuarios con rol Administrador pueden eliminar movimientos.');
+      return;
+    }
+
     if (!confirm('¿Estás seguro de que deseas eliminar este registro?')) return;
 
     this.movimientosService.eliminarMovimiento(id).subscribe({
