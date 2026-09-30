@@ -90,7 +90,6 @@ export class MovimientosUsd implements OnChanges {
   private parseYear(fecha: string): number | null {
     // esperado dd/MM/yyyy
     const [d, m, y] = fecha.split('/');
-    console.log(`${d}-${m}-${y}`);
     const yy = Number(y);
     return Number.isFinite(yy) ? yy : null;
   }

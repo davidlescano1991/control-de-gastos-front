@@ -25,6 +25,7 @@ import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { parseFechaEsAR } from '../../utils/grafico.utils';
 import { SyncSheetsDbService } from '../../services/sync-sheets-db.service';
 import { SseService } from '../../services/sse.service';
+import { Subscription } from 'rxjs';
 
 import { MatIconModule } from '@angular/material/icon';
 
@@ -58,7 +59,7 @@ import { SelectorAnioDelorean } from '../../common/selector-anio-delorean/select
 export class Inicio implements OnInit, OnDestroy {
   private _formBuilder = inject(FormBuilder);
   private appConfig = inject(AppConfigService);
-  // Polling desactivado: Reemplazado por Server-Sent Events (SSE) en tiempo real
+  // Polling en Frontend desactivado: delegado 100% a la API con notificaciones SSE en tiempo real
   readonly refreshIntervalMs = 0;
   isMobile = false;
   firstFormGroup = this._formBuilder.group({ firstCtrl: ['', Validators.required] });
@@ -102,6 +103,7 @@ export class Inicio implements OnInit, OnDestroy {
   private sseService = inject(SseService);
   private refreshTimerId: number | null = null;
   private autoRefreshInProgress = false;
+  private sseSub: Subscription | null = null;
 
   constructor() {
     this.breakpointObserver.observe([Breakpoints.Handset]).subscribe((result) => {
@@ -132,6 +134,14 @@ export class Inicio implements OnInit, OnDestroy {
     await this.cargarHistoricoCompleto();
     this.iniciarAutoRefresh();
 
+    // 📡 Suscripción reactiva en tiempo real al canal SSE
+    this.sseSub = this.sseService.getEvents$().subscribe((msg) => {
+      if (msg.event === 'DATA_UPDATED') {
+        console.log('⚡ [Inicio] Actualización en tiempo real recibida vía SSE. Recargando...', msg.data);
+        void this.refrescarAutomaticamente();
+      }
+    });
+
     if (typeof window !== 'undefined') {
       window.addEventListener('focus', this.handleFocus);
       document.addEventListener('visibilitychange', this.handleVisibilityChange);
@@ -143,6 +153,7 @@ export class Inicio implements OnInit, OnDestroy {
       window.removeEventListener('focus', this.handleFocus);
       document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     }
+    this.sseSub?.unsubscribe();
     this.detenerAutoRefresh();
     void this.wakeLockService.releaseWakeLock();
   }
@@ -203,7 +214,6 @@ export class Inicio implements OnInit, OnDestroy {
 
       const anioInicial = this.anioSeleccionado();
       await this.ObtenerResumenPorAnio(anioInicial);
-      void this.verificarYSincronizarConBD();
       console.log('fin método cargarHistoricoCompleto()');
       if (registrarEstado) {
         this.logEstado(`...finaliza método cargarHistoricoCompleto()`);
@@ -282,6 +292,7 @@ export class Inicio implements OnInit, OnDestroy {
   }
 
   private async refrescarAutomaticamente() {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     if (this.autoRefreshInProgress || this.isCargando()) return;
     this.autoRefreshInProgress = true;
 

@@ -60,13 +60,7 @@ export class ListaSaldoDiario implements OnChanges {
       // cargarDatosPorAnio2 se disparará via el setter de resumenPorDiaUSD cuando lleguen los datos.
     }
   }
-  //@Input() resumenPorDia = signal<{ fecha: string; total: number; diferencia: number; deudaPesos: number }[]>([]);
-  //@Input() resumenPorDia : { fecha: string; total: number; diferencia: number; deudaPesos: number }[] = ([])
-  /* @Input() set resumenPorDia(value: { fecha: string; total: number; diferencia: number; deudaPesos: number }[]) {
-        if (value && value.length > 0 && this.anio > 0) {
-            this.cargarDatosPorAnio(this.anio);
-        }
-    } */
+
   private _resumenPorDia = signal<
     { fecha: string; total: number; diferencia: number; deudaPesos: number }[]
   >([]);
@@ -312,7 +306,7 @@ export class ListaSaldoDiario implements OnChanges {
         this.cargando.set(false);
         return;
       }
-      console.warn(`base resumen es: ${JSON.stringify(baseResumen)}`);
+      //console.warn(`base resumen es: ${JSON.stringify(baseResumen)}`);
       this.logEstado(`...baseResumen tiene ${baseResumen.length} registros para el anio ${anio}`);
       console.warn(
         `...baseResumen tiene ${baseResumen.length} registros para el anio ${this.anioCargado}`,
@@ -372,7 +366,7 @@ export class ListaSaldoDiario implements OnChanges {
                 : '-',
           };
         });
-        console.log(' 📝 Formateado con Dolar es ', JSON.stringify(formateado));
+        //console.log(' 📝 Formateado con Dolar es ', JSON.stringify(formateado));
         this.resumenFormateado.set(formateado);
       } else {
         const resumenHash = JSON.stringify(baseResumen);

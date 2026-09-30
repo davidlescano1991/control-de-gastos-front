@@ -2,6 +2,8 @@ import { Component, inject, OnDestroy, OnInit, signal, WritableSignal } from '@a
 import { MovimientosStoreGoogle } from '../../stores/movimiento.google';
 import { WakeLockService } from '../../services/wake-lock.service';
 import { AppConfigService } from '../../services/app-config.service';
+import { SseService } from '../../services/sse.service';
+import { Subscription } from 'rxjs';
 import { NgIf, NgFor } from '@angular/common';
 import { MatCardContent, MatCardModule } from '@angular/material/card';
 import { GraficoEstimativo } from './grafico-estimativo/grafico-estimativo';
@@ -83,7 +85,7 @@ export class HomeEstimativo implements OnInit, OnDestroy {
     'Enero_2026', 'Febrero_2026', 'Marzo_2026', 'Abril_2026'
   ]; */
   anios: number[] = [];
-  // Polling desactivado: Reemplazado por Server-Sent Events (SSE) en tiempo real
+  // Polling desactivado: delegado a la API con notificaciones SSE en tiempo real
   readonly refreshIntervalMs = 0;
   estimativoFilas = signal<EstimativoRow[]>([]);
 
@@ -97,6 +99,8 @@ export class HomeEstimativo implements OnInit, OnDestroy {
 
   private storeGoogle = inject(MovimientosStoreGoogle);
   private wakeLockService = inject(WakeLockService);
+  private sseService = inject(SseService);
+  private sseSub: Subscription | null = null;
 
   async ngOnInit(): Promise<void> {
     const configuredYears = this.appConfig.yearsEstimativos;
@@ -126,6 +130,14 @@ export class HomeEstimativo implements OnInit, OnDestroy {
 
     // 3. Iniciar auto-refresco del mes activo
     this.iniciarAutoRefresh();
+
+    // 📡 Suscripción reactiva en tiempo real al canal SSE
+    this.sseSub = this.sseService.getEvents$().subscribe((msg) => {
+      if (msg.event === 'DATA_UPDATED') {
+        console.log('⚡ [Estimativos] Actualización en tiempo real recibida vía SSE. Recargando...', msg.data);
+        void this.refrescarAutomaticamente();
+      }
+    });
   }
 
   async cargaInicial(mostrarCarga = true, force = false) {
@@ -173,6 +185,7 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.sseSub?.unsubscribe();
     this.detenerAutoRefresh();
     void this.wakeLockService.releaseWakeLock();
   }
@@ -269,6 +282,7 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   }
 
   private async refrescarAutomaticamente() {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     if (this.autoRefreshInProgress || this.isCargando()) return;
     this.autoRefreshInProgress = true;
 
