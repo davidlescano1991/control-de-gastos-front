@@ -2,7 +2,7 @@
   <!-- ========================================================================= -->
   <!-- 1. SECCIÓN SUPERIOR: FORMULARIO DE CARGA RÁPIDA DE MOVIMIENTOS            -->
   <!-- ========================================================================= -->
-  <div class="card-seccion">
+  <div class="card-seccion" *ngIf="isAdmin()">
     <div class="seccion-header">
       <div class="titulo-con-icono">
         <mat-icon class="icono-seccion" color="primary">add_circle</mat-icon>
@@ -288,7 +288,7 @@
             <th>Descripción / Detalle</th>
             <th class="col-monto-header">Saldo / Monto</th>
             <th class="col-deuda-header">Deuda del Día</th>
-            <th class="col-acciones-header">Acciones</th>
+            <th class="col-acciones-header" *ngIf="isAdmin()">Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -318,7 +318,7 @@
               </span>
               <span *ngIf="!obtenerDeudaPorFecha(m.fecha)" class="sin-deuda-texto">-</span>
             </td>
-            <td class="celda-acciones">
+            <td class="celda-acciones" *ngIf="isAdmin()">
               <button
                 type="button"
                 class="btn-eliminar-historial"
@@ -333,7 +333,7 @@
 
           <!-- Estado Vacío -->
           <tr *ngIf="movimientosFiltrados().length === 0">
-            <td colspan="6" class="celda-vacia">
+            <td [attr.colspan]="isAdmin() ? 6 : 5" class="celda-vacia">
               <mat-icon class="icono-vacio">inbox</mat-icon>
               <p>No se encontraron saldos registrados con los filtros aplicados.</p>
             </td>
