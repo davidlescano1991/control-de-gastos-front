@@ -777,6 +777,53 @@ gantt
     * **Desconexión de API**: Si la aplicación no está conectada en tiempo real con la API (`!this.sseService.isConnected()`), se omite completamente cualquier validación o llamada (no consulta Google Sheets, no solicita tokens, no procesa lotes).
     * **Idempotencia a nivel de Entidad**: La verificación se realiza por la tupla única `(fechaISO, entidad)`. Si una entidad ya existe para ese día en la BD, se descarta y no se realiza ninguna acción para ella. Únicamente se insertan aquellas entidades del día que aún no existan en la base de datos.
 
+---
 
+#### 📌 Paso 6.7: Pantalla de Login, Protección Global con AuthGuard y Control de Expiración JWT (COMPLETADO)
+* **¿Qué es y por qué se hace?**
+  * Para garantizar que ninguna persona ni sesión no autorizada (por ejemplo, en modo incógnito, pestañas limpias o tras expirar el token) pueda visualizar la información financiera:
+    1. **Pantalla de Login Moderna (`/login`)**: Tarjeta central estilizada con diseño responsive (modo claro y oscuro), validación reactiva de credenciales (`email` y `password`), indicador visual de carga con spinner y soporte de alternar visibilidad de contraseña.
+    2. **Protección Global de Rutas con `AuthGuard`**: Todas las rutas del sistema (`/`, `/nuevo`, `/mensual`, `/estimativo`, `/anual`) quedan protegidas mediante `CanActivateFn`. Cualquier intento de acceso anónimo es interceptado y redirigido a `/login`, guardando la URL intentada (`returnUrl`).
+    3. **Guard Público (`publicOnlyGuard`)**: Si un usuario ya autenticado navega a `/login`, se le redirige inmediatamente a la aplicación principal (`/`).
+    4. **Control Activo y Reactivo de Expiración JWT**:
+       * *Proactivo*: Comprobación del timestamp `exp` del token JWT en el cliente. Si el token expiró, la sesión se limpia automáticamente y se redirige a `/login?expired=true`.
+       * *Reactivo*: En `authInterceptor`, si la API responde `401 Unauthorized` o el token venció en vuelo, la sesión se invalida y se redirige al login con alerta visual de caducidad.
+    5. **Eliminación de Credenciales Hardcodeadas**: Se erradicó el auto-login administrativo en segundo plano (`ensureAdminAuth`); la autenticación se ejecuta exclusivamente mediante credenciales ingresadas por el usuario.
+    6. **Barra Superior y Menú Adaptativos**: En estado no autenticado, la barra muestra únicamente el logo y el conmutador de tema. Con sesión activa, se despliegan las opciones completas de navegación, badge de SSE en tiempo real, información del usuario logueado con etiqueta de rol (`ADMIN`/`LECTOR`) y botón para cerrar sesión (`logout`).
+* **Subpasos**:
+  * **6.7.1**: Implementación de `LoginComponent` (`src/app/pages/login/`). *(Completado)*
+  * **6.7.2**: Creación de `authGuard` y `publicOnlyGuard` (`src/app/common/guards/auth.guard.ts`). *(Completado)*
+  * **6.7.3**: Actualización de `app.routes.ts` y `app.config.ts` con protección integral de rutas. *(Completado)*
+  * **6.7.4**: Integración de decodificación y expiración de token en `AuthService` y `authInterceptor`. *(Completado)*
+  * **6.7.5**: Incorporación de badge de usuario y botón de logout en escritorio y menú móvil. *(Completado)*
 
+---
+
+#### 📌 Paso 6.8: Gestión de Usuarios (Admin), Recuperación de Contraseña (Gmail SMTP) y Protección contra Bots (Cloudflare Turnstile) (COMPLETADO)
+* **¿Qué es y por qué se hace?**
+  * Para dotar a la plataforma de un ciclo completo de administración de accesos, autoservicio seguro y protección perimetral:
+    1. **Gestión de Usuarios Exclusiva para Administradores (`/usuarios`)**:
+       * Vista protegida por `authGuard` y `adminGuard`. Solo usuarios con rol `ADMIN` pueden verla o utilizarla.
+       * Formulario para crear nuevos usuarios con validación, selector de rol (`ADMIN` / `LECTOR`), nombre y contraseña cifrada con `bcrypt`.
+       * Listado reactivo de usuarios registrados con posibilidad de eliminar cuentas (con salvaguarda para no eliminarse a sí mismo).
+       * Endpoints en la API (`GET /api/users`, `POST /api/users`, `DELETE /api/users/:id`) blindados con middleware `requireAdmin`.
+    2. **Recuperación de Contraseña Autoservicio ("¿Olvidó su contraseña?")**:
+       * Enlace interactivo en la pantalla de login que abre el flujo de recuperación (`/recuperar-password`).
+       * Generación de token criptográfico temporal y seguro con expiración.
+       * Envío automático de correo electrónico vía **Gmail SMTP** con plantilla HTML elegante y botón de restablecimiento.
+       * Pantalla de nueva contraseña (`/restablecer-password?token=...`) para definir la nueva clave con validación de seguridad.
+    3. **Protección Anti-Bots con Cloudflare Turnstile**:
+       * Integración del widget de Cloudflare Turnstile en el formulario de login.
+       * Verificación del token en backend para evitar ataques de fuerza bruta, scripts automatizados o intentos masivos de intrusión.
+* **Subpasos**:
+  * **6.8.1**: API: Rutas protegidas de usuarios (`/api/users`), servicio de emails (`mail.service.ts` con Nodemailer/Gmail) y endpoints de recuperación de contraseña. *(Completado)*
+  * **6.8.2**: API: Middleware de verificación de Cloudflare Turnstile en `/api/auth/login`. *(Completado)*
+  * **6.8.3**: Frontend: Creación de `adminGuard` y vista `UsuariosComponent` (`/usuarios`) con acceso exclusivo a administradores. *(Completado)*
+  * **6.8.4**: Frontend: Vistas y flujo de recuperación de clave (`/recuperar-password` y `/restablecer-password`). *(Completado)*
+  * **6.8.5**: Frontend: Integración del widget Cloudflare Turnstile en `LoginComponent` con Site Key y Secret Key oficiales. *(Completado)*
+* **🧪 Tu Prueba Local Manual (Paso 6.8)**: *(VERIFICADO EXITOSAMENTE)*
+  1. Login con captcha Turnstile operativo.
+  2. Panel de administración `/usuarios` con alta y baja de usuarios restringido a rol ADMIN.
+  3. Recuperación de contraseña por correo Gmail SMTP probada y recibida con éxito en la bandeja de entrada.
+  4. Builds de producción (`npm run build`) verificados con 0 errores en Frontend y API.
 

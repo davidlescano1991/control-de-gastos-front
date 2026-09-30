@@ -9,9 +9,11 @@ import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 
 import { MatMenuModule } from '@angular/material/menu';
 import { MatIconModule } from '@angular/material/icon';
+import { MatDividerModule } from '@angular/material/divider';
 import { ThemeService } from './services/theme.service';
 import { MovimientosStoreGoogle } from './stores/movimiento.google';
 import { SseService } from './services/sse.service';
+import { AuthService } from './services/auth.service';
 
 type AppWindow = Window & { __APP_VERSION__?: string };
 
@@ -33,6 +35,7 @@ export interface Tile {
     MatCardModule,
     MatMenuModule,
     MatIconModule,
+    MatDividerModule,
     CommonModule,
   ],
   styleUrls: ['./app.scss'],
@@ -44,6 +47,7 @@ export class AppComponent {
   private themeService = inject(ThemeService);
   private storeGoogle = inject(MovimientosStoreGoogle);
   public sseService = inject(SseService);
+  public authService = inject(AuthService);
 
   constructor() {
     this.breakpointObserver.observe([Breakpoints.Handset]).subscribe((result) => {
@@ -58,6 +62,10 @@ export class AppComponent {
 
   toggleDarkMode(): void {
     this.themeService.toggleDarkMode();
+  }
+
+  logout(): void {
+    this.authService.logout(true);
   }
 
   recargarDatos(): void {
