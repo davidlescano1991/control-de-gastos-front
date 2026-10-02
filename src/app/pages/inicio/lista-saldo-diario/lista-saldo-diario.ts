@@ -20,6 +20,7 @@ import { parseFechaEsAR } from '../../../utils/grafico.utils';
 
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { OrigenDatosComponent } from '../../../common/origen-datos/origen-datos.component';
 
 @Component({
   selector: 'app-lista-saldo-diario',
@@ -32,6 +33,7 @@ import { MatButtonModule } from '@angular/material/button';
     MatCardModule,
     MatIconModule,
     MatButtonModule,
+    OrigenDatosComponent,
   ],
   providers: [CurrencyPipe],
   templateUrl: './lista-saldo-diario.html',

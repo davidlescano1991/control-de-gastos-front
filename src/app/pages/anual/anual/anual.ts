@@ -38,6 +38,7 @@ import { MatStepperModule } from '@angular/material/stepper';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 
 import { SelectorAnioDelorean } from '../../../common/selector-anio-delorean/selector-anio-delorean';
+import { OrigenDatosComponent } from '../../../common/origen-datos/origen-datos.component';
 
 @Component({
   selector: 'app-anual',
@@ -67,6 +68,7 @@ import { SelectorAnioDelorean } from '../../../common/selector-anio-delorean/sel
     GraficoIngresoNetoHistoricoUsd,
     MatStepperModule,
     SelectorAnioDelorean,
+    OrigenDatosComponent,
   ],
   templateUrl: './anual.html',
   standalone: true,
@@ -253,6 +255,24 @@ export class Anual implements OnInit, OnDestroy {
   private cacheDeudaAnualPorAnio = new Map<number, DeudaTotalMes[]>();
 
   private async CargarTablaAnual(anio: number, force = false) {
+    if (!this.appConfig.isSheetsActivo(anio)) {
+      this.setSignalIfChanged(this.filas, []);
+      this.setSignalIfChanged(this.categorias, []);
+      this.setSignalIfChanged(this.filasSecundarias, []);
+      this.setSignalIfChanged(this.categoriasSecundarias, []);
+      this.setSignalIfChanged(this.resultado, {});
+      this.setSignalIfChanged(this.gastosMensuales, []);
+      this.setSignalIfChanged(this.gastosDiarioPromedio, []);
+      this.setSignalIfChanged(this.graficoAnual, []);
+      this.setSignalIfChanged(this.deudaTotalAnual, []);
+      this.setSignalIfChanged(this.ingresoNetoAnual, []);
+      this.setSignalIfChanged(this.resumenPositivo, []);
+      this.storeGoogle.tablaAnual.set([]);
+      this.storeGoogle.tablaSecundaria.set([]);
+      this.storeGoogle.valorOtorgado.set(0);
+      return;
+    }
+
     try {
       await this.storeGoogle.cargarTablaAnualAllXAnio(anio, force);
     } catch (err) {
@@ -307,6 +327,10 @@ export class Anual implements OnInit, OnDestroy {
   }
 
   async calcularDeudaTotalParaAnio(anio: number, force = false): Promise<DeudaTotalMes[]> {
+    if (!this.appConfig.isSheetsActivo(anio)) {
+      return [];
+    }
+
     if (!force && this.cacheDeudaAnualPorAnio.has(anio)) {
       return this.cacheDeudaAnualPorAnio.get(anio)!;
     }
@@ -517,6 +541,10 @@ export class Anual implements OnInit, OnDestroy {
   }
 
   async calcularIngresoNetoParaAnio(anio: number, force = false): Promise<IngresoNetoMes[]> {
+    if (!this.appConfig.isSheetsActivo(anio)) {
+      return [];
+    }
+
     if (!force && this.cacheIngresoNetoAnualPorAnio.has(anio)) {
       return this.cacheIngresoNetoAnualPorAnio.get(anio)!;
     }
@@ -809,4 +837,8 @@ export class Anual implements OnInit, OnDestroy {
   get filaOtorgada() {
     return this.storeGoogle.filaOtorgada();
   } */
+
+  esAnioEnBD(anio: number): boolean {
+    return this.appConfig.esAnioEnBD(anio);
+  }
 }

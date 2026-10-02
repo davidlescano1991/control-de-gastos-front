@@ -16,6 +16,7 @@ import { MovimientosService, MovementBackendItem } from '../services/movimientos
 import { SseService } from '../services/sse.service';
 import { MovimientosStoreGoogle } from '../stores/movimiento.google';
 import { AuthService } from '../services/auth.service';
+import { OrigenDatosComponent } from '../common/origen-datos/origen-datos.component';
 
 export interface DailyRowItem {
   id: string;
@@ -52,6 +53,7 @@ export interface ResultadoFormula {
     MatProgressSpinnerModule,
     MatTooltipModule,
     MatChipsModule,
+    OrigenDatosComponent,
   ],
   templateUrl: './registrar-movimiento.html',
   styleUrls: ['./registrar-movimiento.scss'],
@@ -67,6 +69,17 @@ export class RegistrarMovimiento implements OnInit {
 
   // Fecha por defecto: hoy en formato YYYY-MM-DD
   fechaSeleccionada = signal<string>(this.obtenerFechaHoyISO());
+
+  readonly anioActualRegistro = computed(() => {
+    const f = this.fechaSeleccionada();
+    if (f) {
+      const parts = f.split('-');
+      if (parts.length > 0 && !isNaN(Number(parts[0]))) {
+        return Number(parts[0]);
+      }
+    }
+    return new Date().getFullYear();
+  });
 
   // Deuda diaria (se precarga dinámicamente con la última registrada en la base de datos)
   deuda = signal<number | null>(null);

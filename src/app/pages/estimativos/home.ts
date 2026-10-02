@@ -148,6 +148,9 @@ export class HomeEstimativo implements OnInit, OnDestroy {
     const filas: EstimativoRow[] = [];
     try {
       for (const anio of this.anios) {
+        if (!this.appConfig.isSheetsActivo(anio)) {
+          continue;
+        }
         try {
           this.logEstado(
             `...inicia storeGoogle.asegurarMensualPorAnioRange(anio: ${anio}, mesesDelAnio: ${JSON.stringify(mesesDelAnio)}, 'mensual');`,
@@ -207,6 +210,11 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   async seleccionarMesMensual(mes: string, force = false) {
     const hoja = 'Estimativo ' + mes;
     const anio = this.anioSeleccionado();
+
+    if (!this.appConfig.isSheetsActivo(anio)) {
+      this.setSignalIfChanged(this.estimativoFilas, []);
+      return;
+    }
 
     // 1. Hidratar de inmediato desde cache para mostrar datos instantáneos (0ms)
     const filasCache = await this.storeGoogle.getEstimados(anio, hoja);
@@ -299,5 +307,9 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   private setSignalIfChanged<T>(target: WritableSignal<T>, nextValue: T) {
     if (JSON.stringify(target()) === JSON.stringify(nextValue)) return;
     target.set(nextValue);
+  }
+
+  esAnioEnBD(anio: number): boolean {
+    return this.appConfig.esAnioEnBD(anio);
   }
 }

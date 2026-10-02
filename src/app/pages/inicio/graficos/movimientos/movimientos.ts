@@ -21,10 +21,11 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { OrigenDatosComponent } from '../../../../common/origen-datos/origen-datos.component';
 
 @Component({
   selector: 'app-movimientos',
-  imports: [CommonModule, BaseChartDirective, MatProgressSpinnerModule, MatIconModule, MatButtonModule],
+  imports: [CommonModule, BaseChartDirective, MatProgressSpinnerModule, MatIconModule, MatButtonModule, OrigenDatosComponent],
   templateUrl: './movimientos.html',
   styleUrl: './movimientos.scss',
   providers: [provideCharts(withDefaultRegisterables())],

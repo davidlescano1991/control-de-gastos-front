@@ -14,6 +14,8 @@ import { CommonModule, CurrencyPipe, isPlatformBrowser } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
 
+import { AppConfigService } from '../../../services/app-config.service';
+
 @Component({
   selector: 'app-resumen',
   standalone: true,
@@ -47,6 +49,7 @@ export class Resumen implements OnInit, OnChanges {
 
   isCargando = signal(false);
   isBrowser = false;
+  private appConfig = inject(AppConfigService);
   private store = inject(MovimientosStoreGoogle);
   private cdr = inject(ChangeDetectorRef);
   private platformId = inject(PLATFORM_ID);
@@ -94,6 +97,18 @@ export class Resumen implements OnInit, OnChanges {
 
   async cargarTotales() {
     if (!this.isBrowser || !this.mesSeleccionado) return;
+
+    if (!this.appConfig.isSheetsActivo(this.anioSeleccionado)) {
+      this.entidades = [];
+      this.resumen = {};
+      this.totales = [];
+      this.meses = [];
+      this.mesesResumen = [];
+      this.isCargando.set(false);
+      this.cdr.detectChanges();
+      return;
+    }
+
     console.log(
       `✅ Incia método cargarTotales() mes = ${this.mesSeleccionado} año = ${this.anioSeleccionado}`,
     );

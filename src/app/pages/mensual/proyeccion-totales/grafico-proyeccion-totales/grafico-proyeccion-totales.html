@@ -18,8 +18,11 @@
       <mat-spinner diameter="40"></mat-spinner>
     </div>
     <ng-template #grafico>
-      <div class="grafico-wrapper" *ngIf="isBrowser">
+      <div class="grafico-wrapper" *ngIf="isBrowser && chartData.labels && chartData.labels.length > 0">
         <canvas baseChart [data]="chartData" [options]="chartOptions" [type]="'line'"></canvas>
+      </div>
+      <div *ngIf="isBrowser && (!chartData.labels || chartData.labels.length === 0)" class="sin-datos-msg">
+        Sin datos de proyección para este año
       </div>
     </ng-template>
   </mat-card-content>

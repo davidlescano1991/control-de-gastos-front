@@ -19,7 +19,10 @@
       <mat-spinner diameter="40"></mat-spinner>
     </div>
     <ng-template #grafico>
-      <canvas baseChart [data]="chartData" [options]="chartOptions" [type]="'line'">
+      <div *ngIf="isBrowser && (!chartData.labels || chartData.labels.length === 0)" class="sin-datos-msg">
+        Sin datos disponibles para este año
+      </div>
+      <canvas *ngIf="isBrowser && chartData.labels && chartData.labels.length > 0" baseChart [data]="chartData" [options]="chartOptions" [type]="'line'">
       </canvas>
     </ng-template>
   </ng-container>

@@ -21,6 +21,7 @@ interface AppConfig {
   coloresEntidades?: Record<string, string>;
   celdaIngresoNeto?: string;
   celdaIngresoNetoPorAnio?: Record<string, string>;
+  origenPorAnio?: Record<string, { activo: boolean; descripcion: string | null }>;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -96,6 +97,7 @@ export class AppConfigService {
       filasTablaAnualPorAnio: data.filasTablaAnualPorAnio || {},
       celdaIngresoNetoPorAnio: data.celdaIngresoNetoPorAnio || {},
       coloresEntidades: data.coloresEntidades || this.coloresEntidades,
+      origenPorAnio: data.origenPorAnio || {},
     };
 
     this.aplicarColoresEntidadesCSS();
@@ -223,6 +225,37 @@ export class AppConfigService {
         root.style.setProperty(`--color-entidad-${key}`, color);
       });
     }
+  }
+
+  getLeyendaOrigen(anio: number | undefined | null): string {
+    if (!anio) {
+      return '* Información obtenida desde la BD';
+    }
+    const anioStr = String(anio);
+    const info = this.config?.origenPorAnio?.[anioStr];
+    if (!info || !info.activo) {
+      return '* Información obtenida desde la BD';
+    }
+    const nombre = info.descripcion || `Cuentas claras_${anio}`;
+    return `* Información obtenida desde la hoja ${nombre}`;
+  }
+
+  /**
+   * Determina si el año especificado tiene la conexión activa con Google Sheets.
+   */
+  isSheetsActivo(anio: number | undefined | null): boolean {
+    if (!anio) return false;
+    const anioStr = String(anio);
+    const info = this.config?.origenPorAnio?.[anioStr];
+    if (!info) return true;
+    return info.activo === true;
+  }
+
+  /**
+   * Determina si el año especificado está en modo Base de Datos (PostgreSQL).
+   */
+  esAnioEnBD(anio: number | undefined | null): boolean {
+    return !this.isSheetsActivo(anio);
   }
 
   get raw(): AppConfig {

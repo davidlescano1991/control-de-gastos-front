@@ -20,42 +20,48 @@
     </mat-card-header>
     @if (!isCollapsed()) {
       <mat-card-content>
-        <div class="tabla-resumen-container">
-          <table>
-            <thead>
-              <tr>
-                <th class="col-sticky">Entidad</th>
-                @for (mes of meses; track mes) {
-                  <th>{{ mes }}</th>
-                }
-              </tr>
-            </thead>
-            <tbody>
-              @for (entidad of entidades; track entidad) {
+        @if (entidades && entidades.length > 0) {
+          <div class="tabla-resumen-container">
+            <table>
+              <thead>
                 <tr>
-                  <td class="col-sticky" [ngClass]="getEntidadClass(entidad)">
-                    {{ getNombreEntidad(entidad) }}
-                  </td>
+                  <th class="col-sticky">Entidad</th>
+                  @for (mes of meses; track mes) {
+                    <th>{{ mes }}</th>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                @for (entidad of entidades; track entidad) {
+                  <tr>
+                    <td class="col-sticky" [ngClass]="getEntidadClass(entidad)">
+                      {{ getNombreEntidad(entidad) }}
+                    </td>
+                    @for (mes of meses; track mes) {
+                      <td>
+                        {{ getTotal(entidad, mes) | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                      </td>
+                    }
+                  </tr>
+                }
+                <tr class="fila-total">
+                  <td class="col-sticky"><strong>Total</strong></td>
                   @for (mes of meses; track mes) {
                     <td>
-                      {{ getTotal(entidad, mes) | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                      <strong>{{
+                        getTotalPorMes(mes) | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR'
+                      }}</strong>
                     </td>
                   }
                 </tr>
-              }
-              <tr class="fila-total">
-                <td class="col-sticky"><strong>Total</strong></td>
-                @for (mes of meses; track mes) {
-                  <td>
-                    <strong>{{
-                      getTotalPorMes(mes) | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR'
-                    }}</strong>
-                  </td>
-                }
-              </tr>
-            </tbody>
-          </table>
-        </div>
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <div class="sin-datos-msg">
+            Sin datos de resumen para este año
+          </div>
+        }
       </mat-card-content>
     }
   </mat-card>

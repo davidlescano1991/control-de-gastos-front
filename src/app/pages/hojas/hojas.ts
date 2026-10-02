@@ -48,6 +48,38 @@ export class HojasComponent implements OnInit {
   public isSaving = signal<boolean>(false);
   public syncingYear = signal<number | null>(null);
   public deletingYear = signal<number | null>(null);
+  public togglingYear = signal<number | null>(null);
+
+  public readonly anioActual = new Date().getFullYear();
+
+  public esAnioActual(year: number | null | undefined): boolean {
+    return Number(year) === this.anioActual;
+  }
+
+  toggleEstadoDirecto(sheet: SheetConfigItem, nuevoActivo: boolean): void {
+    if (this.esAnioActual(sheet.year)) return;
+    this.togglingYear.set(sheet.year);
+    const payload: SheetConfigPayload = {
+      year: sheet.year,
+      sheetId: sheet.sheetId,
+      descripcion: sheet.descripcion || undefined,
+      activo: nuevoActivo,
+      metadata: sheet.metadata,
+    };
+
+    this.sheetConfigService.upsertConfig(payload).subscribe({
+      next: async () => {
+        await this.appConfigService.reloadFromApi();
+        this.togglingYear.set(null);
+        this.cargarHojas();
+      },
+      error: (err) => {
+        console.error('Error al cambiar modo de la hoja:', err);
+        this.togglingYear.set(null);
+        this.errorMessage.set('No se pudo actualizar el modo de la hoja.');
+      },
+    });
+  }
 
   public showForm = signal<boolean>(false);
   public editingYear = signal<number | null>(null);
@@ -277,7 +309,7 @@ export class HojasComponent implements OnInit {
       year: Number(val.year),
       sheetId: cleanId,
       descripcion: val.descripcion ? String(val.descripcion) : undefined,
-      activo: Boolean(val.activo),
+      activo: Number(val.year) === this.anioActual ? true : Boolean(val.activo),
       metadata,
     };
 

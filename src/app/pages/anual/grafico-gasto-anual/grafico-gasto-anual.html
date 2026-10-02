@@ -17,16 +17,24 @@
   <ng-container *ngIf="!isCollapsed()">
     <div
       class="spinner"
-      *ngIf="
-        isCargandoInput || isCargando() || !datosAnuales || datosAnuales.length === 0;
-        else grafico
-      "
+      *ngIf="isCargandoInput || isCargando()"
     >
       <mat-spinner diameter="40" strokeWidth="4" color="primary"></mat-spinner>
     </div>
-    <ng-template #grafico>
-      <canvas baseChart [data]="chartData" [options]="chartOptions" [type]="chartType"> </canvas>
-    </ng-template>
+    <div
+      *ngIf="!isCargandoInput && !isCargando() && (!datosAnuales || datosAnuales.length === 0)"
+      class="sin-datos-msg"
+    >
+      Sin datos disponibles para este año
+    </div>
+    <canvas
+      *ngIf="!isCargandoInput && !isCargando() && datosAnuales && datosAnuales.length > 0"
+      baseChart
+      [data]="chartData"
+      [options]="chartOptions"
+      [type]="chartType"
+    >
+    </canvas>
   </ng-container>
 </div>
 

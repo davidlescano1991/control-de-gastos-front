@@ -1748,3 +1748,26 @@ body.dark-mode {
     filter: brightness(1.08);
   }
 }
+
+/* Estados vacíos amigables cuando no hay datos */
+.sin-datos-msg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100px;
+  color: #94a3b8;
+  font-size: 0.95rem;
+  font-style: italic;
+  text-align: center;
+  padding: 24px 16px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.sin-datos-td {
+  text-align: center !important;
+  padding: 28px 16px !important;
+  color: #94a3b8 !important;
+  font-style: italic !important;
+  font-size: 0.95rem !important;
+}

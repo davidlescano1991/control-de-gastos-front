@@ -16,6 +16,7 @@ import { MatCardModule } from '@angular/material/card';
 import { Entidad } from '../../../../models/entidad';
 import { MovimientosStoreGoogle } from '../../../../stores/movimiento.google';
 import { getGridColor, getLineWidth } from '../../../../utils/grafico.utils';
+import { AppConfigService } from '../../../../services/app-config.service';
 
 @Component({
   selector: 'app-grafico-proyeccion-totales',
@@ -92,6 +93,7 @@ export class GraficoProyeccionTotales implements OnChanges {
     },
   };
 
+  private appConfig = inject(AppConfigService);
   private storeGoogle = inject(MovimientosStoreGoogle);
   private cdr = inject(ChangeDetectorRef);
   private platformId = inject(PLATFORM_ID);
@@ -108,6 +110,14 @@ export class GraficoProyeccionTotales implements OnChanges {
 
   private async cargarTotalesProyeccion(): Promise<void> {
     this.isCargando.set(true);
+
+    if (!this.appConfig.isSheetsActivo(this.anioSeleccionado)) {
+      this.chartData = { labels: [], datasets: [] };
+      this.chart?.update();
+      this.cdr.detectChanges();
+      this.isCargando.set(false);
+      return;
+    }
 
     const mesesDelAnio = this.storeGoogle.getMesesParaResumen(this.anioSeleccionado);
     const indexActual = mesesDelAnio.indexOf(this.mesSeleccionado);

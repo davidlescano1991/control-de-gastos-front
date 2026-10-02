@@ -563,6 +563,14 @@ export class MovimientosStoreGoogle {
     caller?: string,
     force = false,
   ): Promise<void> {
+    if (!this.appConfig.isSheetsActivo(anio)) {
+      console.log(`ℹ️ [MovimientosStoreGoogle] Año ${anio} en modo BD: estimativos aún no migrados a la BD, sin información.`);
+      for (const hoja of hojasBase) {
+        this.estimativoPorMes.set(`${anio}::${hoja}`, signal([]));
+      }
+      return;
+    }
+
     if (!force) {
       hojasBase.forEach((hoja) => {
         this.hidratarEstimativoDesdeCache(anio, hoja);
@@ -633,6 +641,11 @@ export class MovimientosStoreGoogle {
     const hojaReal = this.resolverNombreHoja(anio, hoja);
     const clave = `${anio}::${hoja}`;
 
+    if (!this.appConfig.isSheetsActivo(anio)) {
+      this.mensualPorMes.set(clave, signal({ values: [] }));
+      return;
+    }
+
     if (this.mensualPorMes.has(clave)) return;
 
     if (this.mensualEnCargaResumenYGrafico.has(clave)) {
@@ -665,6 +678,14 @@ export class MovimientosStoreGoogle {
     caller?: string,
     force = false,
   ): Promise<void> {
+    if (!this.appConfig.isSheetsActivo(anio)) {
+      console.log(`ℹ️ [MovimientosStoreGoogle] Año ${anio} en modo BD: mensual aún no migrado a la BD, sin información.`);
+      for (const mes of meses) {
+        this.mensualPorMes.set(`${anio}::${mes}`, signal({ values: [] }));
+      }
+      return;
+    }
+
     const rangoHojas = this.resolverNombreHoja(anio, meses.join(', '));
 
     if (!force) {
@@ -728,6 +749,16 @@ export class MovimientosStoreGoogle {
    * Carga la totalidad de las tablas anuales (préstamos, secundaria y gastos mensuales) para el año solicitado.
    */
   async cargarTablaAnualAllXAnio(anio: number, force = false): Promise<void> {
+    if (!this.appConfig.isSheetsActivo(anio)) {
+      console.log(`ℹ️ [MovimientosStoreGoogle] Año ${anio} en modo BD: tabla anual aún no migrada a la BD, sin información.`);
+      this.tablaAnual.set([]);
+      this.tablaSecundaria.set([]);
+      this.valorOtorgado.set(0);
+      this.tablaGastosMensualesPorAnio.set(anio, signal([]));
+      this.tablaGastosDiarioPromedioPorAnio.set(anio, signal([]));
+      return;
+    }
+
     const clave = `Anual ${anio}`;
     const ahora = Date.now();
     const vencimientoMs = 10 * 60 * 1000;
@@ -1138,6 +1169,10 @@ export class MovimientosStoreGoogle {
     anio: number,
     force = false,
   ): Promise<{ mes: string; total: number }[]> {
+    if (!this.appConfig.isSheetsActivo(anio)) {
+      return [];
+    }
+
     const objetoEntidades = this.ValidarRangoEntidades(anio);
     const entidades = Object.keys(objetoEntidades) as (keyof typeof objetoEntidades)[];
     const resultados: { mes: string; total: number }[] = [];
@@ -1196,6 +1231,10 @@ export class MovimientosStoreGoogle {
     anio: number,
     force = false,
   ): Promise<{ mes: string; subtotal: number; desglose: Record<string, number> }[]> {
+    if (!this.appConfig.isSheetsActivo(anio)) {
+      return [];
+    }
+
     const objetoEntidades = this.ValidarRangoEntidades(anio);
     const entidades = Object.keys(objetoEntidades) as (keyof typeof objetoEntidades)[];
     const mesesAMostrar = this.getMesesParaResumen(anio);
@@ -1327,8 +1366,8 @@ export class MovimientosStoreGoogle {
           console.warn(`⚠️ [MovimientosStore] Falló consulta a la API para ${anio}, recurriendo a Sheets fallback:`, apiErr);
         }
 
-        // 2. Fallback a Google Sheets si la API devolvió 0 movimientos o falló
-        if (movimientos.length === 0) {
+        // 2. Fallback a Google Sheets si la API devolvió 0 movimientos o falló (solo si Google Sheets está activo)
+        if (movimientos.length === 0 && this.appConfig.isSheetsActivo(anio)) {
           console.log(`🌐 [MovimientosStore] Consultando Google Sheets fallback para ${anio}...`);
           const clave = 'Movimientos';
           const res = (await firstValueFrom(

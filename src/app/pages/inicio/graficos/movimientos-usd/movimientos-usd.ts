@@ -20,10 +20,11 @@ import { Cotizacion } from '../../../../models/cotizacion';
 
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { OrigenDatosComponent } from '../../../../common/origen-datos/origen-datos.component';
 
 @Component({
   selector: 'app-movimientos-usd',
-  imports: [CommonModule, BaseChartDirective, MatProgressSpinnerModule, MatIconModule, MatButtonModule],
+  imports: [CommonModule, BaseChartDirective, MatProgressSpinnerModule, MatIconModule, MatButtonModule, OrigenDatosComponent],
   templateUrl: './movimientos-usd.html',
   styleUrl: './movimientos-usd.scss',
   providers: [provideCharts(withDefaultRegisterables())],

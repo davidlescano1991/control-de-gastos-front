@@ -25,7 +25,7 @@
             </th>
           </tr>
         </thead>
-        <tbody *ngIf="!isCollapsed() && filas && filas.length > 0">
+        <tbody *ngIf="!isCollapsed()">
           <tr
             *ngFor="let fila of filas; let i = index"
             [ngClass]="obtenerEstadoMes(fila.nombreFila, i)"
@@ -38,6 +38,9 @@
                 {{ porcentajeRestanteFinal(fila.valores[cat]) | number: '1.2-2' }} %
               </span>
             </td>
+          </tr>
+          <tr *ngIf="!filas || filas.length === 0">
+            <td colspan="100" class="sin-datos-td">Sin datos disponibles para este año</td>
           </tr>
         </tbody>
       </table>

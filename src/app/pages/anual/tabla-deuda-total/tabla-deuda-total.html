@@ -1,9 +1,8 @@
 <div [class.is-collapsed]="isCollapsed()">
-  <div *ngIf="isCargando || !datos || datos.length === 0; else lista" class="spinner-wrapper">
+  <div *ngIf="isCargando" class="spinner-wrapper">
     <mat-spinner diameter="40" strokeWidth="4" color="primary"></mat-spinner>
   </div>
-  <ng-template #lista>
-    <div class="tabla-wrapper">
+  <div *ngIf="!isCargando" class="tabla-wrapper">
       <table class="tabla-deuda-total" aria-label="Deuda Total a Pagar">
         <thead>
           <tr>
@@ -150,8 +149,10 @@
               </div>
             </td>
           </tr>
+          <tr *ngIf="!datos || datos.length === 0">
+            <td colspan="100" class="sin-datos-td">Sin datos disponibles para este año</td>
+          </tr>
         </tbody>
       </table>
     </div>
-  </ng-template>
 </div>

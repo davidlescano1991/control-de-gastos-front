@@ -18,8 +18,11 @@
       <mat-spinner diameter="40"></mat-spinner>
     </div>
     <ng-template #grafico>
-      <div class="grafico-wrapper" *ngIf="isBrowser">
+      <div class="grafico-wrapper" *ngIf="isBrowser && chartData.labels && chartData.labels.length > 0">
         <canvas baseChart [data]="chartData" [options]="chartOptions" [type]="'bar'"></canvas>
+      </div>
+      <div *ngIf="isBrowser && (!chartData.labels || chartData.labels.length === 0)" class="sin-datos-msg">
+        Sin subtotales por cuota para este mes
       </div>
     </ng-template>
   </mat-card-content>
