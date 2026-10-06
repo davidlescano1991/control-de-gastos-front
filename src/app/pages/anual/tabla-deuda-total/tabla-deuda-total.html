@@ -26,6 +26,7 @@
           <tr class="sub-header-row" *ngIf="!isCollapsed()">
             <th class="col-header-mes">Mes</th>
             <th class="col-header-tarjetas texto-derecha">Tarjetas</th>
+            <th class="col-header-compensaciones texto-derecha">Compensaciones</th>
             <th class="col-header-prestamos texto-derecha">Préstamos</th>
             <th class="col-header-total texto-derecha">Deuda Total</th>
             <th class="col-header-total-usd texto-derecha">Deuda Total USD</th>
@@ -57,6 +58,41 @@
                 <div class="popover-footer">
                   <span class="item-desc font-bold">Total Tarjetas:</span>
                   <span class="item-monto font-bold">{{ item.subtotalTarjetas | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+                </div>
+              </div>
+            </td>
+
+            <!-- Columna Compensaciones con Popover -->
+            <td class="col-compensaciones texto-derecha font-medium cell-with-popover">
+              <span *ngIf="item.compensaciones != null && item.compensaciones !== 0" [class.texto-deuda]="item.compensaciones > 0" [class.texto-favor]="item.compensaciones < 0">
+                {{ item.compensaciones | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+              </span>
+              <span *ngIf="item.compensaciones == null || item.compensaciones === 0" class="celda-vacia-guion">-</span>
+
+              <div
+                class="custom-popover"
+                [class.popover-down]="i < 4"
+                [class.popover-up]="i >= 4"
+                *ngIf="item.compensaciones != null && item.compensaciones !== 0"
+              >
+                <div class="popover-header">🔄 Compensación mensual (<strong>{{ formatearMes(item.mes) }}</strong>)</div>
+                <div class="popover-body">
+                  <div class="popover-item" *ngIf="item.compensaciones > 0">
+                    <span class="item-desc font-bold">• Saldo no cubierto de tarjetas:</span>
+                    <span class="item-monto font-bold">{{ item.compensaciones | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+                  </div>
+                  <div class="popover-item" *ngIf="item.compensaciones < 0">
+                    <span class="item-desc font-bold">• Saldo a favor (pago extra):</span>
+                    <span class="item-monto font-bold">{{ item.compensaciones | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+                  </div>
+                  <div class="popover-item" *ngIf="item.compensacionRaw != null">
+                    <span class="item-desc"><small>Valor en planilla mensual:</small></span>
+                    <span class="item-monto"><small>{{ item.compensacionRaw | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</small></span>
+                  </div>
+                </div>
+                <div class="popover-footer">
+                  <span class="item-desc font-bold">Ajuste a Deuda:</span>
+                  <span class="item-monto font-bold">{{ (item.compensaciones > 0 ? '+' : '') + (item.compensaciones | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR') }}</span>
                 </div>
               </div>
             </td>
@@ -105,6 +141,10 @@
                   <div class="popover-item">
                     <span class="item-desc font-bold">• Tarjetas restantes:</span>
                     <span class="item-monto font-bold">{{ item.subtotalTarjetas | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+                  </div>
+                  <div class="popover-item" *ngIf="item.compensaciones != null && item.compensaciones !== 0">
+                    <span class="item-desc font-bold">• Compensaciones:</span>
+                    <span class="item-monto font-bold">{{ item.compensaciones | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
                   </div>
                   <div class="popover-item">
                     <span class="item-desc font-bold">• Préstamos restantes:</span>

@@ -105,6 +105,10 @@ export class TablaDeudaTotal {
     return (this.datos || []).reduce((acc, item) => acc + (item.subtotalTarjetas || 0), 0);
   }
 
+  totalCompensaciones(): number {
+    return (this.datos || []).reduce((acc, item) => acc + (item.compensaciones || 0), 0);
+  }
+
   totalPrestamos(): number {
     return (this.datos || []).reduce((acc, item) => acc + (item.totalPrestamos || 0), 0);
   }

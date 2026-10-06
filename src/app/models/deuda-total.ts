@@ -8,6 +8,8 @@ export interface DeudaTotalMes {
   mes: string;
   subtotalTarjetas: number;
   totalPrestamos: number;
+  compensaciones?: number;
+  compensacionRaw?: number;
   deudaTotal: number;
   deudaTotalUSD?: number;
   cotizacionUSD?: number;
@@ -23,5 +25,6 @@ export interface DeudaTotalHistoricoItem {
   deudaTotalUSD?: number;
   subtotalTarjetas?: number;
   totalPrestamos?: number;
+  compensaciones?: number;
   cotizacionUSD?: number;
 }

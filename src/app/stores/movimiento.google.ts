@@ -153,9 +153,9 @@ export class MovimientosStoreGoogle {
   private anualCargadoPorAnio = new Map<number, WritableSignal<boolean>>();
   private anualEnCarga = new Map<string, Promise<void>>();
   private cargaTimestamp = new Map<string, number>();
-  private tablaAnualPorAnio = new Map<number, Signal<Prestamo[]>>();
-  private tablaSecundariaPorAnio = new Map<number, Signal<Prestamo[]>>();
-  private valorOtorgadoPorAnio = new Map<number, Signal<number>>();
+  readonly tablaAnualPorAnio = new Map<number, Signal<Prestamo[]>>();
+  readonly tablaSecundariaPorAnio = new Map<number, Signal<Prestamo[]>>();
+  readonly valorOtorgadoPorAnio = new Map<number, Signal<number>>();
 
   // Gastos anuales agregados
   readonly tablaGastosMensualesPorAnio = new Map<
@@ -811,6 +811,7 @@ export class MovimientosStoreGoogle {
       const gastosMensuales = this.extraerGastosMensualesDesdeRangoAnual(datos);
       const gastosDiarioPromedio = this.extraerGastosDiarioPromedioDesdeRangoAnual(datos);
 
+      this.tablaAnual.set(tablaPrestamos);
       this.tablaSecundaria.set(otraTabla);
       this.tablaGastosMensualesPorAnio.set(anio, signal(gastosMensuales));
       this.tablaGastosDiarioPromedioPorAnio.set(anio, signal(gastosDiarioPromedio));
@@ -832,6 +833,13 @@ export class MovimientosStoreGoogle {
     this.anualEnCarga.set(clave, promesa);
     await promesa;
     this.anualEnCarga.delete(clave);
+  }
+
+  /**
+   * Obtiene la tabla de préstamos anual para el año indicado desde la caché en memoria.
+   */
+  getTablaAnualXAnio(anio: number): Prestamo[] {
+    return this.tablaAnualPorAnio.get(anio)?.() ?? [];
   }
 
   /**
@@ -1227,18 +1235,55 @@ export class MovimientosStoreGoogle {
   /**
    * Proyecta el total de cuotas futuras restantes por tarjeta/entidad a lo largo de los meses del año.
    */
+  /**
+   * Limpia la caché en memoria y LocalStorage de los datos mensuales de un año específico.
+   */
+  limpiarCacheMensual(anio: number): void {
+    const prefijo = `${anio}::`;
+    for (const key of Array.from(this.mensualPorMes.keys())) {
+      if (key.startsWith(prefijo)) {
+        this.mensualPorMes.delete(key);
+      }
+    }
+    if (this.puedeUsarStorage()) {
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const k = window.localStorage.key(i);
+          if (k && k.includes(`:mensual:${anio}::`)) {
+            keysToRemove.push(k);
+          }
+        }
+        keysToRemove.forEach((k) => window.localStorage.removeItem(k));
+      } catch (err) {
+        console.warn(`Error limpiando LocalStorage para año ${anio}`, err);
+      }
+    }
+  }
+
   async obtenerProyeccionTotalesFuturosAnio(
     anio: number,
     force = false,
-  ): Promise<{ mes: string; subtotal: number; desglose: Record<string, number> }[]> {
+  ): Promise<
+    { mes: string; subtotal: number; desglose: Record<string, number>; compensaciones: number }[]
+  > {
     if (!this.appConfig.isSheetsActivo(anio)) {
       return [];
+    }
+
+    if (force) {
+      this.limpiarCacheMensual(anio);
     }
 
     const objetoEntidades = this.ValidarRangoEntidades(anio);
     const entidades = Object.keys(objetoEntidades) as (keyof typeof objetoEntidades)[];
     const mesesAMostrar = this.getMesesParaResumen(anio);
-    const resultados: { mes: string; subtotal: number; desglose: Record<string, number> }[] = [];
+    const resultados: {
+      mes: string;
+      subtotal: number;
+      desglose: Record<string, number>;
+      compensaciones: number;
+    }[] = [];
 
     await this.asegurarMensualPorAnioRange(
       anio,
@@ -1250,11 +1295,12 @@ export class MovimientosStoreGoogle {
     for (const mes of mesesAMostrar) {
       const hoja = this.getMensualPorMes(anio, mes);
       if (!hoja?.values) {
-        resultados.push({ mes, subtotal: 0, desglose: {} });
+        resultados.push({ mes, subtotal: 0, desglose: {}, compensaciones: 0 });
         continue;
       }
 
       let subtotalMes = 0;
+      let compensacionesMes = 0;
       const desgloseMes: Record<string, number> = {};
 
       for (const entidad of entidades) {
@@ -1277,6 +1323,10 @@ export class MovimientosStoreGoogle {
           const monto = this.parseMoneda(montoStr);
           if (monto === 0) continue;
 
+          if (this.normalizar(desc).includes('compensacion')) {
+            compensacionesMes += monto;
+          }
+
           const matchCuota = desc.match(/(\d+)\/(\d+)/);
           if (matchCuota) {
             const actual = parseInt(matchCuota[1], 10);
@@ -1292,7 +1342,12 @@ export class MovimientosStoreGoogle {
         subtotalMes += subtotalEntidad;
       }
 
-      resultados.push({ mes, subtotal: subtotalMes, desglose: desgloseMes });
+      resultados.push({
+        mes,
+        subtotal: subtotalMes,
+        desglose: desgloseMes,
+        compensaciones: compensacionesMes,
+      });
     }
 
     return resultados;
@@ -1421,12 +1476,18 @@ export class MovimientosStoreGoogle {
         const toRemove: string[] = [];
         for (let i = 0; i < window.localStorage.length; i++) {
           const key = window.localStorage.key(i);
-          if (key && key.startsWith(this.cachePrefix)) {
+          if (
+            key &&
+            (key.startsWith(this.cachePrefix) ||
+              key.startsWith('deuda_total_meses_') ||
+              key.startsWith('ingreso_neto_meses_') ||
+              key.includes('Historico_cache'))
+          ) {
             toRemove.push(key);
           }
         }
         toRemove.forEach((k) => window.localStorage.removeItem(k));
-        console.log('🧹 Caché de localStorage limpiado');
+        console.log('🧹 Caché de localStorage limpiado por completo');
       } catch (err) {
         console.warn('Error al limpiar localStorage', err);
       }
