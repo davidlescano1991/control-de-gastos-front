@@ -79,6 +79,20 @@
       color: #475569;
     }
 
+    td.col-compensaciones {
+      color: #64748b;
+
+      .texto-deuda {
+        color: #e11d48;
+        font-weight: 600;
+      }
+
+      .texto-favor {
+        color: #16a34a;
+        font-weight: 600;
+      }
+    }
+
     td.col-prestamos {
       color: #0284c7;
     }

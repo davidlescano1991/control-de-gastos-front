@@ -97,12 +97,27 @@
           </mat-form-field>
 
           <!-- Estado Activo -->
-          <div class="toggle-container">
+          <div class="toggle-container" *ngIf="!esAnioActual(sheetForm.get('year')?.value); else modoActualTpl">
             <mat-slide-toggle formControlName="activo" color="primary">
-              <span class="toggle-label">Hoja Activa en el Sistema</span>
+              <span class="toggle-label">{{ sheetForm.get('activo')?.value ? 'Conectar a Google Sheets Online' : 'Modo Base de Datos PostgreSQL' }}</span>
             </mat-slide-toggle>
-            <p class="toggle-hint">Si está inactiva, no se sincronizará ni se mostrará en los selectores.</p>
+            <p class="toggle-hint">
+              {{ sheetForm.get('activo')?.value
+                ? 'Activado: Toda la aplicación lee de Google Sheets (salvo Cargar Movimiento que siempre usa la BD).'
+                : 'Desactivado: Toda la aplicación lee de la BD. En Mensual, Anual y Estimativos saldrá sin información hasta que se migren esas estructuras.' }}
+            </p>
           </div>
+          <ng-template #modoActualTpl>
+            <div class="toggle-container modo-mixto-locked">
+              <div class="badge-mixto-header">
+                <mat-icon>sync_alt</mat-icon>
+                <span>Año en Curso {{ anioActual }} (Modo Mixto)</span>
+              </div>
+              <p class="toggle-hint">
+                Consulta siempre la planilla de Google Sheets en vivo y replica/guarda automáticamente los movimientos en la Base de Datos.
+              </p>
+            </div>
+          </ng-template>
         </div>
       </div>
 
@@ -327,13 +342,28 @@
 
     <!-- TARJETAS DE HOJAS -->
     <div class="sheets-grid" *ngIf="sheets().length > 0">
-      <div class="sheet-card sub-card" *ngFor="let s of sheets()" [class.inactive]="!s.activo">
+      <div class="sheet-card sub-card" *ngFor="let s of sheets()" [class.inactive]="!s.activo && !esAnioActual(s.year)">
         <div class="sheet-card-header">
           <div class="year-badge-wrapper">
             <span class="year-badge">{{ s.year }}</span>
-            <span class="status-chip" [class.active]="s.activo" [class.inactive]="!s.activo">
-              {{ s.activo ? 'Activa' : 'Inactiva' }}
-            </span>
+            <ng-container *ngIf="!esAnioActual(s.year); else currentYearBadge">
+              <mat-slide-toggle
+                class="card-quick-toggle"
+                [checked]="s.activo"
+                [disabled]="isSaving() || togglingYear() === s.year"
+                (change)="toggleEstadoDirecto(s, $event.checked)"
+                [matTooltip]="s.activo ? 'Conectado a Google Sheets. Clic para cambiar a Base de Datos' : 'En Base de Datos. Clic para conectar a Google Sheets Online'"
+                color="primary">
+                <span class="status-chip" [class.active]="s.activo" [class.inactive]="!s.activo">
+                  {{ s.activo ? 'Sheets Online' : 'En Base de Datos' }}
+                </span>
+              </mat-slide-toggle>
+            </ng-container>
+            <ng-template #currentYearBadge>
+              <span class="status-chip current-year" matTooltip="Año actual en curso: opera siempre sincronizado (Sheets + BD)">
+                Año Actual (Mixto)
+              </span>
+            </ng-template>
           </div>
 
           <div class="card-actions">

@@ -5,6 +5,7 @@ import {
   SimpleChanges,
   ViewChild,
   Inject,
+  inject,
   PLATFORM_ID,
   signal
 } from '@angular/core';
@@ -20,6 +21,8 @@ import { getGridColor, getLineWidth } from '../../../../../utils/grafico.utils';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
 
+import { AppConfigService } from '../../../../../services/app-config.service';
+
 @Component({
   selector: 'app-grafico-visa',
   standalone: true,
@@ -29,6 +32,7 @@ import { MatCardModule } from '@angular/material/card';
   providers: [provideCharts(withDefaultRegisterables())]
 })
 export class GraficoVisa {
+  private appConfig = inject(AppConfigService);
   isCollapsed = signal(false);
 
   @Input() set forceCollapsed(val: boolean) {
@@ -85,13 +89,31 @@ export class GraficoVisa {
   }
 
   async ngOnChanges(changes: SimpleChanges) {
-    if (changes['mesSeleccionado'] && this.isBrowser) {
+    if ((changes['mesSeleccionado'] || changes['anioSeleccionado']) && this.isBrowser) {
       await this.cargarTotales();
     }
   }
 
   async cargarTotales() {
     this.isCargando.set(true);
+
+    if (!this.appConfig.isSheetsActivo(this.anioSeleccionado)) {
+      this.chartData = {
+        labels: [],
+        datasets: [
+          {
+            label: 'Total mensual $',
+            data: [],
+            borderColor: '#007bff',
+            fill: false
+          }
+        ]
+      };
+      this.chart?.update();
+      this.cdr.detectChanges();
+      this.isCargando.set(false);
+      return;
+    }
     const mesesDelAnio = this.storeGoogle.getMesesParaResumen(this.anioSeleccionado);
     const index = mesesDelAnio.indexOf(this.mesSeleccionado);
     const anterioresYPosteriores: string[] = [];

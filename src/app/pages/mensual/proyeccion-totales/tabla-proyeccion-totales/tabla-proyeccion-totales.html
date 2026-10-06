@@ -39,6 +39,9 @@
             </tr>
           </tbody>
         </table>
+        <div *ngIf="filasProyeccion().length === 0" class="sin-datos-msg">
+          Sin proyección disponible para este mes
+        </div>
       </ng-template>
     </mat-card-content>
   </ng-container>

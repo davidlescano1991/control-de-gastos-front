@@ -38,6 +38,7 @@ import { MatStepperModule } from '@angular/material/stepper';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 
 import { SelectorAnioDelorean } from '../../../common/selector-anio-delorean/selector-anio-delorean';
+import { OrigenDatosComponent } from '../../../common/origen-datos/origen-datos.component';
 
 @Component({
   selector: 'app-anual',
@@ -67,6 +68,7 @@ import { SelectorAnioDelorean } from '../../../common/selector-anio-delorean/sel
     GraficoIngresoNetoHistoricoUsd,
     MatStepperModule,
     SelectorAnioDelorean,
+    OrigenDatosComponent,
   ],
   templateUrl: './anual.html',
   standalone: true,
@@ -192,7 +194,11 @@ export class Anual implements OnInit, OnDestroy {
         const cached = localStorage.getItem('deudaTotalHistorico_cache');
         if (cached) {
           const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (
+            Array.isArray(parsed) &&
+            parsed.length > 0 &&
+            parsed.some((p: any) => p.compensaciones !== undefined)
+          ) {
             this.setSignalIfChanged(this.deudaTotalHistorico, parsed);
           }
         }
@@ -253,6 +259,24 @@ export class Anual implements OnInit, OnDestroy {
   private cacheDeudaAnualPorAnio = new Map<number, DeudaTotalMes[]>();
 
   private async CargarTablaAnual(anio: number, force = false) {
+    if (!this.appConfig.isSheetsActivo(anio)) {
+      this.setSignalIfChanged(this.filas, []);
+      this.setSignalIfChanged(this.categorias, []);
+      this.setSignalIfChanged(this.filasSecundarias, []);
+      this.setSignalIfChanged(this.categoriasSecundarias, []);
+      this.setSignalIfChanged(this.resultado, {});
+      this.setSignalIfChanged(this.gastosMensuales, []);
+      this.setSignalIfChanged(this.gastosDiarioPromedio, []);
+      this.setSignalIfChanged(this.graficoAnual, []);
+      this.setSignalIfChanged(this.deudaTotalAnual, []);
+      this.setSignalIfChanged(this.ingresoNetoAnual, []);
+      this.setSignalIfChanged(this.resumenPositivo, []);
+      this.storeGoogle.tablaAnual.set([]);
+      this.storeGoogle.tablaSecundaria.set([]);
+      this.storeGoogle.valorOtorgado.set(0);
+      return;
+    }
+
     try {
       await this.storeGoogle.cargarTablaAnualAllXAnio(anio, force);
     } catch (err) {
@@ -307,6 +331,17 @@ export class Anual implements OnInit, OnDestroy {
   }
 
   async calcularDeudaTotalParaAnio(anio: number, force = false): Promise<DeudaTotalMes[]> {
+    if (!this.appConfig.isSheetsActivo(anio)) {
+      return [];
+    }
+
+    if (force) {
+      this.cacheDeudaAnualPorAnio.delete(anio);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(`deuda_total_meses_${anio}`);
+      }
+    }
+
     if (!force && this.cacheDeudaAnualPorAnio.has(anio)) {
       return this.cacheDeudaAnualPorAnio.get(anio)!;
     }
@@ -316,9 +351,22 @@ export class Anual implements OnInit, OnDestroy {
         const cached = localStorage.getItem(`deuda_total_meses_${anio}`);
         if (cached) {
           const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            this.cacheDeudaAnualPorAnio.set(anio, parsed);
-            return parsed;
+          // Si está versionado con timestamp
+          if (parsed && typeof parsed === 'object' && parsed.savedAt && Array.isArray(parsed.data)) {
+            const ttl = anio === this.anioActual ? 60000 : 24 * 60 * 60000;
+            const noExpirado = Date.now() - parsed.savedAt < ttl;
+            const tieneCompensaciones = parsed.data.some((p: any) => p.compensaciones !== undefined);
+            const tienePrestamos = parsed.data.some((p: any) => (p.totalPrestamos ?? 0) > 0);
+
+            if (noExpirado && tieneCompensaciones && tienePrestamos) {
+              this.cacheDeudaAnualPorAnio.set(anio, parsed.data);
+              return parsed.data;
+            } else {
+              localStorage.removeItem(`deuda_total_meses_${anio}`);
+            }
+          } else {
+            // Formato viejo no versionado: invalidar de inmediato para leer Google Sheets actualizado
+            localStorage.removeItem(`deuda_total_meses_${anio}`);
           }
         }
       } catch (err) {
@@ -327,11 +375,19 @@ export class Anual implements OnInit, OnDestroy {
     }
 
     try {
-      if (anio !== this.anioSeleccionado() || force) {
+      let filasPrestamos = this.storeGoogle.getTablaAnualXAnio(anio);
+      if (filasPrestamos.length === 0 || force || anio !== this.anioSeleccionado()) {
         await this.storeGoogle.cargarTablaAnualAllXAnio(anio, force);
+        filasPrestamos = this.storeGoogle.getTablaAnualXAnio(anio);
+        if (filasPrestamos.length === 0) {
+          filasPrestamos = this.storeGoogle.tablaAnual?.() ?? [];
+        }
       }
-      const filasPrestamos = this.storeGoogle.tablaAnual?.() ?? [];
-      const categoriasPrestamos = this.storeGoogle.categoriasAnuales();
+
+      const setCats = new Set<string>();
+      filasPrestamos.forEach((f) => Object.keys(f.valores ?? {}).forEach((cat) => setCats.add(cat)));
+      const categoriasPrestamos = Array.from(setCats);
+
       if (anio === this.anioActual) {
         this.setSignalIfChanged(this.filasAnioActual, filasPrestamos);
         this.setSignalIfChanged(this.categoriasAnioActual, categoriasPrestamos);
@@ -421,7 +477,12 @@ export class Anual implements OnInit, OnDestroy {
           }
         }
 
-        const deudaTotalCalculada = item.subtotal + totalPrestamosRestante;
+        const compRaw = item.compensaciones ?? 0;
+        // Si compRaw es negativo (ej. -$3.149.113,74), representa saldo impago de tarjetas y es deuda
+        // Si es positivo, representa un pago por encima del saldo y reduce la deuda
+        const deudaCompensacion = -compRaw;
+
+        const deudaTotalCalculada = item.subtotal + totalPrestamosRestante + deudaCompensacion;
         const cotizacionMes = cotizacionesMensuales.get(item.mes) ?? 0;
         const deudaTotalUSD =
           cotizacionMes > 0 ? Number((deudaTotalCalculada / cotizacionMes).toFixed(2)) : undefined;
@@ -430,6 +491,8 @@ export class Anual implements OnInit, OnDestroy {
           mes: item.mes,
           subtotalTarjetas: item.subtotal,
           totalPrestamos: totalPrestamosRestante,
+          compensaciones: deudaCompensacion,
+          compensacionRaw: compRaw,
           deudaTotal: deudaTotalCalculada,
           deudaTotalUSD,
           cotizacionUSD: cotizacionMes > 0 ? cotizacionMes : undefined,
@@ -442,7 +505,11 @@ export class Anual implements OnInit, OnDestroy {
         this.cacheDeudaAnualPorAnio.set(anio, resultado);
         if (typeof localStorage !== 'undefined') {
           try {
-            localStorage.setItem(`deuda_total_meses_${anio}`, JSON.stringify(resultado));
+            const cacheEntry = {
+              savedAt: Date.now(),
+              data: resultado,
+            };
+            localStorage.setItem(`deuda_total_meses_${anio}`, JSON.stringify(cacheEntry));
           } catch (e) {
             console.warn(`Error saving deuda_total_meses_${anio}`, e);
           }
@@ -481,6 +548,7 @@ export class Anual implements OnInit, OnDestroy {
             deudaTotalUSD: item.deudaTotalUSD,
             subtotalTarjetas: item.subtotalTarjetas,
             totalPrestamos: item.totalPrestamos,
+            compensaciones: item.compensaciones,
             cotizacionUSD: item.cotizacionUSD,
           });
         }
@@ -517,6 +585,10 @@ export class Anual implements OnInit, OnDestroy {
   }
 
   async calcularIngresoNetoParaAnio(anio: number, force = false): Promise<IngresoNetoMes[]> {
+    if (!this.appConfig.isSheetsActivo(anio)) {
+      return [];
+    }
+
     if (!force && this.cacheIngresoNetoAnualPorAnio.has(anio)) {
       return this.cacheIngresoNetoAnualPorAnio.get(anio)!;
     }
@@ -809,4 +881,8 @@ export class Anual implements OnInit, OnDestroy {
   get filaOtorgada() {
     return this.storeGoogle.filaOtorgada();
   } */
+
+  esAnioEnBD(anio: number): boolean {
+    return this.appConfig.esAnioEnBD(anio);
+  }
 }

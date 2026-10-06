@@ -116,8 +116,17 @@ export class GraficoRendimientosPositivosMensuales {
     this.isCargando.set(true);
 
     // Obtener los totales globales por mes
-    const resultados = this.storeGoogle.tablaSecundaria();
-    const valores = this.storeGoogle.categoriasSecundaria();
+    const resultados = this.storeGoogle.tablaSecundaria() ?? [];
+    const valores = this.storeGoogle.categoriasSecundaria() ?? [];
+
+    if (!resultados || resultados.length === 0 || !valores || valores.length === 0) {
+      this.chartData = { labels: [], datasets: [] };
+      this.cdr.detectChanges();
+      this.chart?.update();
+      this.isCargando.set(false);
+      return;
+    }
+
     const labels = resultados.map(r => r.nombreFila);
 
     const datos: number[] = [];

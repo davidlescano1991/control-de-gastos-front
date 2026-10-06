@@ -279,6 +279,31 @@
       font-size: 0.8rem;
       color: #64748b;
     }
+
+    &.modo-mixto-locked {
+      background: #f0fdf4;
+      border: 1px dashed #86efac;
+
+      .badge-mixto-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #166534;
+        font-weight: 700;
+        font-size: 0.95rem;
+
+        mat-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+          color: #166534;
+        }
+      }
+
+      .toggle-hint {
+        color: #15803d;
+      }
+    }
   }
 
   /* PANTALLAS GRID */
@@ -484,7 +509,6 @@
     }
 
     &.inactive {
-      opacity: 0.65;
       background: #fafafa;
       border-color: #cbd5e1;
     }
@@ -513,19 +537,46 @@
           box-shadow: 0 3px 8px rgba(110, 77, 186, 0.28);
         }
 
+        .card-quick-toggle {
+          display: inline-flex;
+          align-items: center;
+          cursor: pointer;
+
+          ::ng-deep .mdc-switch {
+            transform: scale(0.8);
+            margin-right: 2px;
+          }
+          ::ng-deep .mdc-switch.mdc-switch--selected:enabled .mdc-switch__track {
+            background-color: #8b5cf6 !important;
+            border-color: #8b5cf6 !important;
+          }
+          ::ng-deep .mdc-switch.mdc-switch--selected:enabled .mdc-switch__handle::after {
+            background-color: #6e4dba !important;
+          }
+          ::ng-deep .mdc-switch.mdc-switch--unselected:enabled .mdc-switch__track {
+            background-color: #cbd5e1 !important;
+            border-color: #94a3b8 !important;
+          }
+        }
+
         .status-chip {
           font-size: 0.75rem;
           font-weight: 700;
           padding: 2px 8px;
           border-radius: 999px;
+          transition: background-color 0.2s ease, color 0.2s ease;
 
           &.active {
             background: #dcfce7;
             color: #15803d;
           }
+          &.current-year {
+            background: #e0f2fe;
+            color: #0369a1;
+          }
           &.inactive {
-            background: #fee2e2;
-            color: #b91c1c;
+            background: #ede9fe;
+            color: #6d28d9;
           }
         }
       }
@@ -943,7 +994,17 @@
     .sheet-card {
       &.inactive {
         background: #1e293b;
-        opacity: 0.6;
+        opacity: 0.95;
+      }
+
+      .status-chip.inactive {
+        background: rgba(139, 92, 246, 0.25);
+        color: #c084fc;
+      }
+
+      .status-chip.current-year {
+        background: rgba(3, 105, 161, 0.25);
+        color: #7dd3fc;
       }
 
       .sheet-card-header {

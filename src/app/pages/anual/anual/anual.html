@@ -12,6 +12,7 @@
     <app-tabla-prestamos [anioSeleccionado]="anioSeleccionado()" [filas]="filas()" [categorias]="categorias()"
       [resultado]="resultado()" [isCargando]="isCargando()"
       [totalesPendientes]="calcularTotalesPendientes()"></app-tabla-prestamos>
+    <app-origen-datos [anio]="anioSeleccionado()"></app-origen-datos>
   </div>
   <main class="contenido-dos-columnas" [class.col-izq-contraida]="colIzquierdaContraida()"
     [class.col-der-contraida]="colDerechaContraida()">
@@ -36,6 +37,7 @@
           [isCargando]="isCargando()" [anioSeleccionado]="anioSeleccionado()"></app-tabla-deuda-total>
         <app-tabla-ingreso-neto [datos]="ingresoNetoAnual()" [filas]="filas()" [categorias]="categorias()"
           [isCargando]="isCargando()" [anioSeleccionado]="anioSeleccionado()"></app-tabla-ingreso-neto>
+        <app-origen-datos [anio]="anioSeleccionado()"></app-origen-datos>
       </div>
       } @else {
       <div class="franja-colapsada" (click)="toggleColIzquierdaHorizontal()" title="Expandir columna izquierda">
@@ -75,6 +77,7 @@
             [isCargandoInput]="isCargando()" [anioSeleccionado]="anioSeleccionado()"></app-grafico-ingreso-neto>
           <app-grafico-ingreso-neto-usd [datos]="ingresoNetoAnual()" [filas]="filas()" [categorias]="categorias()"
             [isCargandoInput]="isCargando()" [anioSeleccionado]="anioSeleccionado()"></app-grafico-ingreso-neto-usd>
+          <app-origen-datos [anio]="anioSeleccionado()"></app-origen-datos>
         </div>
       </div>
       } @else {

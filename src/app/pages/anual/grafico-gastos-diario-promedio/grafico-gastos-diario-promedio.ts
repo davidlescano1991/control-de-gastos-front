@@ -89,6 +89,9 @@ export class GraficoGastosDiarioPromedio implements OnInit, OnChanges {
 
     const resultados = this.datosAnuales ?? [];
     if (!resultados || resultados.length === 0) {
+      this.chartData = { labels: [], datasets: [] };
+      this.chart?.update();
+      this.cdr.detectChanges();
       this.isCargando.set(false);
       return;
     }

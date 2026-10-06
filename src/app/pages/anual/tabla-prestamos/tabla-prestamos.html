@@ -18,7 +18,7 @@
       <mat-spinner diameter="40" strokeWidth="4" color="primary"></mat-spinner>
     </div>
     <ng-template #lista>
-      <ng-container *ngIf="filas.length > 0">
+      <ng-container *ngIf="filas && filas.length > 0; else sinFilasTpl">
         <!-- Tarjetas KPI Superiores -->
         <div class="kpi-cards-grid">
           <div class="kpi-card kpi-otorgado">
@@ -227,6 +227,11 @@
           </table>
         </div>
       </ng-container>
+      <ng-template #sinFilasTpl>
+        <div class="sin-datos-msg">
+          Sin datos disponibles para este año
+        </div>
+      </ng-template>
     </ng-template>
   </mat-card-content>
 </mat-card>

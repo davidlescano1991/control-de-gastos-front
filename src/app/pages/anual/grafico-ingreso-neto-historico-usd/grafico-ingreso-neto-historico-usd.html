@@ -16,21 +16,25 @@
 
   <ng-container *ngIf="!isCollapsed()">
     <div
-      *ngIf="isCargando() || isCargandoInput || !datos || datos.length === 0; else chartTpl"
+      *ngIf="isCargando() || isCargandoInput"
       class="spinner-wrapper"
     >
       <mat-spinner diameter="40" strokeWidth="4" color="primary"></mat-spinner>
     </div>
-    <ng-template #chartTpl>
-      <div class="grafico-wrapper">
-        <canvas
-          baseChart
-          [data]="chartData"
-          [options]="chartOptions"
-          [plugins]="chartPlugins"
-          [type]="'line'"
-        ></canvas>
-      </div>
-    </ng-template>
+    <div
+      *ngIf="!isCargando() && !isCargandoInput && (!datos || datos.length === 0)"
+      class="sin-datos-msg"
+    >
+      Sin datos históricos disponibles
+    </div>
+    <div class="grafico-wrapper" *ngIf="!isCargando() && !isCargandoInput && datos && datos.length > 0">
+      <canvas
+        baseChart
+        [data]="chartData"
+        [options]="chartOptions"
+        [plugins]="chartPlugins"
+        [type]="'line'"
+      ></canvas>
+    </div>
   </ng-container>
 </div>

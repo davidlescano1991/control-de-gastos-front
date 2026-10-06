@@ -9,16 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { esDiaNoLaborable, esFinDeSemana, esFeriadoNacional, obtenerInfoDia } from '../../../utils/feriados.utils';
-
-/* type EstimativoRow = {
-  fecha: string;
-  saldoPesos: number;
-  saldoUSD: number;
-  deuda: number;
-  real: number | null;
-  deudaReal: number;
-  editando: boolean
-}; */
+import { OrigenDatosComponent } from '../../../common/origen-datos/origen-datos.component';
 
 @Component({
   selector: 'app-estimativo-mensual',
@@ -28,7 +19,8 @@ import { esDiaNoLaborable, esFinDeSemana, esFeriadoNacional, obtenerInfoDia } fr
     MatCardContent, MatCardModule,
     CurrencyPipe,
     MatFormFieldModule,
-    MatInputModule, MatIconModule
+    MatInputModule, MatIconModule,
+    OrigenDatosComponent,
   ],
   templateUrl: './mensual.html',
   styleUrl: './mensual.scss'

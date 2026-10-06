@@ -93,7 +93,13 @@ export class GraficoSaldoAnual {
   async cargarTotales2() {
 
     // Obtener los totales globales por mes
-    const resultados = this.datosAnuales;
+    const resultados = this.datosAnuales ?? [];
+    if (!resultados || resultados.length === 0) {
+      this.chartData = { labels: [], datasets: [] };
+      this.cdr.detectChanges();
+      this.chart?.update();
+      return;
+    }
 
     const labels = resultados.map(r => r.mes);
     const data = resultados.map(r => r.total);

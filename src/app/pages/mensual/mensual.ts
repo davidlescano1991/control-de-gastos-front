@@ -33,6 +33,7 @@ import { GraficoCuotasCoincidentes } from './cuotas-coincidentes/grafico-cuotas-
 import { TablaProyeccionTotales } from './proyeccion-totales/tabla-proyeccion-totales/tabla-proyeccion-totales';
 import { GraficoProyeccionTotales } from './proyeccion-totales/grafico-proyeccion-totales/grafico-proyeccion-totales';
 import { SelectorAnioDelorean } from '../../common/selector-anio-delorean/selector-anio-delorean';
+import { OrigenDatosComponent } from '../../common/origen-datos/origen-datos.component';
 
 @Component({
   selector: 'app-mensual',
@@ -69,6 +70,7 @@ import { SelectorAnioDelorean } from '../../common/selector-anio-delorean/select
     TablaProyeccionTotales,
     GraficoProyeccionTotales,
     SelectorAnioDelorean,
+    OrigenDatosComponent,
   ],
 })
 export class Mensual implements OnInit, OnDestroy {
@@ -233,6 +235,23 @@ export class Mensual implements OnInit, OnDestroy {
       this.mesSeleccionado.set(mes);
 
       const anio = this.anioSeleccionado();
+
+      if (!this.appConfig.isSheetsActivo(anio)) {
+        this.setSignalIfChanged(this.visaDatos, []);
+        this.setSignalIfChanged(this.masterDatos, []);
+        this.setSignalIfChanged(this.naranjaDatos, []);
+        this.setSignalIfChanged(this.bancorDatos, []);
+        this.setSignalIfChanged(this.mLDatos, []);
+        this.setSignalIfChanged(this.otrosDatos, []);
+        this.ultimaClaveVisa = '';
+        this.ultimaClaveMaster = '';
+        this.ultimaClaveNaranja = '';
+        this.ultimaClaveBancor = '';
+        this.ultimaClaveOtros = '';
+        this.ultimaClaveML = '';
+        return;
+      }
+
       const claveVisa = `${anio}_${mes}_visa`;
       const claveMaster = `${anio}_${mes}_master`;
       const claveNaranja = `${anio}_${mes}_naranja`;
@@ -314,6 +333,9 @@ export class Mensual implements OnInit, OnDestroy {
       const resultados: { anio: number; mes: string; total: number }[] = [];
 
       for (const anio of this.anios) {
+        if (!this.appConfig.isSheetsActivo(anio)) {
+          continue;
+        }
         const rangos = this.storeGoogle.ValidarRangoEntidades(anio);
         const entidades = Object.keys(rangos) as (keyof typeof rangos)[];
         await this.storeGoogle.asegurarMensualPorAnioRange(anio, mesesDelAnio, 'mensual', force);
@@ -409,5 +431,9 @@ export class Mensual implements OnInit, OnDestroy {
   }
   trackByAnio(index: number, anio: number): number {
     return anio;
+  }
+
+  esAnioEnBD(anio: number): boolean {
+    return this.appConfig.esAnioEnBD(anio);
   }
 }

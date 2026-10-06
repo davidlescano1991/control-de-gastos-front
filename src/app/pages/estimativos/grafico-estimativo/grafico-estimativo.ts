@@ -19,10 +19,11 @@ import { signal, OnChanges } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { calcularTendencia } from '../../../utils/grafico.utils';
+import { OrigenDatosComponent } from '../../../common/origen-datos/origen-datos.component';
 
 @Component({
   selector: 'app-grafico-estimativo',
-  imports: [CommonModule, BaseChartDirective, MatProgressSpinnerModule, MatIconModule],
+  imports: [CommonModule, BaseChartDirective, MatProgressSpinnerModule, MatIconModule, OrigenDatosComponent],
   templateUrl: './grafico-estimativo.html',
   styleUrl: './grafico-estimativo.scss',
 })

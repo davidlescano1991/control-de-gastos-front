@@ -33,6 +33,7 @@ export class NovedadesCuotas implements OnChanges {
   nuevasCuotas = signal(0);
   ultimasCuotas = signal(0);
   compensaciones = signal(0);
+  tieneDatos = signal(false);
 
   ngOnChanges() {
     this.calcularTotales();
@@ -77,6 +78,7 @@ export class NovedadesCuotas implements OnChanges {
     this.nuevasCuotas.set(totalNuevas);
     this.ultimasCuotas.set(totalUltimas);
     this.compensaciones.set(totalCompensaciones);
+    this.tieneDatos.set(todas.length > 0 && (totalNuevas !== 0 || totalUltimas !== 0 || totalCompensaciones !== 0));
   }
 
   getColorPorValor(valor: number): string {

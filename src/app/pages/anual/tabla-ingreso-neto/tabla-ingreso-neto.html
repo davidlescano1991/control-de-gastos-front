@@ -1,82 +1,83 @@
 <div [class.is-collapsed]="isCollapsed()">
-  <div *ngIf="isCargando || !datos || datos.length === 0; else lista" class="spinner-wrapper">
+  <div *ngIf="isCargando" class="spinner-wrapper">
     <mat-spinner diameter="40" strokeWidth="4" color="primary"></mat-spinner>
   </div>
-  <ng-template #lista>
-    <div class="tabla-wrapper">
-      <table class="tabla-ingreso-neto" aria-label="Ingreso Neto">
-        <thead>
-          <tr>
-            <th colspan="100" class="header-ingreso-neto">
-              <div class="card-header-wrapper" style="margin-bottom: 0;">
-                <span>Ingreso Neto</span>
-                <button
-                  type="button"
-                  class="btn-collapse-card"
-                  [class.collapsed]="isCollapsed()"
-                  (click)="toggleCollapse()"
-                  [title]="isCollapsed() ? 'Expandir Ingreso Neto' : 'Contraer Ingreso Neto'"
-                >
-                  <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
-                    <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
-                  </svg>
-                </button>
-              </div>
-            </th>
-          </tr>
-          <tr class="sub-header-row" *ngIf="!isCollapsed()">
-            <th class="col-header-mes">Mes</th>
-            <th class="col-header-ingreso texto-derecha">Ingreso Neto ($)</th>
-            <th class="col-header-ingreso-usd texto-derecha">Ingreso Neto USD</th>
-          </tr>
-        </thead>
-        <tbody *ngIf="!isCollapsed()">
-          <tr *ngFor="let item of datos; let i = index" [ngClass]="obtenerEstadoMes(item.mes, i)">
-            <td class="col-mes">
-              <strong class="mes-label">{{ formatearMes(item.mes) }}</strong>
-            </td>
-
-            <!-- Columna Ingreso Neto Pesos -->
-            <td class="col-ingreso texto-derecha font-bold">
-              <span *ngIf="item.ingresoNeto > 0">
-                {{ item.ingresoNeto | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
-              </span>
-              <span *ngIf="!item.ingresoNeto || item.ingresoNeto === 0" class="celda-vacia-guion">-</span>
-            </td>
-
-            <!-- Columna Ingreso Neto USD con Popover de Cotización -->
-            <td class="col-ingreso-usd texto-derecha font-bold cell-with-popover">
-              <span *ngIf="item.ingresoNetoUSD != null && item.ingresoNetoUSD > 0">
-                {{ item.ingresoNetoUSD | currency: 'USD' : 'symbol' : '1.2-2' : 'en-US' }}
-              </span>
-              <span *ngIf="!item.ingresoNetoUSD || item.ingresoNetoUSD === 0" class="celda-vacia-guion">-</span>
-
-              <div
-                class="custom-popover"
-                [class.popover-down]="i < 4"
-                [class.popover-up]="i >= 4"
-                *ngIf="item.cotizacionUSD && item.ingresoNeto > 0"
+  <div *ngIf="!isCargando" class="tabla-wrapper">
+    <table class="tabla-ingreso-neto" aria-label="Ingreso Neto">
+      <thead>
+        <tr>
+          <th colspan="100" class="header-ingreso-neto">
+            <div class="card-header-wrapper" style="margin-bottom: 0;">
+              <span>Ingreso Neto</span>
+              <button
+                type="button"
+                class="btn-collapse-card"
+                [class.collapsed]="isCollapsed()"
+                (click)="toggleCollapse()"
+                [title]="isCollapsed() ? 'Expandir Ingreso Neto' : 'Contraer Ingreso Neto'"
               >
-                <div class="popover-header">💵 Ingreso en USD (<strong>{{ formatearMes(item.mes) }}</strong>)</div>
-                <div class="popover-body">
-                  <div class="popover-item">
-                    <span class="item-desc font-bold">• Ingreso en ARS:</span>
-                    <span class="item-monto font-bold">{{ item.ingresoNeto | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
-                  </div>
-                  <div class="popover-item">
-                    <span class="item-desc font-bold">• Cotización Dólar:</span>
-                    <span class="item-monto font-bold">{{ item.cotizacionUSD | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
-                  </div>
+                <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
+                  <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+                </svg>
+              </button>
+            </div>
+          </th>
+        </tr>
+        <tr class="sub-header-row" *ngIf="!isCollapsed()">
+          <th class="col-header-mes">Mes</th>
+          <th class="col-header-ingreso texto-derecha">Ingreso Neto ($)</th>
+          <th class="col-header-ingreso-usd texto-derecha">Ingreso Neto USD</th>
+        </tr>
+      </thead>
+      <tbody *ngIf="!isCollapsed()">
+        <tr *ngFor="let item of datos; let i = index" [ngClass]="obtenerEstadoMes(item.mes, i)">
+          <td class="col-mes">
+            <strong class="mes-label">{{ formatearMes(item.mes) }}</strong>
+          </td>
+
+          <!-- Columna Ingreso Neto Pesos -->
+          <td class="col-ingreso texto-derecha font-bold">
+            <span *ngIf="item.ingresoNeto > 0">
+              {{ item.ingresoNeto | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+            </span>
+            <span *ngIf="!item.ingresoNeto || item.ingresoNeto === 0" class="celda-vacia-guion">-</span>
+          </td>
+
+          <!-- Columna Ingreso Neto USD con Popover de Cotización -->
+          <td class="col-ingreso-usd texto-derecha font-bold cell-with-popover">
+            <span *ngIf="item.ingresoNetoUSD != null && item.ingresoNetoUSD > 0">
+              {{ item.ingresoNetoUSD | currency: 'USD' : 'symbol' : '1.2-2' : 'en-US' }}
+            </span>
+            <span *ngIf="!item.ingresoNetoUSD || item.ingresoNetoUSD === 0" class="celda-vacia-guion">-</span>
+
+            <div
+              class="custom-popover"
+              [class.popover-down]="i < 4"
+              [class.popover-up]="i >= 4"
+              *ngIf="item.cotizacionUSD && item.ingresoNeto > 0"
+            >
+              <div class="popover-header">💵 Ingreso en USD (<strong>{{ formatearMes(item.mes) }}</strong>)</div>
+              <div class="popover-body">
+                <div class="popover-item">
+                  <span class="item-desc font-bold">• Ingreso en ARS:</span>
+                  <span class="item-monto font-bold">{{ item.ingresoNeto | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
                 </div>
-                <div class="popover-footer">
-                  <span class="item-desc font-bold">Total USD:</span>
-                  <span class="item-monto font-bold">{{ item.ingresoNetoUSD | currency: 'USD' : 'symbol' : '1.2-2' : 'en-US' }}</span>
+                <div class="popover-item">
+                  <span class="item-desc font-bold">• Cotización Dólar:</span>
+                  <span class="item-monto font-bold">{{ item.cotizacionUSD | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
                 </div>
               </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </ng-template>
+              <div class="popover-footer">
+                <span class="item-desc font-bold">Total USD:</span>
+                <span class="item-monto font-bold">{{ item.ingresoNetoUSD | currency: 'USD' : 'symbol' : '1.2-2' : 'en-US' }}</span>
+              </div>
+            </div>
+          </td>
+        </tr>
+        <tr *ngIf="!datos || datos.length === 0">
+          <td colspan="100" class="sin-datos-td">Sin datos disponibles para este año</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 </div>
