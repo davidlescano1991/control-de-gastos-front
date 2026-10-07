@@ -1,8 +1,9 @@
-import { Component, effect, Inject, Input, PLATFORM_ID, signal, SimpleChanges } from '@angular/core';
+import { Component, effect, Inject, inject, Input, PLATFORM_ID, signal, SimpleChanges } from '@angular/core';
 import { MovimientosStoreGoogle } from '../../../../stores/movimiento.google';
 import { CurrencyPipe, isPlatformBrowser, NgFor, NgIf } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
+import { ProyeccionOverlayService } from '../../../../services/proyeccion-overlay.service';
 
 @Component({
   selector: 'app-master-galicia',
@@ -137,26 +138,67 @@ export class MasterGalicia {
     this.totalMes.set(total);
     this.isCargando.set(false);
   } */
+  private overlayService = inject(ProyeccionOverlayService);
   @Input() anio!: number;
   @Input() mes!: string;
   @Input() entidad: string = '';
   @Input() isCargando: boolean = false;
 
   @Input() set datos(value: any[]) {
-  const claveActual = JSON.stringify(value);
-  if (claveActual === this.ultimaClave) return;
+    const claveActual = JSON.stringify(value);
+    if (claveActual === this.ultimaClave) return;
 
-  this.ultimaClave = claveActual;
-  this.datosMes.set(value ?? []);
-  this.totalMes.set(this.calcularTotal(value ?? []));
-}
-private ultimaClave = '';
+    this.ultimaClave = claveActual;
+    this.datosMes.set(value ?? []);
+    this.totalMes.set(this.calcularTotal(value ?? []));
+  }
+  private ultimaClave = '';
 
   datosMes = signal<any[]>([]);
   totalMes = signal<number>(0);
 
+  onHoverFila(event: MouseEvent, fila: any): void {
+    this.overlayService.mostrarTooltipFila(
+      event,
+      'mastercard',
+      this.entidad || 'Master Card Galicia',
+      this.anio,
+      this.mes,
+      fila,
+      'assets/logos/mastercard.svg',
+    );
+  }
+
+  onLeaveFila(): void {
+    this.overlayService.ocultarTooltip();
+  }
+
+  onHoverTotal(event: MouseEvent): void {
+    this.overlayService.mostrarTooltipTotal(
+      event,
+      'mastercard',
+      this.entidad || 'Master Card Galicia',
+      this.anio,
+      this.mes,
+      'assets/logos/mastercard.svg',
+    );
+  }
+
+  onLeaveTotal(): void {
+    this.overlayService.ocultarTooltip();
+  }
+
+  abrirModalCompleto(): void {
+    this.overlayService.abrirModalCompleto(
+      'mastercard',
+      this.entidad || 'Master Card Galicia',
+      this.anio,
+      this.mes,
+      'assets/logos/mastercard.svg',
+    );
+  }
+
   private calcularTotal(registros: any[]): number {
-    console.log(`calcularTotal() de MasterGaliciaComponet --> registros:  `,JSON.stringify(registros));
     return registros.reduce((acc, fila) => {
       const montoCrudo = fila['monto'];
       const monto = typeof montoCrudo === 'string'

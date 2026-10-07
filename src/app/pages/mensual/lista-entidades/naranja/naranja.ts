@@ -1,7 +1,8 @@
-import { Component, Input, signal } from '@angular/core';
+import { Component, Input, signal, inject } from '@angular/core';
 import { CurrencyPipe, NgFor, NgIf } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
+import { ProyeccionOverlayService } from '../../../../services/proyeccion-overlay.service';
 
 @Component({
   selector: 'app-naranja',
@@ -11,6 +12,7 @@ import { MatCardModule } from '@angular/material/card';
   styleUrl: './naranja.scss',
 })
 export class Naranja {
+  private overlayService = inject(ProyeccionOverlayService);
   isCollapsed = signal(false);
 
   @Input() set forceCollapsed(val: boolean) {
@@ -38,6 +40,47 @@ export class Naranja {
 
   datosMes = signal<any[]>([]);
   totalMes = signal<number>(0);
+
+  onHoverFila(event: MouseEvent, fila: any): void {
+    this.overlayService.mostrarTooltipFila(
+      event,
+      'naranja',
+      this.entidad || 'Naranja',
+      this.anio,
+      this.mes,
+      fila,
+      'assets/logos/naranja.png',
+    );
+  }
+
+  onLeaveFila(): void {
+    this.overlayService.ocultarTooltip();
+  }
+
+  onHoverTotal(event: MouseEvent): void {
+    this.overlayService.mostrarTooltipTotal(
+      event,
+      'naranja',
+      this.entidad || 'Naranja',
+      this.anio,
+      this.mes,
+      'assets/logos/naranja.png',
+    );
+  }
+
+  onLeaveTotal(): void {
+    this.overlayService.ocultarTooltip();
+  }
+
+  abrirModalCompleto(): void {
+    this.overlayService.abrirModalCompleto(
+      'naranja',
+      this.entidad || 'Naranja',
+      this.anio,
+      this.mes,
+      'assets/logos/naranja.png',
+    );
+  }
 
   private calcularTotal(registros: any[]): number {
     return registros.reduce((acc, fila) => {

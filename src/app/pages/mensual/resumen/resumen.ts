@@ -15,6 +15,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
 
 import { AppConfigService } from '../../../services/app-config.service';
+import { ProyeccionOverlayService } from '../../../services/proyeccion-overlay.service';
 
 @Component({
   selector: 'app-resumen',
@@ -25,6 +26,7 @@ import { AppConfigService } from '../../../services/app-config.service';
   providers: [CurrencyPipe],
 })
 export class Resumen implements OnInit, OnChanges {
+  public overlayService = inject(ProyeccionOverlayService);
   isCollapsed = signal(false);
 
   @Input() set forceCollapsed(val: boolean) {
@@ -241,6 +243,49 @@ export class Resumen implements OnInit, OnChanges {
 
   getTotalPorMes(mes: string): number {
     return this.entidades.reduce((acc, entidad) => acc + (this.resumen[entidad]?.[mes] ?? 0), 0);
+  }
+
+  getLogoEntidad(entidad: string): string {
+    const key = entidad.toLowerCase().trim();
+    if (key === 'visa') return 'assets/logos/visa.png';
+    if (key === 'mastercard') return 'assets/logos/mastercard.svg';
+    if (key === 'naranja') return 'assets/logos/naranja.png';
+    if (key === 'bancor') return 'assets/logos/bancor.png';
+    if (key === 'ml') return 'assets/logos/mercadopago.png';
+    return '';
+  }
+
+  onHoverEntidad(event: MouseEvent, entidad: string): void {
+    const key = entidad.startsWith('otros_') ? 'otros' : entidad;
+    const nombre = this.getNombreEntidad(entidad);
+    const logo = this.getLogoEntidad(entidad);
+
+    this.overlayService.mostrarTooltipTotal(
+      event,
+      key,
+      nombre,
+      this.anioSeleccionado,
+      this.mesSeleccionado,
+      logo,
+    );
+  }
+
+  onLeaveEntidad(): void {
+    this.overlayService.ocultarTooltip();
+  }
+
+  abrirModalEntidad(entidad: string): void {
+    const key = entidad.startsWith('otros_') ? 'otros' : entidad;
+    const nombre = this.getNombreEntidad(entidad);
+    const logo = this.getLogoEntidad(entidad);
+
+    this.overlayService.abrirModalCompleto(
+      key,
+      nombre,
+      this.anioSeleccionado,
+      this.mesSeleccionado,
+      logo,
+    );
   }
 
   async runWithConcurrency<T>(tasks: (() => Promise<T>)[], maxConcurrent: number): Promise<T[]> {

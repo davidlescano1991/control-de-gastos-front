@@ -1,9 +1,9 @@
-import { Component, effect, Inject, Input, PLATFORM_ID, signal, SimpleChanges } from '@angular/core';
+import { Component, effect, Inject, inject, Input, PLATFORM_ID, signal, SimpleChanges } from '@angular/core';
 import { MovimientosStoreGoogle } from '../../../../stores/movimiento.google';
 import { CurrencyPipe, isPlatformBrowser, NgFor, NgIf } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
-import { Console } from 'console';
+import { ProyeccionOverlayService } from '../../../../services/proyeccion-overlay.service';
 
 @Component({
   selector: 'app-otros',
@@ -13,6 +13,7 @@ import { Console } from 'console';
   providers: [CurrencyPipe]
 })
 export class Otros {
+  private overlayService = inject(ProyeccionOverlayService);
   isCollapsed = signal(false);
 
   @Input() set forceCollapsed(val: boolean) {
@@ -101,12 +102,64 @@ export class Otros {
   datosMes = signal<any[]>([]);
   totalMes = signal<number>(0);
 
+  onHoverFila(event: MouseEvent, fila: any): void {
+    this.overlayService.mostrarTooltipFila(
+      event,
+      'otros',
+      this.entidad || 'Otros',
+      this.anio,
+      this.mes,
+      fila,
+      '',
+    );
+  }
+
+  onLeaveFila(): void {
+    this.overlayService.ocultarTooltip();
+  }
+
+  onHoverTotal(event: MouseEvent): void {
+    this.overlayService.mostrarTooltipTotal(
+      event,
+      'otros',
+      this.entidad || 'Otros',
+      this.anio,
+      this.mes,
+      '',
+    );
+  }
+
+  onLeaveTotal(): void {
+    this.overlayService.ocultarTooltip();
+  }
+
+  abrirModalCompleto(): void {
+    this.overlayService.abrirModalCompleto(
+      'otros',
+      this.entidad || 'Otros',
+      this.anio,
+      this.mes,
+      '',
+    );
+  }
+
+  private normalizar(texto: string | undefined): string {
+    return (texto ?? '')
+      .toLowerCase()
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  }
+
   private calcularTotal(registros: any[]): number {
-    console.log(`calcularTotal() de OtrosComponet --> registros:  `, JSON.stringify(registros));
     return registros.reduce((acc, fila) => {
+      const desc = fila['descripcion'] || '';
+      if (this.normalizar(desc).includes('compensacion')) {
+        return acc;
+      }
       const montoCrudo = fila['monto'];
       const monto = typeof montoCrudo === 'string'
-        ? parseFloat(montoCrudo.replace(/\$/g, '').replace(/\./g, '').replace(',', '.'))
+        ? parseFloat(montoCrudo.replace(/\$/g, '').replace(/\s+/g, '').replace(/\./g, '').replace(',', '.'))
         : typeof montoCrudo === 'number' ? montoCrudo : 0;
       return acc + (isNaN(monto) ? 0 : monto);
     }, 0);

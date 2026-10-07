@@ -34,8 +34,23 @@
               <tbody>
                 @for (entidad of entidades; track entidad) {
                   <tr>
-                    <td class="col-sticky" [ngClass]="getEntidadClass(entidad)">
-                      {{ getNombreEntidad(entidad) }}
+                    <td
+                      class="col-sticky entidad-celda-interactiva"
+                      [ngClass]="getEntidadClass(entidad)"
+                      (mouseenter)="onHoverEntidad($event, entidad)"
+                      (mouseleave)="onLeaveEntidad()"
+                      (click)="abrirModalEntidad(entidad)"
+                      title="Pasar el mouse o hacer clic para ver proyección estilo Google Sheets"
+                    >
+                      <div class="entidad-celda-contenido">
+                        <span class="entidad-nombre">{{ getNombreEntidad(entidad) }}</span>
+                        <img
+                          *ngIf="getLogoEntidad(entidad)"
+                          [src]="getLogoEntidad(entidad)"
+                          [alt]="getNombreEntidad(entidad)"
+                          class="entidad-logo-hint"
+                        />
+                      </div>
                     </td>
                     @for (mes of meses; track mes) {
                       <td>

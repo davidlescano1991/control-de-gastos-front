@@ -10,3 +10,9 @@
 
 - **ARCHIVO COMPARTIDO**: El archivo `PLAN_MIGRACION_CLOUD_API.md` es el plan maestro centralizado tanto para la API como para el Frontend. Está enlazado a nivel de sistema de archivos (`hardlink`) con `control-de-gastos-api/PLAN_MIGRACION_CLOUD_API.md`.
 - **CONSULTA Y ACTUALIZACIÓN**: Cualquier avance, estado o cambio en la planificación debe consultarse y registrarse siempre en este mismo archivo, manteniéndolo como única fuente de la verdad para ambos repositorios.
+
+## Bitácora Obligatoria del Frontend (REGISTRO_ACCIONES_FRONT.md)
+
+- **ACTUALIZACIÓN CONTINUA**: En cada sesión de trabajo, cualquier nueva funcionalidad, corrección de bugs, refactorización o ajuste visual en el Frontend DEBE registrarse inmediatamente en `REGISTRO_ACCIONES_FRONT.md`.
+- **CONTENIDO**: Indicar fecha/hora, resumen del cambio, problemas detectados, causa raíz, solución técnica y archivos afectados.
+

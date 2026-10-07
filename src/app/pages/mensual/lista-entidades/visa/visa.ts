@@ -1,7 +1,8 @@
-import { Component, Input, signal } from '@angular/core';
+import { Component, Input, signal, inject } from '@angular/core';
 import { CurrencyPipe, NgFor, NgIf } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
+import { ProyeccionOverlayService } from '../../../../services/proyeccion-overlay.service';
 
 @Component({
   selector: 'app-visa',
@@ -12,6 +13,7 @@ import { MatCardModule } from '@angular/material/card';
   imports: [NgFor, NgIf, CurrencyPipe, MatProgressSpinnerModule, MatCardModule],
 })
 export class VisaComponent {
+  private overlayService = inject(ProyeccionOverlayService);
   isCollapsed = signal(false);
 
   @Input() set forceCollapsed(val: boolean) {
@@ -29,19 +31,59 @@ export class VisaComponent {
   @Input() isCargando: boolean = false;
 
   @Input() set datos(value: any[]) {
-  const claveActual = JSON.stringify(value);
-  if (claveActual === this.ultimaClave) return;
+    const claveActual = JSON.stringify(value);
+    if (claveActual === this.ultimaClave) return;
 
-  this.ultimaClave = claveActual;
-  this.datosMes.set(value ?? []);
-  this.totalMes.set(this.calcularTotal(value ?? []));
-}
-private ultimaClave = '';
+    this.ultimaClave = claveActual;
+    this.datosMes.set(value ?? []);
+    this.totalMes.set(this.calcularTotal(value ?? []));
+  }
+  private ultimaClave = '';
   datosMes = signal<any[]>([]);
   totalMes = signal<number>(0);
 
+  onHoverFila(event: MouseEvent, fila: any): void {
+    this.overlayService.mostrarTooltipFila(
+      event,
+      'visa',
+      this.entidad || 'Visa Galicia',
+      this.anio,
+      this.mes,
+      fila,
+      'assets/logos/visa.png',
+    );
+  }
+
+  onLeaveFila(): void {
+    this.overlayService.ocultarTooltip();
+  }
+
+  onHoverTotal(event: MouseEvent): void {
+    this.overlayService.mostrarTooltipTotal(
+      event,
+      'visa',
+      this.entidad || 'Visa Galicia',
+      this.anio,
+      this.mes,
+      'assets/logos/visa.png',
+    );
+  }
+
+  onLeaveTotal(): void {
+    this.overlayService.ocultarTooltip();
+  }
+
+  abrirModalCompleto(): void {
+    this.overlayService.abrirModalCompleto(
+      'visa',
+      this.entidad || 'Visa Galicia',
+      this.anio,
+      this.mes,
+      'assets/logos/visa.png',
+    );
+  }
+
   private calcularTotal(registros: any[]): number {
-    console.log(`calcularTotal() de VisaComponet --> registros:  `, JSON.stringify(registros));
     return registros.reduce((acc, fila) => {
       const montoCrudo = fila['monto'];
       const monto = typeof montoCrudo === 'string'
@@ -65,3 +107,4 @@ private ultimaClave = '';
     return !!match;
   }
 }
+

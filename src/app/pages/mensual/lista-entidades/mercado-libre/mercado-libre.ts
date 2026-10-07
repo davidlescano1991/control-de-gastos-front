@@ -1,7 +1,8 @@
 import { NgFor, NgIf, CurrencyPipe } from '@angular/common';
-import { Component, Input, signal } from '@angular/core';
+import { Component, Input, signal, inject } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { ProyeccionOverlayService } from '../../../../services/proyeccion-overlay.service';
 
 interface MercadoLibreFila {
   descripcion?: string;
@@ -16,6 +17,7 @@ interface MercadoLibreFila {
   styleUrl: './mercado-libre.scss',
 })
 export class MercadoLibre {
+  private overlayService = inject(ProyeccionOverlayService);
   isCollapsed = signal(false);
 
   @Input() set forceCollapsed(val: boolean) {
@@ -44,6 +46,47 @@ export class MercadoLibre {
 
   datosMes = signal<MercadoLibreFila[]>([]);
   totalMes = signal<number>(0);
+
+  onHoverFila(event: MouseEvent, fila: any): void {
+    this.overlayService.mostrarTooltipFila(
+      event,
+      'ml',
+      this.entidad || 'Mercado Libre',
+      this.anio,
+      this.mes,
+      fila,
+      'assets/logos/mercadopago.png',
+    );
+  }
+
+  onLeaveFila(): void {
+    this.overlayService.ocultarTooltip();
+  }
+
+  onHoverTotal(event: MouseEvent): void {
+    this.overlayService.mostrarTooltipTotal(
+      event,
+      'ml',
+      this.entidad || 'Mercado Libre',
+      this.anio,
+      this.mes,
+      'assets/logos/mercadopago.png',
+    );
+  }
+
+  onLeaveTotal(): void {
+    this.overlayService.ocultarTooltip();
+  }
+
+  abrirModalCompleto(): void {
+    this.overlayService.abrirModalCompleto(
+      'ml',
+      this.entidad || 'Mercado Libre',
+      this.anio,
+      this.mes,
+      'assets/logos/mercadopago.png',
+    );
+  }
 
   private calcularTotal(registros: MercadoLibreFila[]): number {
     console.log(

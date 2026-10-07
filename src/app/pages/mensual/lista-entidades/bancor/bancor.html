@@ -46,25 +46,55 @@
   <mat-card class="example-card" appearance="outlined" *ngIf="datosMes().length > 0" [class.is-collapsed]="isCollapsed()">
     <mat-card-header class="card-header-wrapper">
       <img src="assets/logos/bancor.png" alt="Bancor" class="entidad-logo" />
-      <mat-card-title>{{ entidad }}</mat-card-title>
-      <button
-        type="button"
-        class="btn-collapse-card"
-        [class.collapsed]="isCollapsed()"
-        (click)="toggleCollapse()"
-        [title]="isCollapsed() ? 'Expandir ' + entidad : 'Contraer ' + entidad"
+      <mat-card-title
+        (mouseenter)="onHoverTotal($event)"
+        (mouseleave)="onLeaveTotal()"
+        (click)="abrirModalCompleto()"
+        class="titulo-entidad-interactivo"
+        title="Pasar el mouse o hacer clic para ver proyección estilo Google Sheets"
       >
-        <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
-          <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
-        </svg>
-      </button>
+        {{ entidad }}
+      </mat-card-title>
+
+      <div class="header-right-actions">
+        <button
+          type="button"
+          class="btn-proyeccion-header"
+          (mouseenter)="onHoverTotal($event)"
+          (mouseleave)="onLeaveTotal()"
+          (click)="abrirModalCompleto()"
+          title="Ver tabla completa multi-mes (Google Sheets)"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 2v3H5V5h14zm-7 5h7v3h-7v-3zm-2 0v3H5v-3h5zm-5 5h5v4H5v-4zm7 4v-4h7v4h-7z"/>
+          </svg>
+        </button>
+
+        <button
+          type="button"
+          class="btn-collapse-card"
+          [class.collapsed]="isCollapsed()"
+          (click)="toggleCollapse()"
+          [title]="isCollapsed() ? 'Expandir ' + entidad : 'Contraer ' + entidad"
+        >
+          <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
+            <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+          </svg>
+        </button>
+      </div>
     </mat-card-header>
 
     <ng-container *ngIf="!isCollapsed()">
       <mat-card-content>
         <table class="tabla-movimientos">
           <tbody>
-            <tr *ngFor="let fila of datosMes()">
+            <tr
+              *ngFor="let fila of datosMes()"
+              class="fila-interactiva"
+              (mouseenter)="onHoverFila($event, fila)"
+              (mouseleave)="onLeaveFila()"
+              title="Pasa el mouse para ver la evolución de esta cuota"
+            >
               <td>
                 {{ fila['descripcion'] }}
                 <span *ngIf="esNuevo(fila.descripcion)" class="tag-notificacion nuevo">¡nuevo!</span>
@@ -77,8 +107,16 @@
       </mat-card-content>
 
       <mat-card-actions *ngIf="totalMes() > 0" class="acciones-total">
-        <div class="total-row">
-          <div class="total-label"><strong>Total</strong></div>
+        <div
+          class="total-row total-interactivo"
+          (mouseenter)="onHoverTotal($event)"
+          (mouseleave)="onLeaveTotal()"
+          (click)="abrirModalCompleto()"
+          title="Pasar el mouse o hacer clic para ver la tabla completa estilo Google Sheets"
+        >
+          <div class="total-label">
+            <strong>Total</strong>
+          </div>
           <div class="total-value">
             <strong>{{ totalMes() | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>
           </div>
