@@ -1,8 +1,9 @@
-import { Component, effect, Inject, Input, PLATFORM_ID, signal, SimpleChanges } from '@angular/core';
+import { Component, effect, Inject, inject, Input, PLATFORM_ID, signal, SimpleChanges } from '@angular/core';
 import { MovimientosStoreGoogle } from '../../../../stores/movimiento.google';
 import { CurrencyPipe, isPlatformBrowser, NgFor, NgIf } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
+import { ProyeccionOverlayService } from '../../../../services/proyeccion-overlay.service';
 
 @Component({
   selector: 'app-bancor',
@@ -12,6 +13,7 @@ import { MatCardModule } from '@angular/material/card';
   providers: [CurrencyPipe]
 })
 export class Bancor {
+  private overlayService = inject(ProyeccionOverlayService);
   isCollapsed = signal(false);
 
   @Input() set forceCollapsed(val: boolean) {
@@ -95,6 +97,47 @@ export class Bancor {
 
   datosMes = signal<any[]>([]);
   totalMes = signal<number>(0);
+
+  onHoverFila(event: MouseEvent, fila: any): void {
+    this.overlayService.mostrarTooltipFila(
+      event,
+      'bancor',
+      this.entidad || 'Bancor',
+      this.anio,
+      this.mes,
+      fila,
+      'assets/logos/bancor.png',
+    );
+  }
+
+  onLeaveFila(): void {
+    this.overlayService.ocultarTooltip();
+  }
+
+  onHoverTotal(event: MouseEvent): void {
+    this.overlayService.mostrarTooltipTotal(
+      event,
+      'bancor',
+      this.entidad || 'Bancor',
+      this.anio,
+      this.mes,
+      'assets/logos/bancor.png',
+    );
+  }
+
+  onLeaveTotal(): void {
+    this.overlayService.ocultarTooltip();
+  }
+
+  abrirModalCompleto(): void {
+    this.overlayService.abrirModalCompleto(
+      'bancor',
+      this.entidad || 'Bancor',
+      this.anio,
+      this.mes,
+      'assets/logos/bancor.png',
+    );
+  }
 
   private calcularTotal(registros: any[]): number {
     console.log(`calcularTotal() de BancorComponet --> registros:  `, JSON.stringify(registros));

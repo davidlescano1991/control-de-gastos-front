@@ -34,6 +34,8 @@ import { TablaProyeccionTotales } from './proyeccion-totales/tabla-proyeccion-to
 import { GraficoProyeccionTotales } from './proyeccion-totales/grafico-proyeccion-totales/grafico-proyeccion-totales';
 import { SelectorAnioDelorean } from '../../common/selector-anio-delorean/selector-anio-delorean';
 import { OrigenDatosComponent } from '../../common/origen-datos/origen-datos.component';
+import { ModalProyeccionEntidad } from './proyeccion-entidad/modal-proyeccion-entidad';
+import { ProyeccionOverlayService } from '../../services/proyeccion-overlay.service';
 
 @Component({
   selector: 'app-mensual',
@@ -71,9 +73,11 @@ import { OrigenDatosComponent } from '../../common/origen-datos/origen-datos.com
     GraficoProyeccionTotales,
     SelectorAnioDelorean,
     OrigenDatosComponent,
+    ModalProyeccionEntidad,
   ],
 })
 export class Mensual implements OnInit, OnDestroy {
+  public overlayService = inject(ProyeccionOverlayService);
   isMobile = false;
   sidebarCollapsed = signal(false);
   resumenGraficoCollapsed = signal(false);

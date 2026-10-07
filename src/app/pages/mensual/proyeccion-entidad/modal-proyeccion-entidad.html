@@ -1,0 +1,191 @@
+<!-- Contenedor general si está visible -->
+<div
+  *ngIf="visible"
+  class="proyeccion-wrapper"
+  [class.es-dark]="themeService.isDarkMode()"
+  [class.es-light]="!themeService.isDarkMode()"
+  [class.es-modal]="esModalCompleto"
+  [class.es-tooltip]="!esModalCompleto"
+  [style.left.px]="!esModalCompleto ? posX : null"
+  [style.top.px]="!esModalCompleto ? posY : null"
+>
+  <!-- Backdrop solo en modo modal completo -->
+  <div *ngIf="esModalCompleto" class="modal-backdrop" (click)="cerrarVista()"></div>
+
+  <div
+    class="proyeccion-panel"
+    [class.panel-modal]="esModalCompleto"
+    [class.panel-tooltip]="!esModalCompleto"
+    (mouseenter)="overlayService.cancelarOcultar()"
+    (mouseleave)="overlayService.ocultarTooltip()"
+  >
+    <!-- Header del panel -->
+    <div class="panel-header">
+      <div class="header-info">
+        <img *ngIf="logoUrl" [src]="logoUrl" [alt]="nombreEntidad" class="proyeccion-logo-header" />
+        <div class="titulo-grupo">
+          <h3 class="panel-titulo">
+            <span *ngIf="modo === 'fila'">{{ dataFila()?.descripcion || 'Proyección de Cuota' }}</span>
+            <span *ngIf="modo === 'completo'">{{ nombreEntidad }} — Proyección Multi-mes</span>
+          </h3>
+          <span class="subtitulo-badge" *ngIf="modo === 'completo'">
+            <mat-icon class="icon-small">table_chart</mat-icon>
+            Vista Google Sheets (Mes anterior + 4 posteriores)
+          </span>
+          <span class="subtitulo-badge cuota" *ngIf="modo === 'fila'">
+            <mat-icon class="icon-small">timeline</mat-icon>
+            {{ nombreEntidad }}
+          </span>
+        </div>
+      </div>
+
+      <div class="header-acciones">
+        <!-- Botón para expandir a modal si está en modo tooltip -->
+        <button
+          *ngIf="!esModalCompleto && modo === 'completo'"
+          type="button"
+          class="btn-accion-header"
+          (click)="solicitarAbrirModal()"
+          title="Fijar y abrir en pantalla completa"
+        >
+          <mat-icon>open_in_full</mat-icon>
+        </button>
+
+        <!-- Botón cerrar -->
+        <button type="button" class="btn-accion-header btn-cerrar" (click)="cerrarVista()" title="Cerrar">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- Spinner de carga -->
+    <div class="spinner-container" *ngIf="cargando()">
+      <mat-spinner diameter="32"></mat-spinner>
+      <span>Cargando datos de la hoja...</span>
+    </div>
+
+    <!-- CONTENIDO: MODO FILA INDIVIDUAL -->
+    <div class="panel-body" *ngIf="!cargando() && modo === 'fila' && dataFila() as fila">
+      <div class="fila-meta">
+        <span class="tag-notificacion nuevo" *ngIf="fila.esNuevo">¡nuevo!</span>
+        <span class="tag-notificacion ultimo" *ngIf="fila.esUltima">¡última!</span>
+        <div class="total-restante-chip">
+          Total restante:
+          <strong [class.negativo]="fila.totalRestante < 0">{{ fila.totalRestante | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong>
+        </div>
+      </div>
+
+      <div class="tabla-scroll">
+        <table class="tabla-proyeccion mini">
+          <thead>
+            <tr>
+              @for (col of fila.columnas; track col.mes) {
+                <th [class.col-actual]="col.esActual" [class.col-pasado]="col.esPasado">
+                  <div class="header-cell">
+                    <span class="nombre-mes">{{ col.mes }}</span>
+                    <span class="badge-tiempo" *ngIf="col.esActual">Actual</span>
+                    <span class="badge-tiempo pasado" *ngIf="col.esPasado">Mes pasado</span>
+                  </div>
+                </th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              @for (col of fila.columnas; track col.mes) {
+                <td [class.col-actual]="col.esActual">
+                  <div class="cuota-cell">
+                    <span class="cuota-ratio" *ngIf="fila.cuotasPorMes[col.mes]">
+                      {{ fila.cuotasPorMes[col.mes] }}
+                    </span>
+                    @if (fila.valoresPorMes[col.mes] !== 0) {
+                      <span
+                        class="cuota-monto"
+                        [class.negativo]="(fila.valoresPorMes[col.mes] || 0) < 0"
+                      >
+                        {{ fila.valoresPorMes[col.mes] | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                      </span>
+                    } @else {
+                      <span class="cuota-monto vacio">-</span>
+                    }
+                  </div>
+                </td>
+              }
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CONTENIDO: MODO COMPLETO (TABLA EXCEL CON TODOS LOS REGISTROS Y TOTALES) -->
+    <div class="panel-body" *ngIf="!cargando() && modo === 'completo' && dataCompleta() as datos">
+      <div class="tabla-scroll" [class.scroll-modal]="esModalCompleto">
+        <table class="tabla-proyeccion completa">
+          <thead>
+            <tr>
+              <th class="col-concepto">
+                <div class="header-cell header-cell-concepto">
+                  <span class="nombre-mes">Concepto</span>
+                </div>
+              </th>
+              @for (col of datos.columnas; track col.mes) {
+                <th [class.col-actual]="col.esActual" [class.col-pasado]="col.esPasado">
+                  <div class="header-cell">
+                    <span class="nombre-mes">{{ col.mes }}</span>
+                    <span class="badge-tiempo" *ngIf="col.esActual">Actual</span>
+                    <span class="badge-tiempo pasado" *ngIf="col.esPasado">Mes anterior</span>
+                  </div>
+                </th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (fila of datos.filas; track fila.descripcion) {
+              <tr [class.fila-finalizada]="fila.esFinalizada">
+                <td class="col-concepto">
+                  <div class="concepto-wrapper">
+                    <span class="concepto-texto">{{ fila.descripcion }}</span>
+                    <span class="tag-notificacion nuevo" *ngIf="fila.esNuevo">¡nuevo!</span>
+                    <span class="tag-notificacion ultimo" *ngIf="fila.esUltima">¡última!</span>
+                    <span class="tag-notificacion finalizada" *ngIf="fila.esFinalizada">Finalizada</span>
+                  </div>
+                </td>
+                @for (col of datos.columnas; track col.mes) {
+                  <td [class.col-actual]="col.esActual" class="col-monto">
+                    @if (fila.valoresPorMes[col.mes] !== 0) {
+                      <span
+                        class="monto-val"
+                        [class.negativo]="(fila.valoresPorMes[col.mes] || 0) < 0"
+                      >
+                        {{ fila.valoresPorMes[col.mes] | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                      </span>
+                    } @else {
+                      <span class="monto-val vacio">-</span>
+                    }
+                  </td>
+                }
+              </tr>
+            }
+
+            <!-- FILA TOTAL -->
+            <tr class="fila-total">
+              <td class="col-concepto col-total-concepto">
+                <div class="concepto-wrapper">
+                  <strong>Total</strong>
+                  <small *ngIf="datos.entidadKey === 'otros'" class="hint-total-sin-comp">(sin compensaciones)</small>
+                </div>
+              </td>
+              @for (col of datos.columnas; track col.mes) {
+                <td [class.col-actual]="col.esActual" class="col-monto total-cell">
+                  <strong [class.negativo]="(datos.totalesPorMes[col.mes] || 0) < 0">
+                    {{ datos.totalesPorMes[col.mes] | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                  </strong>
+                </td>
+              }
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

@@ -185,6 +185,23 @@
       </mat-card-content>
     </div>
   </div>
+
+  <!-- Modal y Tooltip interactivo de Proyección Multi-mes -->
+  <app-modal-proyeccion-entidad
+    [visible]="overlayService.visible()"
+    [esModalCompleto]="overlayService.esModalCompleto()"
+    [modo]="overlayService.modo()"
+    [anio]="overlayService.anio()"
+    [mes]="overlayService.mes()"
+    [entidadKey]="overlayService.entidadKey()"
+    [nombreEntidad]="overlayService.nombreEntidad()"
+    [logoUrl]="overlayService.logoUrl()"
+    [filaData]="overlayService.filaData()"
+    [posX]="overlayService.posX()"
+    [posY]="overlayService.posY()"
+    (cerrar)="overlayService.cerrarTodo()"
+    (abrirModal)="overlayService.abrirModalCompleto(overlayService.entidadKey(), overlayService.nombreEntidad(), overlayService.anio(), overlayService.mes(), overlayService.logoUrl())"
+  ></app-modal-proyeccion-entidad>
 </ng-container>
 
 

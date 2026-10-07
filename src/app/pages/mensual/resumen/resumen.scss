@@ -113,5 +113,41 @@
         background-color: #e9f7ef;
       }
     }
+
+    .entidad-celda-interactiva {
+      cursor: pointer;
+      transition: filter 0.2s ease, transform 0.2s ease;
+
+      .entidad-celda-contenido {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        gap: 8px;
+      }
+
+      .entidad-nombre {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .entidad-logo-hint {
+        height: 18px;
+        max-width: 40px;
+        object-fit: contain;
+        background: #ffffff;
+        padding: 2px 4px;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+        flex-shrink: 0;
+      }
+
+      &:hover {
+        filter: brightness(1.18);
+        box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.4);
+      }
+    }
   }
 }
+
