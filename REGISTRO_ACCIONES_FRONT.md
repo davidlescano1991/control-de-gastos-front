@@ -156,6 +156,7 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
   - `src/app/pages/mensual/proyeccion-entidad/modal-proyeccion-entidad.html`
   - `src/app/pages/mensual/proyeccion-entidad/modal-proyeccion-entidad.scss`
   - `package.json`
+  - `pnpm-lock.yaml`
 
 ---
 
