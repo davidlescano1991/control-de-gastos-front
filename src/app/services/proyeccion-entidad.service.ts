@@ -98,12 +98,29 @@ export class ProyeccionEntidadService {
   }
 
   /**
-   * Obtiene la lista de las 6 columnas de meses:
-   * 1 mes pasado, mes actual seleccionado y 4 meses posteriores.
+   * Obtiene la lista de columnas de meses:
+   * - Si vistaAnioCompleto es true: todos los meses del año (Enero a Diciembre).
+   * - Si vistaAnioCompleto es false: 1 mes anterior, mes actual seleccionado y 4 posteriores (6 meses).
    */
-  obtenerColumnasMeses(anio: number, mesSeleccionado: string): ColumnaMesProyeccion[] {
+  obtenerColumnasMeses(
+    anio: number,
+    mesSeleccionado: string,
+    vistaAnioCompleto = false,
+  ): ColumnaMesProyeccion[] {
     const mesesDelAnio = this.storeGoogle.getMesesParaResumen(anio);
     const index = mesesDelAnio.indexOf(mesSeleccionado);
+
+    if (vistaAnioCompleto) {
+      return mesesDelAnio.map((mes, idx) => ({
+        mes,
+        mesCorto: mes.substring(0, 3),
+        anio,
+        esPasado: index !== -1 && idx < index,
+        esActual: mes === mesSeleccionado,
+        esFuturo: index !== -1 && idx > index,
+      }));
+    }
+
     const columnas: ColumnaMesProyeccion[] = [];
 
     // Mes anterior
@@ -158,16 +175,18 @@ export class ProyeccionEntidadService {
   /**
    * Obtiene la proyección completa estilo Google Sheets / Excel para una entidad,
    * incluyendo todas sus filas y los totales calculados por mes.
+   * Permite alternar entre la ventana compacta de 6 meses y todos los meses del año.
    */
   async obtenerProyeccionCompleta(
     anio: number,
     mesSeleccionado: string,
     entidadKey: string,
     nombreEntidadPersonalizado?: string,
+    vistaAnioCompleto = false,
   ): Promise<ProyeccionEntidadData> {
-    const columnas = this.obtenerColumnasMeses(anio, mesSeleccionado);
-    const colMesPasado = columnas.find((c) => c.esPasado);
+    const columnas = this.obtenerColumnasMeses(anio, mesSeleccionado, vistaAnioCompleto);
     const colMesActual = columnas.find((c) => c.esActual);
+    const colMesPasado = columnas.find((c) => c.esPasado);
 
     const totalesPorMes: Record<string, number> = {};
     columnas.forEach((c) => (totalesPorMes[c.mes] = 0));
@@ -214,9 +233,18 @@ export class ProyeccionEntidadService {
         }
       }
 
+      // Si es una sub-entidad de otros (ej: otros_internet), filtramos la lista
+      let listaConceptosAProcesar = conceptosList;
+      if (entidadKey.startsWith('otros_')) {
+        const subFiltro = this.normalizar(entidadKey.replace('otros_', ''));
+        listaConceptosAProcesar = conceptosList.filter(
+          (c) => this.normalizar(c).includes(subFiltro) || subFiltro.includes(this.normalizar(c)),
+        );
+      }
+
       const filas: FilaProyeccionEntidad[] = [];
 
-      for (const concepto of conceptosList) {
+      for (const concepto of listaConceptosAProcesar) {
         const valoresPorMes: Record<string, number> = {};
         const cuotasPorMes: Record<string, string> = {};
         const normConcepto = this.normalizar(concepto);
@@ -304,184 +332,250 @@ export class ProyeccionEntidadService {
       }
     });
 
-    // Cargar datos del mes anterior
-    let hojaPasado: { values: string[][] } | null = null;
-    let colIndexPasado = -1;
-    let configEntidadPasado: { inicio: number; fin: number; headerIndex: number } | null = null;
+    const indexActual = columnas.findIndex((c) => c.esActual);
 
-    if (colMesPasado) {
-      hojaPasado = this.storeGoogle.getMensualPorMes(colMesPasado.anio, colMesPasado.mes) ?? null;
-      if (hojaPasado?.values) {
-        const rangosPasado = this.storeGoogle.ValidarRangoEntidades(colMesPasado.anio);
-        configEntidadPasado = rangosPasado[entidadKey] ?? null;
-        if (configEntidadPasado) {
-          const headerRowPasado = hojaPasado.values[configEntidadPasado.headerIndex] ?? [];
-          colIndexPasado = headerRowPasado.findIndex((h) =>
-            this.normalizar(h).includes(this.normalizar(colMesPasado.mes)),
-          );
-          if (colIndexPasado === -1) {
-            colIndexPasado = 1; // Fallback a la primera columna de monto
-          }
-        }
+    // Mapear los índices de columnas en cada hoja de mes pasado
+    const mapaColIndexPast: Record<string, number> = {};
+    for (const colP of columnas.filter((c) => c.esPasado)) {
+      const hojaP = this.storeGoogle.getMensualPorMes(colP.anio, colP.mes);
+      const rangosP = this.storeGoogle.ValidarRangoEntidades(colP.anio);
+      const configP = rangosP?.[entidadKey];
+      if (hojaP?.values && configP) {
+        const headerRowP = hojaP.values[configP.headerIndex] ?? [];
+        const colIdxP = headerRowP.findIndex((h) =>
+          this.normalizar(h).includes(this.normalizar(colP.mes)),
+        );
+        mapaColIndexPast[colP.mes] = colIdxP !== -1 ? colIdxP : 1;
+      } else {
+        mapaColIndexPast[colP.mes] = 1;
       }
     }
 
-    // Mapa de filas del mes pasado para matching
-    const filasMesPasadoMap = new Map<string, { desc: string; monto: number }>();
+    // Helper para verificar coincidencia entre conceptos no cuota
+    const coincideConcepto = (a: string, b: string): boolean => {
+      if (a === b || a.startsWith(b) || b.startsWith(a)) return true;
+      if (a.includes('un pago') && b.includes('un pago')) return true;
+      if (a.includes('intereses') && b.includes('intereses')) return true;
+      if (a.includes('sello') && b.includes('sello')) return true;
+      if (a.includes('saldo anterior') && b.includes('saldo anterior')) return true;
+      if (a.includes('iva') && b.includes('iva')) return true;
+      return false;
+    };
 
-    if (hojaPasado?.values && configEntidadPasado && colIndexPasado !== -1) {
-      const valAnt = hojaPasado.values;
-      for (let r = configEntidadPasado.inicio; r <= configEntidadPasado.fin; r++) {
-        const f = valAnt[r];
-        if (!f || f.length === 0) continue;
-        const descAnt = f[0]?.trim();
-        if (!descAnt || descAnt.toLowerCase() === 'total') continue;
-        const montoAnt = this.parseMonto(f[colIndexPasado]);
-        if (montoAnt !== 0) {
-          filasMesPasadoMap.set(this.normalizar(descAnt), { desc: descAnt, monto: montoAnt });
-        }
-      }
-    }
-
-    // 1. Procesar todas las filas de la hoja actual (mes actual + posteriores)
+    // 1. Procesar todas las filas activas de la hoja del mes actual
     for (let r = configEntidad.inicio; r <= configEntidad.fin; r++) {
       const fila = valoresActual[r];
       if (!fila || fila.length === 0) continue;
 
       const desc = fila[0]?.trim();
-      if (!desc) continue;
-      if (desc.toLowerCase() === 'total') continue;
+      if (!desc || desc.toLowerCase() === 'total') continue;
 
       const valoresPorMes: Record<string, number> = {};
       const cuotasPorMes: Record<string, string> = {};
-
-      // Parsear montos para mes actual y futuros desde la hoja actual
+      columnas.forEach((c) => (valoresPorMes[c.mes] = 0));
       let tieneValores = false;
-      columnas.forEach((col) => {
-        if (!col.esPasado) {
-          const idx = mapaColIndexActual[col.mes];
-          const montoVal = idx !== undefined ? this.parseMonto(fila[idx]) : 0;
-          valoresPorMes[col.mes] = montoVal;
-          if (montoVal !== 0) tieneValores = true;
+
+      const matchCuota = desc.match(/(\d+)\/(\d+)/);
+      const esUnPago = this.normalizar(desc).includes('un pago');
+      const esCuota = !!matchCuota && parseInt(matchCuota[2], 10) > 1 && !esUnPago;
+      const actualCuota = esCuota ? parseInt(matchCuota![1], 10) : 0;
+      const totalCuotas = esCuota ? parseInt(matchCuota![2], 10) : 0;
+
+      // A) Monto en el mes actual
+      const idxActualCol = mapaColIndexActual[mesSeleccionado] ?? 1;
+      const montoActual = this.parseMonto(fila[idxActualCol]);
+      valoresPorMes[mesSeleccionado] = montoActual;
+      if (montoActual !== 0) tieneValores = true;
+      if (esCuota) {
+        cuotasPorMes[mesSeleccionado] = `${actualCuota}/${totalCuotas}`;
+      }
+
+      // B) Meses futuros (posteriores al mes actual)
+      columnas.forEach((col, idxCol) => {
+        if (col.esFuturo) {
+          const distFut = idxCol - indexActual;
+          if (esCuota) {
+            const cuotaFut = actualCuota + distFut;
+            if (cuotaFut <= totalCuotas) {
+              cuotasPorMes[col.mes] = `${cuotaFut}/${totalCuotas}`;
+              const idxFut = mapaColIndexActual[col.mes];
+              let montoFut = idxFut !== undefined ? this.parseMonto(fila[idxFut]) : 0;
+              if (montoFut === 0 && montoActual !== 0) {
+                montoFut = montoActual;
+              }
+              valoresPorMes[col.mes] = montoFut;
+              if (montoFut !== 0) tieneValores = true;
+            } else {
+              valoresPorMes[col.mes] = 0;
+            }
+          } else {
+            const idxFut = mapaColIndexActual[col.mes];
+            const montoFut = idxFut !== undefined ? this.parseMonto(fila[idxFut]) : 0;
+            valoresPorMes[col.mes] = montoFut;
+            if (montoFut !== 0) tieneValores = true;
+          }
         }
       });
 
-      // Calcular o buscar el valor del mes anterior para esta fila
-      if (colMesPasado) {
-        let montoPasado = 0;
-        const matchCuota = desc.match(/(\d+)\/(\d+)/);
+      // C) Meses pasados (anteriores al mes actual)
+      columnas.forEach((col, idxCol) => {
+        if (col.esPasado) {
+          const distPas = indexActual - idxCol;
+          if (esCuota) {
+            const cuotaPas = actualCuota - distPas;
+            if (cuotaPas >= 1) {
+              const cuotaPasStr = `${cuotaPas}/${totalCuotas}`;
+              cuotasPorMes[col.mes] = cuotaPasStr;
 
-        if (matchCuota) {
-          const actualCuota = parseInt(matchCuota[1], 10);
-          const totalCuota = parseInt(matchCuota[2], 10);
+              const hojaP = this.storeGoogle.getMensualPorMes(col.anio, col.mes);
+              const rangosP = this.storeGoogle.ValidarRangoEntidades(col.anio);
+              const configP = rangosP?.[entidadKey];
+              const colIdxP = mapaColIndexPast[col.mes] ?? 1;
+              let montoPasado = 0;
 
-          if (actualCuota === 1) {
-            // Cuota nueva en el mes actual -> en el mes anterior no existía
-            montoPasado = 0;
+              if (hojaP?.values && configP) {
+                // Verificar en la misma fila física r
+                const fP = hojaP.values[r];
+                const descP = fP ? fP[0]?.trim() || '' : '';
+                const mP = fP ? this.parseMonto(fP[colIdxP]) : 0;
+                if (fP && mP > 0 && (descP.includes(cuotaPasStr) || Math.abs(mP - montoActual) < 1)) {
+                  montoPasado = mP;
+                } else {
+                  // Buscar por la cuota exacta en la hoja pasada
+                  for (let rP = configP.inicio; rP <= configP.fin; rP++) {
+                    const rowP = hojaP.values[rP];
+                    if (!rowP) continue;
+                    const dP = rowP[0]?.trim() || '';
+                    const mRowP = this.parseMonto(rowP[colIdxP]);
+                    if (dP.includes(cuotaPasStr) && mRowP > 0) {
+                      montoPasado = mRowP;
+                      break;
+                    }
+                  }
+                }
+              }
+
+              if (montoPasado === 0 && montoActual !== 0) {
+                montoPasado = montoActual;
+              }
+              valoresPorMes[col.mes] = montoPasado;
+              if (montoPasado !== 0) tieneValores = true;
+            } else {
+              valoresPorMes[col.mes] = 0;
+            }
           } else {
-            // Cuota anterior era (actual - 1)/total
-            const cuotaAnteriorStr = `${actualCuota - 1}/${totalCuota}`;
-            const prefix = desc.substring(0, matchCuota.index).trim();
-            const descBuscada = this.normalizar(`${prefix} ${cuotaAnteriorStr}`);
+            // Fila no cuota (Un Pago 1/1, Intereses, Impuesto al sello, DB IVA, SALDO ANTERIOR):
+            const hojaP = this.storeGoogle.getMensualPorMes(col.anio, col.mes);
+            const rangosP = this.storeGoogle.ValidarRangoEntidades(col.anio);
+            const configP = rangosP?.[entidadKey];
+            const colIdxP = mapaColIndexPast[col.mes] ?? 1;
+            let montoPasado = 0;
 
-            // Buscar en el mapa del mes anterior
-            for (const [keyNorm, itemAnt] of filasMesPasadoMap.entries()) {
-              if (keyNorm.includes(this.normalizar(cuotaAnteriorStr))) {
-                montoPasado = itemAnt.monto;
-                cuotasPorMes[colMesPasado.mes] = cuotaAnteriorStr;
-                break;
+            if (hojaP?.values && configP) {
+              const normDesc = this.normalizar(desc);
+              const fP = hojaP.values[r];
+              const descP = fP ? this.normalizar(fP[0]?.trim()) : '';
+
+              if (fP && coincideConcepto(normDesc, descP)) {
+                montoPasado = this.parseMonto(fP[colIdxP]);
+              } else {
+                for (let rP = configP.inicio; rP <= configP.fin; rP++) {
+                  const rowP = hojaP.values[rP];
+                  if (!rowP) continue;
+                  const dP = this.normalizar(rowP[0]?.trim());
+                  if (coincideConcepto(normDesc, dP)) {
+                    montoPasado = this.parseMonto(rowP[colIdxP]);
+                    break;
+                  }
+                }
               }
             }
-            // Si no se encontró por cuota explícita pero tiene mismo monto
-            if (montoPasado === 0) {
-              const montoActual = valoresPorMes[mesSeleccionado] || 0;
-              montoPasado = montoActual; // Mantiene el valor de la cuota en cuotas fijas
-              cuotasPorMes[colMesPasado.mes] = cuotaAnteriorStr;
-            }
-          }
-
-          // Asignar cuotas secuenciales a los meses futuros
-          columnas.forEach((col, idxCol) => {
-            if (col.esActual) {
-              cuotasPorMes[col.mes] = `${actualCuota}/${totalCuota}`;
-            } else if (col.esFuturo) {
-              const diff = idxCol - 1; // Distancia desde el mes actual
-              const cuotaFutura = actualCuota + diff;
-              if (cuotaFutura <= totalCuota) {
-                cuotasPorMes[col.mes] = `${cuotaFutura}/${totalCuota}`;
-              }
-            }
-          });
-        } else {
-          // Concepto recurrente no-cuota
-          const descNorm = this.normalizar(desc);
-          for (const [keyNorm, itemAnt] of filasMesPasadoMap.entries()) {
-            if (keyNorm === descNorm || keyNorm.startsWith(descNorm) || descNorm.startsWith(keyNorm)) {
-              montoPasado = itemAnt.monto;
-              break;
-            }
+            valoresPorMes[col.mes] = montoPasado;
+            if (montoPasado !== 0) tieneValores = true;
           }
         }
-
-        valoresPorMes[colMesPasado.mes] = montoPasado;
-        if (montoPasado !== 0) tieneValores = true;
-      }
+      });
 
       if (tieneValores) {
-        const esNuevo = this.esCuotaNueva(desc);
-        const esUltima = this.esCuotaUltima(desc);
-
         filas.push({
           descripcion: desc,
           valoresPorMes,
           cuotasPorMes,
-          esNuevo,
-          esUltima,
+          esNuevo: this.esCuotaNueva(desc),
+          esUltima: this.esCuotaUltima(desc),
           esFinalizada: false,
         });
 
-        // Acumular a totales
         columnas.forEach((c) => {
           totalesPorMes[c.mes] += valoresPorMes[c.mes] || 0;
         });
       }
     }
 
-    // 2. Si hubo cuotas en el mes anterior que finalizaron (ej. 6/6), agregarlas a la tabla
-    if (colMesPasado && hojaPasado?.values && configEntidadPasado && colIndexPasado !== -1) {
-      const valAnt = hojaPasado.values;
-      for (let r = configEntidadPasado.inicio; r <= configEntidadPasado.fin; r++) {
-        const f = valAnt[r];
-        if (!f || f.length === 0) continue;
-        const descAnt = f[0]?.trim();
-        if (!descAnt || descAnt.toLowerCase() === 'total') continue;
+    // 2. Incorporar compras finalizadas en meses anteriores del año
+    for (let idxP = indexActual - 1; idxP >= 0; idxP--) {
+      const colP = columnas[idxP];
+      const hojaP = this.storeGoogle.getMensualPorMes(colP.anio, colP.mes);
+      const rangosP = this.storeGoogle.ValidarRangoEntidades(colP.anio);
+      const configP = rangosP?.[entidadKey];
+      const colIdxP = mapaColIndexPast[colP.mes] ?? 1;
 
-        const montoAnt = this.parseMonto(f[colIndexPasado]);
-        if (montoAnt === 0) continue;
+      if (!hojaP?.values || !configP) continue;
 
-        const matchCuota = descAnt.match(/(\d+)\/(\d+)/);
-        if (matchCuota) {
-          const act = parseInt(matchCuota[1], 10);
-          const tot = parseInt(matchCuota[2], 10);
-          if (act === tot) {
-            const yaEstaEnFilas = filas.some((fila) =>
-              this.normalizar(fila.descripcion).includes(this.normalizar(descAnt)),
-            );
-            if (!yaEstaEnFilas) {
-              const valoresPorMes: Record<string, number> = {};
-              columnas.forEach((c) => (valoresPorMes[c.mes] = 0));
-              valoresPorMes[colMesPasado.mes] = montoAnt;
+      for (let rP = configP.inicio; rP <= configP.fin; rP++) {
+        const rowP = hojaP.values[rP];
+        if (!rowP || rowP.length === 0) continue;
+        const descP = rowP[0]?.trim();
+        if (!descP || descP.toLowerCase() === 'total') continue;
 
-              filas.push({
-                descripcion: `${descAnt} (Finalizada)`,
-                valoresPorMes,
-                esNuevo: false,
-                esUltima: true,
-                esFinalizada: true,
-              });
+        const montoP = this.parseMonto(rowP[colIdxP]);
+        if (montoP === 0) continue;
 
-              totalesPorMes[colMesPasado.mes] += montoAnt;
+        const matchCuotaP = descP.match(/(\d+)\/(\d+)/);
+        const esUnPagoP = this.normalizar(descP).includes('un pago');
+        if (!matchCuotaP || esUnPagoP || parseInt(matchCuotaP[2], 10) <= 1) continue;
+
+        const cuotaP = parseInt(matchCuotaP[1], 10);
+        const totalP = parseInt(matchCuotaP[2], 10);
+
+        // Verificar si este plan de cuotas ya está cubierto en alguna fila activa o previa
+        const yaCubierto = filas.some((f) => {
+          return (
+            f.cuotasPorMes?.[colP.mes] === `${cuotaP}/${totalP}` &&
+            Math.abs((f.valoresPorMes[colP.mes] || 0) - montoP) < 1
+          );
+        });
+
+        if (!yaCubierto) {
+          const valoresPorMes: Record<string, number> = {};
+          const cuotasPorMes: Record<string, string> = {};
+          columnas.forEach((c) => (valoresPorMes[c.mes] = 0));
+          let tieneValoresFin = false;
+
+          for (let idxM = 0; idxM < indexActual; idxM++) {
+            const colM = columnas[idxM];
+            const dist = idxM - idxP;
+            const cM = cuotaP + dist;
+            if (cM >= 1 && cM <= totalP) {
+              cuotasPorMes[colM.mes] = `${cM}/${totalP}`;
+              valoresPorMes[colM.mes] = montoP;
+              tieneValoresFin = true;
             }
+          }
+
+          if (tieneValoresFin) {
+            filas.push({
+              descripcion: `${descP} (Finalizada)`,
+              valoresPorMes,
+              cuotasPorMes,
+              esNuevo: false,
+              esUltima: true,
+              esFinalizada: true,
+            });
+
+            columnas.forEach((c) => {
+              totalesPorMes[c.mes] += valoresPorMes[c.mes] || 0;
+            });
           }
         }
       }
@@ -506,10 +600,12 @@ export class ProyeccionEntidadService {
     entidadKey: string,
     filaData: { descripcion: string; monto: unknown },
     nombreEntidadPersonalizado?: string,
+    vistaAnioCompleto = false,
   ): Promise<ProyeccionFilaIndividual> {
-    const columnas = this.obtenerColumnasMeses(anio, mesSeleccionado);
+    const columnas = this.obtenerColumnasMeses(anio, mesSeleccionado, vistaAnioCompleto);
     const colMesPasado = columnas.find((c) => c.esPasado);
     const colMesActual = columnas.find((c) => c.esActual);
+    const indexActual = columnas.findIndex((c) => c.esActual);
 
     const desc = filaData.descripcion || '';
     const montoActual = this.parseMonto(filaData.monto);
@@ -571,10 +667,14 @@ export class ProyeccionEntidadService {
         columnas.forEach((col, idx) => {
           if (col.esActual) {
             cuotasPorMes[col.mes] = `${actual}/${total}`;
-          } else if (col.esPasado && actual > 1) {
-            cuotasPorMes[col.mes] = `${actual - 1}/${total}`;
+          } else if (col.esPasado) {
+            const dist = indexActual - idx;
+            const cuotaPas = actual - dist;
+            if (cuotaPas >= 1) {
+              cuotasPorMes[col.mes] = `${cuotaPas}/${total}`;
+            }
           } else if (col.esFuturo) {
-            const diff = idx - 1;
+            const diff = idx - indexActual;
             const cuotaFut = actual + diff;
             if (cuotaFut <= total) {
               cuotasPorMes[col.mes] = `${cuotaFut}/${total}`;
@@ -605,23 +705,29 @@ export class ProyeccionEntidadService {
     await this.asegurarHojasColumnas(columnas);
 
     const matchCuota = desc.match(/(\d+)\/(\d+)/);
+    const esUnPago = this.normalizar(desc).includes('un pago');
+    const esCuota = !!matchCuota && parseInt(matchCuota[2], 10) > 1 && !esUnPago;
     let totalRestante = montoActual;
     const esNuevo = this.esCuotaNueva(desc);
     const esUltima = this.esCuotaUltima(desc);
 
-    if (matchCuota) {
+    if (esCuota && matchCuota) {
       const actual = parseInt(matchCuota[1], 10);
       const total = parseInt(matchCuota[2], 10);
 
-      // Mes anterior
-      if (colMesPasado) {
-        if (actual > 1) {
-          valoresPorMes[colMesPasado.mes] = montoActual;
-          cuotasPorMes[colMesPasado.mes] = `${actual - 1}/${total}`;
-        } else {
-          valoresPorMes[colMesPasado.mes] = 0;
+      // Meses pasados
+      columnas.forEach((col, idx) => {
+        if (col.esPasado) {
+          const dist = indexActual - idx;
+          const cuotaPas = actual - dist;
+          if (cuotaPas >= 1) {
+            valoresPorMes[col.mes] = montoActual;
+            cuotasPorMes[col.mes] = `${cuotaPas}/${total}`;
+          } else {
+            valoresPorMes[col.mes] = 0;
+          }
         }
-      }
+      });
 
       // Mes actual
       cuotasPorMes[mesSeleccionado] = `${actual}/${total}`;
@@ -629,7 +735,7 @@ export class ProyeccionEntidadService {
       // Meses futuros
       columnas.forEach((col, idx) => {
         if (col.esFuturo) {
-          const diff = idx - 1; // respecto al actual
+          const diff = idx - indexActual;
           const cuotaFut = actual + diff;
           if (cuotaFut <= total) {
             valoresPorMes[col.mes] = montoActual;
@@ -644,21 +750,23 @@ export class ProyeccionEntidadService {
       const cuotasPendientes = Math.max(1, total - actual + 1);
       totalRestante = montoActual * cuotasPendientes;
     } else {
-      // Concepto regular
-      if (colMesPasado) {
-        const hojaPasado = this.storeGoogle.getMensualPorMes(colMesPasado.anio, colMesPasado.mes);
-        const rangosPasado = this.storeGoogle.ValidarRangoEntidades(colMesPasado.anio);
-        const configPasado = rangosPasado[entidadKey];
-        if (hojaPasado?.values && configPasado) {
-          for (let r = configPasado.inicio; r <= configPasado.fin; r++) {
-            const f = hojaPasado.values[r];
-            if (f && this.normalizar(f[0]).includes(this.normalizar(desc))) {
-              valoresPorMes[colMesPasado.mes] = this.parseMonto(f[1]);
-              break;
+      // Concepto regular sin cuotas
+      columnas.forEach((col) => {
+        if (col.esPasado) {
+          const hojaPasado = this.storeGoogle.getMensualPorMes(col.anio, col.mes);
+          const rangosPasado = this.storeGoogle.ValidarRangoEntidades(col.anio);
+          const configPasado = rangosPasado?.[entidadKey];
+          if (hojaPasado?.values && configPasado) {
+            for (let r = configPasado.inicio; r <= configPasado.fin; r++) {
+              const f = hojaPasado.values[r];
+              if (f && this.normalizar(f[0]).includes(this.normalizar(desc))) {
+                valoresPorMes[col.mes] = this.parseMonto(f[1]);
+                break;
+              }
             }
           }
         }
-      }
+      });
     }
 
     return {
@@ -678,6 +786,7 @@ export class ProyeccionEntidadService {
   private esCuotaNueva(valor: string | undefined): boolean {
     if (typeof valor !== 'string') return false;
     const limpio = valor.trim().toLowerCase();
+    if (limpio.includes('un pago')) return false;
     const match = limpio.match(/\b1\/(\d+)\b/);
     return !!match && match[1] !== '1';
   }
@@ -685,7 +794,8 @@ export class ProyeccionEntidadService {
   private esCuotaUltima(valor: string | undefined): boolean {
     if (typeof valor !== 'string') return false;
     const limpio = valor.trim().toLowerCase();
+    if (limpio.includes('un pago')) return false;
     const match = limpio.match(/\b(\d+|x)\/\1\b/);
-    return !!match;
+    return !!match && match[1] !== '1';
   }
 }

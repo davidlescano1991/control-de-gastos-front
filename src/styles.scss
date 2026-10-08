@@ -1771,3 +1771,22 @@ body.dark-mode {
   font-style: italic !important;
   font-size: 0.95rem !important;
 }
+
+/* =======================================================
+   TOOLTIPS DE CUOTAS Y OVERLAYS SOBRE MODAL (z-index)
+   ======================================================= */
+.cdk-overlay-container {
+  z-index: 2500 !important;
+}
+
+.tooltip-cuota-total {
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.3px !important;
+  padding: 6px 12px !important;
+  border-radius: 8px !important;
+  background-color: #0f172a !important;
+  color: #38bdf8 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(56, 189, 248, 0.3) !important;
+  line-height: 1.3 !important;
+}
