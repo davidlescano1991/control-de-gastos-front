@@ -26,11 +26,14 @@
         <div class="titulo-grupo">
           <h3 class="panel-titulo">
             <span *ngIf="modo === 'fila'">{{ dataFila()?.descripcion || 'Proyección de Cuota' }}</span>
-            <span *ngIf="modo === 'completo'">{{ nombreEntidad }} — Proyección Multi-mes</span>
+            <span *ngIf="modo === 'completo'">
+              {{ nombreEntidad }} — {{ vistaAnioCompleto() ? 'Proyección Anual' : 'Proyección Multi-mes' }}
+            </span>
           </h3>
           <span class="subtitulo-badge" *ngIf="modo === 'completo'">
-            <mat-icon class="icon-small">table_chart</mat-icon>
-            Vista Google Sheets (Mes anterior + 4 posteriores)
+            <mat-icon class="icon-small">{{ vistaAnioCompleto() ? 'calendar_month' : 'table_chart' }}</mat-icon>
+            <span *ngIf="vistaAnioCompleto()">Todo el año {{ anio }} (Enero — Diciembre)</span>
+            <span *ngIf="!vistaAnioCompleto()">Vista Google Sheets (Mes anterior + 4 posteriores)</span>
           </span>
           <span class="subtitulo-badge cuota" *ngIf="modo === 'fila'">
             <mat-icon class="icon-small">timeline</mat-icon>
@@ -40,13 +43,49 @@
       </div>
 
       <div class="header-acciones">
+        <!-- Selector de Vista cuando está en Modal Completo -->
+        <div class="toggle-vista-header" *ngIf="esModalCompleto && modo === 'completo'">
+          <button
+            type="button"
+            class="btn-toggle-modo"
+            [class.activo]="vistaAnioCompleto()"
+            (click)="cambiarVistaAnio(true)"
+            title="Ver todos los meses del año (Enero a Diciembre)"
+          >
+            <mat-icon>calendar_month</mat-icon>
+            <span>Todo el año</span>
+          </button>
+          <button
+            type="button"
+            class="btn-toggle-modo"
+            [class.activo]="!vistaAnioCompleto()"
+            (click)="cambiarVistaAnio(false)"
+            title="Ver ventana de 6 meses"
+          >
+            <mat-icon>view_week</mat-icon>
+            <span>6 meses</span>
+          </button>
+        </div>
+
+        <!-- Botón Exportar a Excel cuando está en Modal Completo -->
+        <button
+          *ngIf="esModalCompleto && modo === 'completo' && dataCompleta()"
+          type="button"
+          class="btn-exportar-excel"
+          (click)="exportarAExcel()"
+          title="Exportar esta tabla a un archivo Excel (.xlsx)"
+        >
+          <mat-icon>file_download</mat-icon>
+          <span>Exportar Excel</span>
+        </button>
+
         <!-- Botón para expandir a modal si está en modo tooltip -->
         <button
           *ngIf="!esModalCompleto && modo === 'completo'"
           type="button"
           class="btn-accion-header"
           (click)="solicitarAbrirModal()"
-          title="Fijar y abrir en pantalla completa"
+          title="Expandir a todo el año (12 meses)"
         >
           <mat-icon>open_in_full</mat-icon>
         </button>
@@ -94,7 +133,13 @@
             <tr>
               @for (col of fila.columnas; track col.mes) {
                 <td [class.col-actual]="col.esActual">
-                  <div class="cuota-cell">
+                  <div
+                    class="cuota-cell"
+                    [matTooltip]="obtenerTooltipCuotaFila(fila, col.mes)"
+                    matTooltipPosition="above"
+                    matTooltipClass="tooltip-cuota-total"
+                    [class.es-interactivo]="!!obtenerTooltipCuotaFila(fila, col.mes)"
+                  >
                     <span class="cuota-ratio" *ngIf="fila.cuotasPorMes[col.mes]">
                       {{ fila.cuotasPorMes[col.mes] }}
                     </span>
@@ -133,7 +178,7 @@
                   <div class="header-cell">
                     <span class="nombre-mes">{{ col.mes }}</span>
                     <span class="badge-tiempo" *ngIf="col.esActual">Actual</span>
-                    <span class="badge-tiempo pasado" *ngIf="col.esPasado">Mes anterior</span>
+                    <span class="badge-tiempo pasado" *ngIf="col.esPasado && !vistaAnioCompleto()">Mes anterior</span>
                   </div>
                 </th>
               }
@@ -153,12 +198,23 @@
                 @for (col of datos.columnas; track col.mes) {
                   <td [class.col-actual]="col.esActual" class="col-monto">
                     @if (fila.valoresPorMes[col.mes] !== 0) {
-                      <span
-                        class="monto-val"
-                        [class.negativo]="(fila.valoresPorMes[col.mes] || 0) < 0"
+                      <div
+                        class="monto-con-cuota"
+                        [matTooltip]="obtenerTooltipCuota(fila, col.mes)"
+                        matTooltipPosition="above"
+                        matTooltipClass="tooltip-cuota-total"
+                        [class.es-interactivo]="!!obtenerTooltipCuota(fila, col.mes)"
                       >
-                        {{ fila.valoresPorMes[col.mes] | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
-                      </span>
+                        <span class="cuota-pill" *ngIf="obtenerCuotaRatio(fila, col.mes) as ratio">
+                          {{ ratio }}
+                        </span>
+                        <span
+                          class="monto-val"
+                          [class.negativo]="(fila.valoresPorMes[col.mes] || 0) < 0"
+                        >
+                          {{ fila.valoresPorMes[col.mes] | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                        </span>
+                      </div>
                     } @else {
                       <span class="monto-val vacio">-</span>
                     }
