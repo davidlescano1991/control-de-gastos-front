@@ -66,7 +66,14 @@ export class TablaPrestamos {
     return this.calcularTotalGlobalPendiente();
   }
 
-  get valorOtorgado() {
+  get valorOtorgado(): number {
+    const primeraFila = this.filas?.at(0);
+    if (primeraFila && primeraFila.valores) {
+      const suma = this.totalMes(primeraFila);
+      if (suma > 0) return suma;
+    }
+    const porAnio = this.storeGoogle.valorOtorgadoPorAnio.get(this.anioSeleccionado)?.() ?? 0;
+    if (porAnio > 0) return porAnio;
     return this.storeGoogle.valorOtorgado();
   }
 
