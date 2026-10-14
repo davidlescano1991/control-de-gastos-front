@@ -71,6 +71,11 @@ export class TablaCuotasCoincidentes implements OnChanges {
       const actual = parseInt(matchCuota[1], 10);
       const total = parseInt(matchCuota[2], 10);
 
+      // Validar que sea una cuota real válida (no decretos ni años)
+      if (isNaN(actual) || isNaN(total) || actual < 1 || actual > total || total > 60) {
+        continue;
+      }
+
       // Multiplicar el valor mensual por la cantidad de cuotas restantes por pagar (mes actual + futuras)
       const cuotasRestantes = total - actual + 1;
       const subtotalRestante = montoCuota * cuotasRestantes;

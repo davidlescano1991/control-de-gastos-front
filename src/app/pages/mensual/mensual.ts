@@ -1,9 +1,13 @@
-import { Component, inject, OnDestroy, OnInit, signal, WritableSignal } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit, signal, computed, WritableSignal } from '@angular/core';
 import { MovimientosStoreGoogle } from '../../stores/movimiento.google';
 import { WakeLockService } from '../../services/wake-lock.service';
 import { AppConfigService } from '../../services/app-config.service';
 import { SseService } from '../../services/sse.service';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
+import { AuthService } from '../../services/auth.service';
+import { MensualItemsService } from '../../services/mensual-items.service';
+import { SyncMensualSheetsDbService } from '../../services/sync-mensual-sheets-db.service';
+import { ModalCargarItemComponent } from './modal-cargar-item/modal-cargar-item';
 import { VisaComponent } from './lista-entidades/visa/visa';
 import { NgFor, NgIf } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -74,10 +78,154 @@ import { ProyeccionOverlayService } from '../../services/proyeccion-overlay.serv
     SelectorAnioDelorean,
     OrigenDatosComponent,
     ModalProyeccionEntidad,
+    ModalCargarItemComponent,
   ],
 })
 export class Mensual implements OnInit, OnDestroy {
   public overlayService = inject(ProyeccionOverlayService);
+  public authService = inject(AuthService);
+  private mensualItemsService = inject(MensualItemsService);
+  public syncMensualService = inject(SyncMensualSheetsDbService);
+  readonly esOrigenBD = signal<boolean>(false);
+  readonly leyendaFallback = signal<string>('');
+  readonly leyendaOrigenActual = computed(() => {
+    if (this.leyendaFallback()) {
+      return this.leyendaFallback();
+    }
+    if (this.esOrigenBD()) {
+      return '* Información obtenida desde la BD';
+    }
+    return this.appConfig.getLeyendaOrigen(this.anioSeleccionado());
+  });
+  mostrarModalCargar = signal(false);
+  itemParaEditar = signal<any>(null);
+
+  abrirModalCarga(): void {
+    this.itemParaEditar.set(null);
+    this.mostrarModalCargar.set(true);
+  }
+
+  abrirModalEditar(fila: any): void {
+    this.itemParaEditar.set(fila);
+    this.mostrarModalCargar.set(true);
+  }
+
+  cerrarModalCargar(): void {
+    this.mostrarModalCargar.set(false);
+    this.itemParaEditar.set(null);
+  }
+
+  async onItemCreado(event: any): Promise<void> {
+    this.cerrarModalCargar();
+    await this.seleccionarMes(this.mesSeleccionado(), true);
+    await this.cargarTotalesTotales(false, true);
+  }
+
+  async cargarEntidadesDesdeBD(anio: number, mesNombre: string): Promise<boolean> {
+    const mesNum = this.meses.indexOf(mesNombre) + 1;
+    if (mesNum < 1 || mesNum > 12) return false;
+
+    try {
+      const res = await firstValueFrom(this.mensualItemsService.getItems(anio, mesNum));
+      if (!res?.porEntidad) return false;
+
+      const formatItems = (items: any[]) =>
+        (items || []).map((it) => ({
+          id: it.id,
+          descripcion: it.concepto,
+          monto:
+            typeof it.monto === 'number'
+              ? '$ ' + it.monto.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+              : '$ ' + parseFloat(String(it.monto)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          montoCrudo: it.monto,
+          formula: it.formula,
+          esCuota: it.esCuota,
+          cuotaActual: it.cuotaActual,
+          totalCuotas: it.totalCuotas,
+          grupoCuotaId: it.grupoCuotaId,
+          entidad: it.entidad,
+          notas: it.notas,
+          anio: it.year,
+          mes: it.mes,
+        }));
+
+      this.setSignalIfChanged(this.visaDatos, formatItems(res.porEntidad['Visa Galicia']?.items));
+      this.setSignalIfChanged(this.visaEntidad, 'Visa Galicia');
+
+      this.setSignalIfChanged(this.masterDatos, formatItems(res.porEntidad['Master Card Galicia']?.items));
+      this.setSignalIfChanged(this.masterEntidad, 'Master Card Galicia');
+
+      this.setSignalIfChanged(this.naranjaDatos, formatItems(res.porEntidad['Naranja']?.items));
+      this.setSignalIfChanged(this.naranjaEntidad, anio <= 2023 ? 'Naranja' : 'Naranja X');
+
+      this.setSignalIfChanged(this.bancorDatos, formatItems(res.porEntidad['Bancor']?.items));
+      this.setSignalIfChanged(this.bancorEntidad, 'Bancor');
+
+      this.setSignalIfChanged(this.mLDatos, formatItems(res.porEntidad['Mercado Libre']?.items));
+      this.setSignalIfChanged(this.mLEntidad, 'Mercado Libre');
+
+      this.setSignalIfChanged(this.otrosDatos, formatItems(res.porEntidad['Otros']?.items));
+      this.setSignalIfChanged(this.otrosEntidad, 'Otros');
+
+      return true;
+    } catch (err) {
+      console.error('Error cargando entidades desde BD para mensual:', err);
+      throw err;
+    }
+  }
+
+  async cargarEntidadesDesdeSheets(anio: number, mes: string, force = false): Promise<void> {
+    const claveVisa = `${anio}_${mes}_visa`;
+    const claveMaster = `${anio}_${mes}_master`;
+    const claveNaranja = `${anio}_${mes}_naranja`;
+    const claveBancor = `${anio}_${mes}_bancor`;
+    const claveOtros = `${anio}_${mes}_otros`;
+    const claveML = `${anio}_${mes}_ml`;
+
+    await this.storeGoogle.asegurarMensualPorAnioRange(
+      anio,
+      [mes],
+      'Mensual.cargarEntidadesDesdeSheets',
+      force,
+    );
+    await this.storeGoogle.cargarEntidadesDeMesPorAnio(anio, mes);
+
+    const registrosVisa = this.storeGoogle.getEntidadVisa(anio, mes);
+    const headVisa = this.storeGoogle.getHeaderVisa(anio, mes);
+    this.setSignalIfChanged(this.visaDatos, registrosVisa ?? []);
+    this.setSignalIfChanged(this.visaEntidad, headVisa[0] ?? 'Visa');
+    this.ultimaClaveVisa = claveVisa;
+
+    const registrosMaster = this.storeGoogle.getEntidadMasterGalicia(anio, mes);
+    const headMaster = this.storeGoogle.getHeaderMasterGalicia(anio, mes);
+    this.setSignalIfChanged(this.masterDatos, [...(registrosMaster ?? [])]);
+    this.setSignalIfChanged(this.masterEntidad, headMaster[0] ?? 'Master Galicia');
+    this.ultimaClaveMaster = claveMaster;
+
+    const registrosNaranja = this.storeGoogle.getEntidadNaranja(anio, mes);
+    const headNaranja = this.storeGoogle.getHeaderNaranja(anio, mes);
+    this.setSignalIfChanged(this.naranjaDatos, registrosNaranja ?? []);
+    this.setSignalIfChanged(this.naranjaEntidad, headNaranja[0] ?? 'Naranja');
+    this.ultimaClaveNaranja = claveNaranja;
+
+    const registrosBancor = this.storeGoogle.getEntidadBancor(anio, mes);
+    const headBancor = this.storeGoogle.getHeaderBancor(anio, mes);
+    this.setSignalIfChanged(this.bancorDatos, registrosBancor ?? []);
+    this.setSignalIfChanged(this.bancorEntidad, headBancor[0] ?? 'Bancor');
+    this.ultimaClaveBancor = claveBancor;
+
+    const registrosML = this.storeGoogle.getEntidadML(anio, mes);
+    const headML = this.storeGoogle.getHeaderML(anio, mes);
+    this.setSignalIfChanged(this.mLDatos, registrosML ?? []);
+    this.setSignalIfChanged(this.mLEntidad, headML[0] ?? 'Mercado Libre');
+    this.ultimaClaveML = claveML;
+
+    const registrosOtros = this.storeGoogle.getEntidadOtros(anio, mes);
+    const headOtros = 'Otros';
+    this.setSignalIfChanged(this.otrosDatos, registrosOtros ?? []);
+    this.setSignalIfChanged(this.otrosEntidad, headOtros);
+    this.ultimaClaveOtros = claveOtros;
+  }
   isMobile = false;
   sidebarCollapsed = signal(false);
   resumenGraficoCollapsed = signal(false);
@@ -237,89 +385,38 @@ export class Mensual implements OnInit, OnDestroy {
 
     try {
       this.mesSeleccionado.set(mes);
-
       const anio = this.anioSeleccionado();
+      const isSheetsActivo = this.appConfig.isSheetsActivo(anio);
 
-      if (!this.appConfig.isSheetsActivo(anio)) {
-        this.setSignalIfChanged(this.visaDatos, []);
-        this.setSignalIfChanged(this.masterDatos, []);
-        this.setSignalIfChanged(this.naranjaDatos, []);
-        this.setSignalIfChanged(this.bancorDatos, []);
-        this.setSignalIfChanged(this.mLDatos, []);
-        this.setSignalIfChanged(this.otrosDatos, []);
-        this.ultimaClaveVisa = '';
-        this.ultimaClaveMaster = '';
-        this.ultimaClaveNaranja = '';
-        this.ultimaClaveBancor = '';
-        this.ultimaClaveOtros = '';
-        this.ultimaClaveML = '';
-        return;
+      if (isSheetsActivo) {
+        // 1. INTERRUPTOR ACTIVADO: Obtener datos desde Google Sheets
+        this.esOrigenBD.set(false);
+        this.leyendaFallback.set('');
+        await this.cargarEntidadesDesdeSheets(anio, mes, force);
+
+        // 2. SINCRONIZACIÓN AUTOMÁTICA EN SEGUNDO PLANO A LA BD SI ESTÁ CONECTADO A LA API
+        if (this.sseService.isConnected()) {
+          void this.syncMensualService.sincronizarMesDesdeSheets(anio, mes);
+        }
+      } else {
+        // 3. INTERRUPTOR DESACTIVADO: Modo Base de Datos (PostgreSQL)
+        try {
+          const cargadoOk = await this.cargarEntidadesDesdeBD(anio, mes);
+          if (cargadoOk) {
+            this.esOrigenBD.set(true);
+            this.leyendaFallback.set('');
+          } else {
+            throw new Error('No se encontraron registros en la BD');
+          }
+        } catch (apiError) {
+          // 4. FALLBACK A GOOGLE SHEETS SI NO SE PUEDE CONECTAR DESDE LA API
+          console.warn('⚠️ [Mensual] No se pudo conectar con la API en modo BD. Recurriendo a Google Sheets como fallback...', apiError);
+          this.esOrigenBD.set(false);
+          const descHoja = this.appConfig.raw?.origenPorAnio?.[String(anio)]?.descripcion || `Cuentas claras_${anio}`;
+          this.leyendaFallback.set(`* Información obtenida desde la hoja ${descHoja} (Fallback: API no disponible)`);
+          await this.cargarEntidadesDesdeSheets(anio, mes, force);
+        }
       }
-
-      const claveVisa = `${anio}_${mes}_visa`;
-      const claveMaster = `${anio}_${mes}_master`;
-      const claveNaranja = `${anio}_${mes}_naranja`;
-      const claveBancor = `${anio}_${mes}_bancor`;
-      const claveOtros = `${anio}_${mes}_otros`;
-      const claveML = `${anio}_${mes}_ml`;
-
-      if (
-        !force &&
-        claveVisa === this.ultimaClaveVisa &&
-        claveMaster === this.ultimaClaveMaster &&
-        claveNaranja === this.ultimaClaveNaranja &&
-        claveBancor === this.ultimaClaveBancor &&
-        claveOtros === this.ultimaClaveOtros &&
-        claveML === this.ultimaClaveML
-      ) {
-        return;
-      }
-
-      await this.storeGoogle.asegurarMensualPorAnioRange(
-        anio,
-        [mes],
-        'Mensual.seleccionarMes',
-        force,
-      );
-      await this.storeGoogle.cargarEntidadesDeMesPorAnio(anio, mes);
-      const registrosVisa = this.storeGoogle.getEntidadVisa(anio, mes);
-      console.error(`registros visa ${JSON.stringify(registrosVisa)}`);
-      const headVisa = this.storeGoogle.getHeaderVisa(anio, mes);
-      this.setSignalIfChanged(this.visaDatos, registrosVisa ?? []);
-      this.setSignalIfChanged(this.visaEntidad, headVisa[0] ?? 'Visa');
-      this.ultimaClaveVisa = claveVisa;
-
-      const registrosMaster = this.storeGoogle.getEntidadMasterGalicia(anio, mes);
-      const headMaster = this.storeGoogle.getHeaderMasterGalicia(anio, mes);
-      this.setSignalIfChanged(this.masterDatos, [...(registrosMaster ?? [])]);
-      this.setSignalIfChanged(this.masterEntidad, headMaster[0] ?? 'Master Galicia');
-      this.ultimaClaveMaster = claveMaster;
-
-      const registrosNaranja = this.storeGoogle.getEntidadNaranja(anio, mes);
-      const headNaranja = this.storeGoogle.getHeaderNaranja(anio, mes);
-      this.setSignalIfChanged(this.naranjaDatos, registrosNaranja ?? []);
-      this.setSignalIfChanged(this.naranjaEntidad, headNaranja[0] ?? 'Naranja');
-      this.ultimaClaveNaranja = claveNaranja;
-
-      const registrosBancor = this.storeGoogle.getEntidadBancor(anio, mes);
-      const headBancor = this.storeGoogle.getHeaderBancor(anio, mes);
-      this.setSignalIfChanged(this.bancorDatos, registrosBancor ?? []);
-      this.setSignalIfChanged(this.bancorEntidad, headBancor[0] ?? 'Bancor');
-      this.ultimaClaveBancor = claveBancor;
-
-      const registrosML = this.storeGoogle.getEntidadML(anio, mes);
-      const headML = this.storeGoogle.getHeaderML(anio, mes);
-      this.setSignalIfChanged(this.mLDatos, registrosML ?? []);
-      this.setSignalIfChanged(this.mLEntidad, headML[0] ?? 'Mercado Libre');
-      this.ultimaClaveBancor = claveML;
-
-      console.warn(`registrosML: ${JSON.stringify(registrosML)}`);
-
-      const registrosOtros = this.storeGoogle.getEntidadOtros(anio, mes);
-      const headOtros = 'Otros';
-      this.setSignalIfChanged(this.otrosDatos, registrosOtros ?? []);
-      this.setSignalIfChanged(this.otrosEntidad, headOtros);
-      this.ultimaClaveOtros = claveOtros;
     } finally {
       if (mostrarCarga) {
         this.isCargando.set(false);
@@ -338,7 +435,22 @@ export class Mensual implements OnInit, OnDestroy {
 
       for (const anio of this.anios) {
         if (!this.appConfig.isSheetsActivo(anio)) {
-          continue;
+          try {
+            const resAnio = await firstValueFrom(this.mensualItemsService.getItems(anio));
+            if (resAnio?.items) {
+              const totalesPorMes: Record<number, number> = {};
+              for (const it of resAnio.items) {
+                totalesPorMes[it.mes] = (totalesPorMes[it.mes] || 0) + Number(it.monto);
+              }
+              mesesDelAnio.forEach((mesNombre, idx) => {
+                const mesNum = idx + 1;
+                resultados.push({ anio, mes: mesNombre, total: totalesPorMes[mesNum] || 0 });
+              });
+              continue;
+            }
+          } catch (e) {
+            console.warn('⚠️ Error al cargar totales de BD para el año ' + anio + ', recurriendo a Sheets como fallback:', e);
+          }
         }
         const rangos = this.storeGoogle.ValidarRangoEntidades(anio);
         const entidades = Object.keys(rangos) as (keyof typeof rangos)[];

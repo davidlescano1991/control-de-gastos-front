@@ -188,3 +188,101 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 ---
 *Fin del registro de contexto rápido.*
 
+
+
+## 🚀 Módulo Mensual 2.0 (PostgreSQL + API): Carga de Cuotas, Fórmulas Aritméticas y Auto-Propagación
+- **Fecha**: Octubre 2026
+- **Archivos Creados/Modificados**:
+  - src/app/services/mensual-items.service.ts: Servicio reactivo para comunicación con /api/mensual, evaluación interactiva de fórmulas y mapeo de DTOs.
+  - src/app/pages/mensual/modal-cargar-item/modal-cargar-item.ts|html|scss: Modal standalone con selector visual de entidades financieras (logos SVG oficiales), detector inteligente de cuotas 1/x, evaluador de fórmulas aritméticas en vivo con previsualización formateada en moneda y badges esmeralda.
+  - src/app/pages/mensual/mensual.ts|html|scss: Inclusión del botón de acción principal [+ Cargar Cuota / Ítem], integración del modal e implementación de cargarEntidadesDesdeBD() para años configurados con base de datos.
+- **Resultado**: Compilación limpia con 	sc --noEmit (0 errores). Interfaz reactiva adaptativa (Light/Dark mode) alineada con AGENTS.md.
+
+---
+
+
+### ⚡ Actualización: Módulo Mensual Híbrido, Fallback Automático, Leyendas por Entidad y Sincronización Automática Sheets ➔ BD
+- **Fecha**: Octubre 2026
+- **Funcionalidades Añadidas**:
+  1. **Interruptor de Hojas (isSheetsActivo)**: Lectura de Google Sheets si el interruptor está encendido, o de PostgreSQL si está apagado.
+  2. **Fallback Automático**: Si el año está configurado en Base de Datos pero la API no responde o está caída, conmuta de inmediato a Google Sheets sin interrumpir la experiencia de usuario.
+  3. **Leyenda de Origen en Cada Entidad**: Indicador visual dinámico debajo de cada tarjeta (Visa, MasterCard, Naranja, Bancor, Mercado Libre, Otros) con punto esmeralda (Base de Datos) o punto azul (Google Sheets o Fallback).
+  4. **Servicio SyncMensualSheetsDbService**: Sincronización automática no bloqueante en segundo plano cuando la API está conectada. Lee las celdas con alueRenderOption: FORMULA, detecta conceptos nuevos en Google Sheets e inserta en la BD preservando fórmulas aritméticas y auto-propagando cuotas 1/x.
+- **Estado**: Compilación TypeScript exitosa (0 errores).
+
+---
+
+
+### 🔧 Corrección: Proyección de Totales Futuros en Modo Base de Datos (PostgreSQL)
+- **Fecha**: Octubre 2026
+- **Problema Detectado**: Al consultar un año migrado a la base de datos (como 2022 o 2026) con el interruptor en modo BD, el componente `TablaProyeccionTotales` mostraba `$ 0,00` en todos los meses porque dependía exclusivamente de la lectura de Google Sheets.
+- **Solución Implementada**:
+  - En `TablaProyeccionTotales`, cuando `!appConfig.isSheetsActivo(anioSeleccionado)`, consulta los ítems del año mediante `MensualItemsService` y calcula para cada mes el subtotal de cuotas restantes (`monto * (totalCuotas - cuotaActual + 1)`), reflejando con exactitud los valores proyectados (ej: Octubre 2022: `$ 854.077,85`).
+  - En `mensual.html`, se actualizó la leyenda al pie de la columna de proyección con el indicador dinámico `origen-entidad-leyenda` (`● * Información obtenida desde la BD`).
+- **Estado**: Compilado y verificado con `ng build` (0 errores).
+
+---
+
+## [2026-10-13] Edición y Eliminación de Ítems / Cuotas en Módulo Mensual (/mensual)
+- **Modal Unificado (`ModalCargarItemComponent`)**:
+  - Incorpora `@Input() itemAEditar`: Al recibir un ítem con `id`, conmuta a modo edición precargando entidad, concepto, fórmula/monto, período y notas.
+  - Soporte de propagación de cambios en series de cuotas (`grupoCuotaId`): Casilla interactiva para replicar nuevo importe/fórmula a cuotas futuras restantes.
+  - Flujo de eliminación protegida: Diálogo de confirmación con discriminación de alcance para compras en cuotas (*Eliminar sólo esta cuota* vs. *Eliminar compra completa*).
+- **Integración en Tarjetas de Entidades (`lista-entidades`)**:
+  - Añadido botón interactivo con ícono de lápiz en `app-visa`, `app-master-galicia`, `app-naranja`, `app-bancor`, `app-mercado-libre` y `app-otros`.
+  - Restringido visual y operativamente a usuarios con rol `ADMIN` sobre registros con identificador de base de datos (`fila['id']`).
+  - Despacho de evento reactivo `(editarFila)` conectado a `abrirModalEditar(fila)` en `MensualComponent`.
+- **Compilación**: `ng build` completado con 0 errores.
+
+## [2026-10-13] Corrección de Resumen por Entidad, Total Mensual y Color de Compensaciones (Modo BD)
+- **Compensaciones en Novedades de Cuotas (`actualizacion-cuotas.ts`)**:
+  - Inyección de `ThemeService` en `NovedadesCuotas`.
+  - `getColorPorValor(valor)`: Actualizado para retornar blanco (`#ffffff`) cuando el valor es 0 en modo oscuro (o `#1e293b` en modo claro), evitando el color negro ilegible sobre fondo oscuro.
+- **Gráfico de Total Mensual (`grafico-visa.ts`)**:
+  - En modo Base de Datos (`!isSheetsActivo`), ahora consulta `mensualItemsService.getItems(anio)` y calcula los subtotales mensuales para la ventana de meses, renderizando el gráfico de líneas con puntos verde (mes activo) y azul en años como 2022 y 2026.
+- **Tabla de Resumen por Entidad (`resumen.ts`)**:
+  - En modo Base de Datos (`!isSheetsActivo`), ahora mapea las entidades financieras (`Visa`, `MasterCard`, `Naranja`, `Bancor`, `Mercado Libre`) y desglosa los sub-conceptos recurrentes de `Otros`. Calcula la matriz multi-mes y totales mensuales exactos.
+- **Compilación**: `ng build` finalizado con 0 errores.
+
+## [2026-10-13] Gráfico de Evolución de Totales Futuros en Modo BD (`grafico-proyeccion-totales.ts`)
+- **Evolución de Totales Futuros (`grafico-proyeccion-totales.ts`)**:
+  - En modo Base de Datos (`!isSheetsActivo`), se implementó la consulta dinámica a `mensualItemsService.getItems(anio)` calculando la proyección acumulada de cuotas restantes (`monto * (totalCuotas - cuotaActual + 1)`) para la ventana de meses a partir del mes seleccionado.
+  - Genera la serie de datos y curva sombreada en rojo con subtotales proyectados exactos para años migrados a BD (2022 y 2026).
+- **Compilación**: `ng build` finalizado con 0 errores.
+
+## [2026-10-13] Corrección de Rango de Meses y Valores en Gráfico de Proyección Futura
+- **Evolución de Totales Futuros (`grafico-proyeccion-totales.ts`)**:
+  - Se alineó la obtención de meses a proyectar con `storeGoogle.getMesesParaResumen(anioSeleccionado)`, incorporando correctamente los meses que se extienden al año siguiente (`Enero_2023` y `Febrero_2023`).
+  - Subtotales calculados con el índice real de cada mes en la serie anual (`idxOriginal + 1`), igualando con total fidelidad los valores de la tabla contigua:
+    - Septiembre: $ 900.232,90
+    - Octubre: $ 854.077,85
+    - Noviembre: $ 912.283,12
+    - Diciembre: $ 903.247,45
+    - Enero_2023: $ 0,00
+    - Febrero_2023: $ 0,00
+- **Compilación**: `ng build` finalizado con 0 errores.
+
+## [2026-10-14] Corrección de Validación de Cuotas en "Subtotales por Cuota" y Gráfico Coincidente
+- **Módulos (`tabla-cuotas-coincidentes.ts` y `grafico-cuotas-coincidentes.ts`)**:
+  - Se agregó la validación obligatoria `actual <= total && actual >= 1 && total <= 60`.
+  - Evita que textos con barras como decretos provinciales e impuestos (`Cordoba Dto 2141/17`) sean interpretados erróneamente como cuotas negativas (`2141/17`), eliminando el descuento espurio de `-$120.926,08`.
+  - El total de Subtotales por Cuota en Diciembre pasa de $782.321,37 a **$903.247,45**, coincidiendo de forma idéntica con la Proyección de Totales Futuros.
+- **Compilación**: `ng build` finalizado con 0 errores.
+
+
+### 🔹 Corrección de Entidades y Naranja 2022 (Prestamo 5/36 y Rangos Oficiales)
+- **Problema**: En Octubre 2022, la cuota Prestamo 5/36 ($23.500) y los ítems subsiguientes fueron clasificados en Otros en lugar de Naranja, y la tarjeta mostraba Naranja X en vez de Naranja.
+- **Solución**:
+  1. Se actualizó el ETL de migración para respetar los rangos oficiales de filas por entidad definidos en `years-and-ranges.json` (`naranja: filas 39 a 57` en 2022).
+  2. Se re-migró 2022 a PostgreSQL: Naranja en Octubre ahora cuenta con los 13 ítems completos y un subtotal exacto de $37.671,66 (coincidente al centavo con Google Sheets).
+  3. Se ajustó en `mensual.ts` para que muestre el encabezado `Naranja` en años pre-rebranding (<= 2023).
+
+
+### 🔹 Proyección Multi-Mes y Modal Anual de Entidades en Modo BD (ProyeccionEntidadService)
+- **Problema**: Al expandir una entidad o hacer hover sobre su nombre en la tarjeta, la tabla mostraba 0 filas y total $0,00 en años en modo BD (como 2022).
+- **Causa**: `ProyeccionEntidadService.obtenerProyeccionCompleta` leía exclusivamente de Google Sheets (`storeGoogle.getMensualPorMes`), el cual no descarga hojas en modo BD (`isSheetsActivo = false`).
+- **Solución**:
+  1. Se implementó `obtenerProyeccionCompletaDesdeBD` en `ProyeccionEntidadService` consumiendo `MensualItemsService.getItems(anio)`.
+  2. Se proyectan automáticamente las cuotas futuras y pasadas según `cuotaActual` y `totalCuotas`, y se mapean los gastos fijos para cada columna mensual.
+  3. Se añadió `obtenerProyeccionFilaOtrosDesdeBD` para soportar el hover en ítems de Otros en modo BD.
+  4. Se actualizó el subtítulo en `modal-proyeccion-entidad.html` para reflejar "Vista Base de Datos" en modo BD.

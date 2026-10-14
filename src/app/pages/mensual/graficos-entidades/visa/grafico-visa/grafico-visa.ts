@@ -22,17 +22,20 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
 
 import { AppConfigService } from '../../../../../services/app-config.service';
+import { MensualItemsService } from '../../../../../services/mensual-items.service';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-grafico-visa',
   standalone: true,
   imports: [CommonModule, BaseChartDirective, MatProgressSpinnerModule, MatCardModule],
   templateUrl: './grafico-visa.html',
-  styleUrls: ['./grafico-visa.scss'],
+  styleUrl: './grafico-visa.scss',
   providers: [provideCharts(withDefaultRegisterables())]
 })
 export class GraficoVisa {
   private appConfig = inject(AppConfigService);
+  private mensualItemsService = inject(MensualItemsService);
   isCollapsed = signal(false);
 
   @Input() set forceCollapsed(val: boolean) {
@@ -43,11 +46,12 @@ export class GraficoVisa {
     this.isCollapsed.update((v) => !v);
   }
 
-  @Input() mesSeleccionado = '';
+  @Input() mesSeleccionado: string = '';
+  @Input() anioSeleccionado: number = 0;
+
   @ViewChild(BaseChartDirective) chart?: BaseChartDirective;
-  isBrowser = false;
   isCargando = signal(false);
-  @Input() anioSeleccionado = 2025;
+  isBrowser: boolean;
 
   chartData: ChartConfiguration<'line'>['data'] = {
     labels: [],
@@ -85,7 +89,6 @@ export class GraficoVisa {
     private storeGoogle: MovimientosStoreGoogle
   ) {
     this.isBrowser = isPlatformBrowser(this.platformId);
-
   }
 
   async ngOnChanges(changes: SimpleChanges) {
@@ -98,28 +101,68 @@ export class GraficoVisa {
     this.isCargando.set(true);
 
     if (!this.appConfig.isSheetsActivo(this.anioSeleccionado)) {
-      this.chartData = {
-        labels: [],
-        datasets: [
-          {
-            label: 'Total mensual $',
-            data: [],
-            borderColor: '#007bff',
-            fill: false
-          }
-        ]
-      };
-      this.chart?.update();
-      this.cdr.detectChanges();
-      this.isCargando.set(false);
-      return;
+      try {
+        const res = await firstValueFrom(this.mensualItemsService.getItems(this.anioSeleccionado));
+        const allItems = res?.items || [];
+        const mesesNombres = [
+          'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+        ];
+
+        const index = mesesNombres.indexOf(this.mesSeleccionado);
+        const mesesAMostrar: string[] = [];
+        if (index > 0) mesesAMostrar.push(mesesNombres[index - 1]);
+        mesesAMostrar.push(mesesNombres[index >= 0 ? index : 0]);
+        for (let i = 1; mesesAMostrar.length < 6 && (index >= 0 ? index + i : i) < mesesNombres.length; i++) {
+          mesesAMostrar.push(mesesNombres[index >= 0 ? index + i : i]);
+        }
+
+        const resultados: { mes: string; total: number }[] = [];
+        for (const m of mesesAMostrar) {
+          const mNum = mesesNombres.indexOf(m) + 1;
+          const itemsDelMes = allItems.filter(it => it.mes === mNum);
+          const totalMes = itemsDelMes.reduce((acc, it) => acc + Number(it.monto), 0);
+          resultados.push({ mes: m, total: totalMes });
+        }
+
+        const labels = resultados.map(r => r.mes);
+        const data = resultados.map(r => r.total);
+        const pointColors = labels.map(mes => mes === this.mesSeleccionado ? 'green' : '#007bff');
+        const borderColors = labels.map(mes => mes === this.mesSeleccionado ? 'green' : '#007bff');
+        const pointRadius = labels.map(mes => mes === this.mesSeleccionado ? 6 : 4);
+
+        this.chartData = {
+          labels,
+          datasets: [
+            {
+              label: 'Total mensual $',
+              data,
+              borderColor: borderColors,
+              pointBackgroundColor: pointColors,
+              pointBorderColor: borderColors,
+              pointRadius,
+              borderWidth: 2,
+              fill: false,
+              tension: 0.3
+            }
+          ]
+        };
+
+        this.cdr.detectChanges();
+        this.chart?.update();
+        this.isCargando.set(false);
+        return;
+      } catch (err) {
+        console.warn('⚠️ [GraficoVisa] Error al cargar totales desde BD:', err);
+      }
     }
+
     const mesesDelAnio = this.storeGoogle.getMesesParaResumen(this.anioSeleccionado);
     const index = mesesDelAnio.indexOf(this.mesSeleccionado);
     const anterioresYPosteriores: string[] = [];
 
     if (index === -1) {
-      console.warn(`❌ mesSeleccionado no encontrado en mesesDelAnio: ${this.mesSeleccionado}`);
+      console.warn('❌ mesSeleccionado no encontrado en mesesDelAnio: ' + this.mesSeleccionado);
       this.isCargando.set(false);
       return;
     }
@@ -137,7 +180,7 @@ export class GraficoVisa {
       await new Promise(resolve => setTimeout(resolve, 0));
     }
 
-    // 🔑 Aquí aplicamos la misma lógica que usa Resumen
+    // Lógica para Sheets
     const rangos = this.storeGoogle.ValidarRangoEntidades(this.anioSeleccionado);
     const entidades = Object.keys(rangos) as Array<keyof typeof rangos>;
     const resultados: { mes: string; total: number }[] = [];
@@ -154,7 +197,6 @@ export class GraficoVisa {
         const { inicio, fin, headerIndex } = rangos[entidad];
         const headers = hoja.values[headerIndex] ?? [];
         const colIndex = headers.findIndex(h => this.normalizar(mes).includes(this.normalizar(h)));
-       
 
         if (colIndex === -1 && entidad !== 'otros') continue;
 
@@ -203,13 +245,13 @@ export class GraficoVisa {
     this.chart?.ngOnDestroy();
     this.chart?.update();
     this.isCargando.set(false);
-
   }
 
   private parseMoneda(valor: string | undefined): number {
     if (!valor) return 0;
     return Number(valor.replace(/\./g, '').replace(',', '.').replace('$', '')) || 0;
   }
+
   normalizar(texto: string | undefined): string {
     return (texto ?? '')
       .toLowerCase()
@@ -218,6 +260,7 @@ export class GraficoVisa {
         ({ á: 'a', é: 'e', í: 'i', ó: 'o', ú: 'u' }[c] ?? c)
       );
   }
+
   delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }

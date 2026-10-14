@@ -1,5 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { MovimientosStoreGoogle } from '../stores/movimiento.google';
+import { AppConfigService } from './app-config.service';
+import { MensualItemsService, MonthlyItemBackend } from './mensual-items.service';
+import { firstValueFrom } from 'rxjs';
 
 export interface ColumnaMesProyeccion {
   mes: string;
@@ -43,6 +46,13 @@ export interface ProyeccionFilaIndividual {
   providedIn: 'root',
 })
 export class ProyeccionEntidadService {
+  private appConfig = inject(AppConfigService);
+  private mensualItemsService = inject(MensualItemsService);
+  private cacheItemsBD = new Map<number, MonthlyItemBackend[]>();
+
+  limpiarCacheBD(): void {
+    this.cacheItemsBD.clear();
+  }
   private storeGoogle = inject(MovimientosStoreGoogle);
 
   private normalizar(texto: string | undefined): string {
@@ -184,6 +194,15 @@ export class ProyeccionEntidadService {
     nombreEntidadPersonalizado?: string,
     vistaAnioCompleto = false,
   ): Promise<ProyeccionEntidadData> {
+    if (!this.appConfig.isSheetsActivo(anio)) {
+      return this.obtenerProyeccionCompletaDesdeBD(
+        anio,
+        mesSeleccionado,
+        entidadKey,
+        nombreEntidadPersonalizado,
+        vistaAnioCompleto,
+      );
+    }
     const columnas = this.obtenerColumnasMeses(anio, mesSeleccionado, vistaAnioCompleto);
     const colMesActual = columnas.find((c) => c.esActual);
     const colMesPasado = columnas.find((c) => c.esPasado);
@@ -620,6 +639,16 @@ export class ProyeccionEntidadService {
     // 1. MANEJO ESPECÍFICO PARA FILAS DE "OTROS"
     // =========================================================================
     if (entidadKey === 'otros' || entidadKey.startsWith('otros_')) {
+      if (!this.appConfig.isSheetsActivo(anio)) {
+        return this.obtenerProyeccionFilaOtrosDesdeBD(
+          anio,
+          mesSeleccionado,
+          entidadKey,
+          filaData,
+          nombreEntidadPersonalizado,
+          vistaAnioCompleto,
+        );
+      }
       await this.asegurarHojasColumnas(columnas);
 
       const normDesc = this.normalizar(desc);
@@ -798,4 +827,254 @@ export class ProyeccionEntidadService {
     const match = limpio.match(/\b(\d+|x)\/\1\b/);
     return !!match && match[1] !== '1';
   }
+
+  /**
+   * Obtiene la proyección completa de una entidad leyendo directamente desde PostgreSQL (Modo BD).
+   * Compatible con vista compacta de 6 meses o año completo (Enero a Diciembre + proyecciones).
+   */
+  private async obtenerProyeccionCompletaDesdeBD(
+    anio: number,
+    mesSeleccionado: string,
+    entidadKey: string,
+    nombreEntidadPersonalizado?: string,
+    vistaAnioCompleto = false,
+  ): Promise<ProyeccionEntidadData> {
+    const columnas = this.obtenerColumnasMeses(anio, mesSeleccionado, vistaAnioCompleto);
+    const mesesDelAnio = this.storeGoogle.getMesesParaResumen(anio);
+    const mesNumActual = mesesDelAnio.indexOf(mesSeleccionado) + 1;
+
+    let itemsAnio = this.cacheItemsBD.get(anio);
+    if (!itemsAnio) {
+      try {
+        const res = await firstValueFrom(this.mensualItemsService.getItems(anio));
+        itemsAnio = res.items || [];
+        this.cacheItemsBD.set(anio, itemsAnio);
+      } catch (e) {
+        console.error('Error al obtener ítems desde BD para proyección:', e);
+        itemsAnio = [];
+      }
+    }
+
+    const matchEntidad = (itEntidad: string, key: string) => {
+      const norm = this.normalizar(itEntidad);
+      if (key === 'visa') return norm.includes('visa');
+      if (key === 'mastercard') return norm.includes('master');
+      if (key === 'naranja') return norm.includes('naranja');
+      if (key === 'bancor') return norm.includes('bancor');
+      if (key === 'ml') return norm.includes('mercado');
+      if (key.startsWith('otros')) return norm.includes('otros');
+      return norm.includes(this.normalizar(key));
+    };
+
+    const itemsEntidad = (itemsAnio || []).filter((it) => matchEntidad(it.entidad, entidadKey));
+
+    let nombreEntidad = nombreEntidadPersonalizado;
+    if (!nombreEntidad) {
+      if (entidadKey === 'naranja') nombreEntidad = anio <= 2023 ? 'Naranja' : 'Naranja X';
+      else if (entidadKey === 'visa') nombreEntidad = 'Visa Galicia';
+      else if (entidadKey === 'mastercard') nombreEntidad = 'Master Card Galicia';
+      else if (entidadKey === 'bancor') nombreEntidad = 'Bancor';
+      else if (entidadKey === 'ml') nombreEntidad = 'Mercado Libre';
+      else nombreEntidad = 'Otros';
+    }
+
+    const getColMesNum = (colMes: string, colAnio: number) => {
+      if (colMes.startsWith('Enero_')) return 13;
+      if (colMes.startsWith('Febrero_')) return 14;
+      const idx = mesesDelAnio.indexOf(colMes);
+      if (idx !== -1) {
+        return (colAnio - anio) * 12 + (idx + 1);
+      }
+      return 0;
+    };
+
+    const totalesPorMes: Record<string, number> = {};
+    columnas.forEach((c) => (totalesPorMes[c.mes] = 0));
+
+    const filasAgregadas = new Set<string>();
+    const filas: FilaProyeccionEntidad[] = [];
+
+    // Priorizamos ítems del mes actual para preservar el orden idéntico a la tarjeta
+    const itemsMesActual = itemsEntidad.filter((it) => it.mes === mesNumActual);
+    const poolItems = vistaAnioCompleto
+      ? [...itemsMesActual, ...itemsEntidad.filter((it) => it.mes !== mesNumActual)]
+      : itemsMesActual;
+
+    for (const it of poolItems) {
+      const baseDesc = it.esCuota
+        ? it.concepto.replace(/\s+\d+\/\d+.*$/, '').trim()
+        : it.concepto.trim();
+
+      const serieKey = it.esCuota
+        ? `cuota::${this.normalizar(baseDesc)}::${it.totalCuotas}`
+        : `fijo::${this.normalizar(baseDesc)}`;
+
+      if (filasAgregadas.has(serieKey)) continue;
+      filasAgregadas.add(serieKey);
+
+      const valoresPorMes: Record<string, number> = {};
+      const cuotasPorMes: Record<string, string> = {};
+      columnas.forEach((c) => (valoresPorMes[c.mes] = 0));
+      let tieneValores = false;
+
+      if (it.esCuota && it.cuotaActual && it.totalCuotas) {
+        columnas.forEach((c) => {
+          const cNum = getColMesNum(c.mes, c.anio);
+          const diff = cNum - it.mes;
+          const cuotaEsperada = it.cuotaActual! + diff;
+
+          if (cuotaEsperada >= 1 && cuotaEsperada <= it.totalCuotas!) {
+            const itMes = itemsEntidad.find(
+              (x) =>
+                x.mes === cNum &&
+                x.esCuota &&
+                x.totalCuotas === it.totalCuotas &&
+                this.normalizar(x.concepto.replace(/\s+\d+\/\d+.*$/, '')) === this.normalizar(baseDesc),
+            );
+
+            const m = itMes ? Number(itMes.monto) : Number(it.monto);
+            valoresPorMes[c.mes] = m;
+            cuotasPorMes[c.mes] = `${cuotaEsperada}/${it.totalCuotas}`;
+            const esCompensacion = this.normalizar(baseDesc).includes('compensacion');
+            if (!esCompensacion) {
+              totalesPorMes[c.mes] += m;
+            }
+            tieneValores = true;
+          }
+        });
+      } else {
+        columnas.forEach((c) => {
+          const cNum = getColMesNum(c.mes, c.anio);
+          const itMes = itemsEntidad.find(
+            (x) => x.mes === cNum && this.normalizar(x.concepto) === this.normalizar(it.concepto),
+          );
+          if (itMes) {
+            const m = Number(itMes.monto);
+            valoresPorMes[c.mes] = m;
+            const esCompensacion = this.normalizar(baseDesc).includes('compensacion');
+            if (!esCompensacion) {
+              totalesPorMes[c.mes] += m;
+            }
+            tieneValores = true;
+          }
+        });
+      }
+
+      if (tieneValores) {
+        filas.push({
+          descripcion: it.concepto,
+          valoresPorMes,
+          cuotasPorMes,
+          esNuevo: it.esCuota ? it.cuotaActual === 1 : false,
+          esUltima: it.esCuota ? it.cuotaActual === it.totalCuotas : false,
+          esFinalizada: false,
+        });
+      }
+    }
+
+    return {
+      entidadKey,
+      nombreEntidad,
+      columnas,
+      filas,
+      totalesPorMes,
+    };
+  }
+
+  /**
+   * Obtiene la proyección de una fila individual de 'Otros' leyendo desde PostgreSQL.
+   */
+  private async obtenerProyeccionFilaOtrosDesdeBD(
+    anio: number,
+    mesSeleccionado: string,
+    entidadKey: string,
+    filaData: { descripcion: string; monto: unknown },
+    nombreEntidadPersonalizado?: string,
+    vistaAnioCompleto = false,
+  ): Promise<ProyeccionFilaIndividual> {
+    const columnas = this.obtenerColumnasMeses(anio, mesSeleccionado, vistaAnioCompleto);
+    const indexActual = columnas.findIndex((c) => c.esActual);
+    const desc = filaData.descripcion || '';
+    const montoActual = this.parseMonto(filaData.monto);
+    const normDesc = this.normalizar(desc);
+
+    let itemsAnio = this.cacheItemsBD.get(anio);
+    if (!itemsAnio) {
+      try {
+        const res = await firstValueFrom(this.mensualItemsService.getItems(anio));
+        itemsAnio = res.items || [];
+        this.cacheItemsBD.set(anio, itemsAnio);
+      } catch {
+        itemsAnio = [];
+      }
+    }
+
+    const itemsOtros = (itemsAnio || []).filter((it) => this.normalizar(it.entidad).includes('otros'));
+
+    const valoresPorMes: Record<string, number> = {};
+    const cuotasPorMes: Record<string, string> = {};
+    columnas.forEach((c) => (valoresPorMes[c.mes] = 0));
+    valoresPorMes[mesSeleccionado] = montoActual;
+
+    const mesesDelAnio = this.storeGoogle.getMesesParaResumen(anio);
+    const getColMesNum = (colMes: string, colAnio: number) => {
+      if (colMes.startsWith('Enero_')) return 13;
+      if (colMes.startsWith('Febrero_')) return 14;
+      const idx = mesesDelAnio.indexOf(colMes);
+      return idx !== -1 ? (colAnio - anio) * 12 + (idx + 1) : 0;
+    };
+
+    for (const col of columnas) {
+      if (col.esActual) continue;
+      const cNum = getColMesNum(col.mes, col.anio);
+      const itMes = itemsOtros.find(
+        (x) =>
+          x.mes === cNum &&
+          (this.normalizar(x.concepto) === normDesc ||
+            this.normalizar(x.concepto).includes(normDesc) ||
+            normDesc.includes(this.normalizar(x.concepto))),
+      );
+      if (itMes) {
+        valoresPorMes[col.mes] = Number(itMes.monto);
+      }
+    }
+
+    const matchCuota = desc.match(/(\d+)\/(\d+)/);
+    let totalRestante = montoActual;
+
+    if (matchCuota) {
+      const actual = parseInt(matchCuota[1], 10);
+      const total = parseInt(matchCuota[2], 10);
+
+      columnas.forEach((col, idx) => {
+        if (col.esActual) {
+          cuotasPorMes[col.mes] = `${actual}/${total}`;
+        } else if (col.esPasado) {
+          const dist = indexActual - idx;
+          const cuotaPas = actual - dist;
+          if (cuotaPas >= 1) cuotasPorMes[col.mes] = `${cuotaPas}/${total}`;
+        } else if (col.esFuturo) {
+          const diff = idx - indexActual;
+          const cuotaFut = actual + diff;
+          if (cuotaFut <= total) cuotasPorMes[col.mes] = `${cuotaFut}/${total}`;
+        }
+      });
+
+      const cuotasPendientes = Math.max(1, total - actual + 1);
+      totalRestante = montoActual * cuotasPendientes;
+    }
+
+    return {
+      descripcion: desc,
+      entidadKey: 'otros',
+      nombreEntidad: nombreEntidadPersonalizado || 'Otros',
+      columnas,
+      valoresPorMes,
+      cuotasPorMes,
+      totalRestante,
+      esNuevo: this.esCuotaNueva(desc),
+      esUltima: this.esCuotaUltima(desc),
+    };
+  }
+
 }

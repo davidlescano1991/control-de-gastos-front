@@ -23,6 +23,7 @@ import {
 } from '../../../services/proyeccion-entidad.service';
 import { ProyeccionOverlayService } from '../../../services/proyeccion-overlay.service';
 import { ThemeService } from '../../../services/theme.service';
+import { AppConfigService } from '../../../services/app-config.service';
 
 @Component({
   selector: 'app-modal-proyeccion-entidad',
@@ -44,6 +45,7 @@ export class ModalProyeccionEntidad implements OnChanges {
   private proyeccionService = inject(ProyeccionEntidadService);
   public overlayService = inject(ProyeccionOverlayService);
   public themeService = inject(ThemeService);
+  public appConfig = inject(AppConfigService);
   private currencyPipe = inject(CurrencyPipe);
   private cdr = inject(ChangeDetectorRef);
 

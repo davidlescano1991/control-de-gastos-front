@@ -17,6 +17,8 @@ import { Entidad } from '../../../../models/entidad';
 import { MovimientosStoreGoogle } from '../../../../stores/movimiento.google';
 import { getGridColor, getLineWidth } from '../../../../utils/grafico.utils';
 import { AppConfigService } from '../../../../services/app-config.service';
+import { MensualItemsService } from '../../../../services/mensual-items.service';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-grafico-proyeccion-totales',
@@ -76,7 +78,7 @@ export class GraficoProyeccionTotales implements OnChanges {
         callbacks: {
           label: (context) => {
             const raw = context.raw as number;
-            return ` Subtotal: $${raw.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+            return ' Subtotal: $' + raw.toLocaleString('es-AR', { minimumFractionDigits: 2 });
           },
         },
       },
@@ -94,6 +96,7 @@ export class GraficoProyeccionTotales implements OnChanges {
   };
 
   private appConfig = inject(AppConfigService);
+  private mensualItemsService = inject(MensualItemsService);
   private storeGoogle = inject(MovimientosStoreGoogle);
   private cdr = inject(ChangeDetectorRef);
   private platformId = inject(PLATFORM_ID);
@@ -111,17 +114,13 @@ export class GraficoProyeccionTotales implements OnChanges {
   private async cargarTotalesProyeccion(): Promise<void> {
     this.isCargando.set(true);
 
-    if (!this.appConfig.isSheetsActivo(this.anioSeleccionado)) {
-      this.chartData = { labels: [], datasets: [] };
-      this.chart?.update();
-      this.cdr.detectChanges();
+    const mesesDelAnio = this.storeGoogle.getMesesParaResumen(this.anioSeleccionado);
+    if (!mesesDelAnio || mesesDelAnio.length === 0) {
       this.isCargando.set(false);
       return;
     }
 
-    const mesesDelAnio = this.storeGoogle.getMesesParaResumen(this.anioSeleccionado);
     const indexActual = mesesDelAnio.indexOf(this.mesSeleccionado);
-
     if (indexActual === -1) {
       this.isCargando.set(false);
       return;
@@ -135,6 +134,59 @@ export class GraficoProyeccionTotales implements OnChanges {
       mesesAMostrar.push(mesesDelAnio[i]);
     }
 
+    // 🚀 Modo Base de Datos (PostgreSQL)
+    if (!this.appConfig.isSheetsActivo(this.anioSeleccionado)) {
+      try {
+        const resAnio = await firstValueFrom(this.mensualItemsService.getItems(this.anioSeleccionado));
+        const allItems = resAnio?.items || [];
+        const resultadosBD: { mes: string; subtotal: number }[] = [];
+
+        for (const m of mesesAMostrar) {
+          const idxOriginal = mesesDelAnio.indexOf(m);
+          const mesNum = idxOriginal + 1;
+          let subtotalMes = 0;
+          if (mesNum <= 12) {
+            const itemsMes = allItems.filter((it) => it.mes === mesNum && it.esCuota);
+            for (const it of itemsMes) {
+              if (it.cuotaActual && it.totalCuotas) {
+                const restantes = it.totalCuotas - it.cuotaActual + 1;
+                subtotalMes += Number(it.monto) * restantes;
+              }
+            }
+          }
+          resultadosBD.push({ mes: m, subtotal: subtotalMes });
+        }
+
+        const labels = resultadosBD.map((r) => r.mes);
+        const data = resultadosBD.map((r) => r.subtotal);
+
+        this.chartData = {
+          labels,
+          datasets: [
+            {
+              label: 'Subtotal $',
+              data,
+              borderColor: '#dc2626',
+              backgroundColor: 'rgba(239, 68, 68, 0.2)',
+              pointBackgroundColor: '#dc2626',
+              pointBorderColor: '#dc2626',
+              pointRadius: 5,
+              fill: true,
+              tension: 0.2,
+            },
+          ],
+        };
+
+        this.cdr.detectChanges();
+        this.chart?.update();
+        this.isCargando.set(false);
+        return;
+      } catch (err) {
+        console.warn('⚠️ [GraficoProyeccionTotales] Error al cargar proyección desde BD:', err);
+      }
+    }
+
+    // Modo Google Sheets
     for (const mes of mesesAMostrar) {
       await this.storeGoogle.asegurarMensualPorAnio(
         this.anioSeleccionado,
