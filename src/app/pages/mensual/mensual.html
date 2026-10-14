@@ -1,9 +1,6 @@
 <ng-container *ngIf="anios && anios.length > 0">
-  <app-selector-anio-delorean
-    [anios]="anios"
-    [anioSeleccionado]="anioSeleccionado()"
-    (indiceCambiado)="seleccionarAnio($event)"
-  ></app-selector-anio-delorean>
+  <app-selector-anio-delorean [anios]="anios" [anioSeleccionado]="anioSeleccionado()"
+    (indiceCambiado)="seleccionarAnio($event)"></app-selector-anio-delorean>
 
   <!-- ✅ Layout completo fuera del stepper -->
   <div class="pantalla-mensual">
@@ -29,7 +26,7 @@
       <mat-card class="alert-card warning" *ngIf="mensajeEstado.length > 0">
         <mat-card-content class="contenido-abajo">
           @for (msg of [mensajeEstado]; track msg) {
-            <strong class="msg-animated"> {{ msg }} </strong>
+          <strong class="msg-animated"> {{ msg }} </strong>
           }
         </mat-card-content>
       </mat-card>
@@ -46,6 +43,11 @@
                   <mat-icon>{{ colIzquierdaContraida() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
                 </button>
                 <h2>Gastos de {{ mesSeleccionado() }} {{ anioSeleccionado() }}</h2>
+                <button type="button" class="btn-cargar-cuota-header" *ngIf="authService.isAdmin()"
+                  (click)="abrirModalCarga()" title="Cargar nuevo ítem o compra en cuotas">
+                  <mat-icon>add_circle</mat-icon>
+                  <span>Cargar</span>
+                </button>
                 <button type="button" class="btn-header-action" (click)="toggleTodasLasEntidades()"
                   [title]="todasEntidadesContraidas() ? 'Expandir todas las tarjetas' : 'Contraer todas las tarjetas'">
                   <mat-icon>{{ todasEntidadesContraidas() ? 'unfold_more' : 'unfold_less' }}</mat-icon>
@@ -55,37 +57,61 @@
                 <div class="contenedor-entidad">
                   <app-visa [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="visaDatos()"
                     [entidad]="visaEntidad()" [isCargando]="isCargando()"
-                    [forceCollapsed]="todasEntidadesContraidas()"></app-visa>
+                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)"></app-visa>
+                  <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
+                    <span class="punto-origen" [class.origen-bd]="esOrigenBD()" [class.origen-sheets]="!esOrigenBD()"></span>
+                    <span>{{ leyendaOrigenActual() }}</span>
+                  </div>
                 </div>
 
                 <div class="contenedor-entidad">
                   <app-master-galicia [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="masterDatos()"
                     [entidad]="masterEntidad()" [isCargando]="isCargando()"
-                    [forceCollapsed]="todasEntidadesContraidas()"></app-master-galicia>
+                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)"></app-master-galicia>
+                  <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
+                    <span class="punto-origen" [class.origen-bd]="esOrigenBD()" [class.origen-sheets]="!esOrigenBD()"></span>
+                    <span>{{ leyendaOrigenActual() }}</span>
+                  </div>
                 </div>
 
                 <div class="contenedor-entidad">
                   <app-naranja [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="naranjaDatos()"
                     [entidad]="naranjaEntidad()" [isCargando]="isCargando()"
-                    [forceCollapsed]="todasEntidadesContraidas()"></app-naranja>
+                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)"></app-naranja>
+                  <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
+                    <span class="punto-origen" [class.origen-bd]="esOrigenBD()" [class.origen-sheets]="!esOrigenBD()"></span>
+                    <span>{{ leyendaOrigenActual() }}</span>
+                  </div>
                 </div>
 
                 <div class="contenedor-entidad">
                   <app-bancor [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="bancorDatos()"
                     [entidad]="bancorEntidad()" [isCargando]="isCargando()"
-                    [forceCollapsed]="todasEntidadesContraidas()"></app-bancor>
+                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)"></app-bancor>
+                  <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
+                    <span class="punto-origen" [class.origen-bd]="esOrigenBD()" [class.origen-sheets]="!esOrigenBD()"></span>
+                    <span>{{ leyendaOrigenActual() }}</span>
+                  </div>
                 </div>
 
                 <div class="contenedor-entidad">
                   <app-mercado-libre [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="mLDatos()"
                     [entidad]="mLEntidad()" [isCargando]="isCargando()"
-                    [forceCollapsed]="todasEntidadesContraidas()"></app-mercado-libre>
+                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)"></app-mercado-libre>
+                  <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
+                    <span class="punto-origen" [class.origen-bd]="esOrigenBD()" [class.origen-sheets]="!esOrigenBD()"></span>
+                    <span>{{ leyendaOrigenActual() }}</span>
+                  </div>
                 </div>
 
                 <div class="contenedor-entidad">
                   <app-otros [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="otrosDatos()"
                     [entidad]="otrosEntidad()" [isCargando]="isCargando()"
-                    [forceCollapsed]="todasEntidadesContraidas()"></app-otros>
+                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)"></app-otros>
+                  <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
+                    <span class="punto-origen" [class.origen-bd]="esOrigenBD()" [class.origen-sheets]="!esOrigenBD()"></span>
+                    <span>{{ leyendaOrigenActual() }}</span>
+                  </div>
                 </div>
 
                 <div class="contenedor-entidad">
@@ -101,7 +127,10 @@
                     [forceCollapsed]="todasEntidadesContraidas()"></app-tabla-proyeccion-totales>
                 </div>
 
-                <app-origen-datos [anio]="anioSeleccionado()"></app-origen-datos>
+                <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
+                  <span class="punto-origen" [class.origen-bd]="esOrigenBD()" [class.origen-sheets]="!esOrigenBD()"></span>
+                  <span>{{ leyendaOrigenActual() }}</span>
+                </div>
               </mat-card-content>
             </mat-card>
           </div>
@@ -187,21 +216,17 @@
   </div>
 
   <!-- Modal y Tooltip interactivo de Proyección Multi-mes -->
-  <app-modal-proyeccion-entidad
-    [visible]="overlayService.visible()"
-    [esModalCompleto]="overlayService.esModalCompleto()"
-    [modo]="overlayService.modo()"
-    [anio]="overlayService.anio()"
-    [mes]="overlayService.mes()"
-    [entidadKey]="overlayService.entidadKey()"
-    [nombreEntidad]="overlayService.nombreEntidad()"
-    [logoUrl]="overlayService.logoUrl()"
-    [filaData]="overlayService.filaData()"
-    [posX]="overlayService.posX()"
-    [posY]="overlayService.posY()"
+  <app-modal-proyeccion-entidad [visible]="overlayService.visible()"
+    [esModalCompleto]="overlayService.esModalCompleto()" [modo]="overlayService.modo()" [anio]="overlayService.anio()"
+    [mes]="overlayService.mes()" [entidadKey]="overlayService.entidadKey()"
+    [nombreEntidad]="overlayService.nombreEntidad()" [logoUrl]="overlayService.logoUrl()"
+    [filaData]="overlayService.filaData()" [posX]="overlayService.posX()" [posY]="overlayService.posY()"
     (cerrar)="overlayService.cerrarTodo()"
-    (abrirModal)="overlayService.abrirModalCompleto(overlayService.entidadKey(), overlayService.nombreEntidad(), overlayService.anio(), overlayService.mes(), overlayService.logoUrl())"
-  ></app-modal-proyeccion-entidad>
+    (abrirModal)="overlayService.abrirModalCompleto(overlayService.entidadKey(), overlayService.nombreEntidad(), overlayService.anio(), overlayService.mes(), overlayService.logoUrl())"></app-modal-proyeccion-entidad>
+  <!-- Modal de Carga de Cuotas e Ítems Mensuales -->
+  <app-modal-cargar-item [visible]="mostrarModalCargar()" [anioSeleccionado]="anioSeleccionado()"
+    [mesSeleccionado]="mesSeleccionado()" [itemAEditar]="itemParaEditar()" (cerrado)="cerrarModalCargar()"
+    (itemCreado)="onItemCreado($event)"></app-modal-cargar-item>
 </ng-container>
 
 

@@ -1,5 +1,6 @@
+import { AuthService } from '../../../../services/auth.service';
 import { NgFor, NgIf, CurrencyPipe } from '@angular/common';
-import { Component, Input, signal, inject } from '@angular/core';
+import { Component, Input, signal, inject , EventEmitter, Output } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ProyeccionOverlayService } from '../../../../services/proyeccion-overlay.service';
@@ -17,6 +18,14 @@ interface MercadoLibreFila {
   styleUrl: './mercado-libre.scss',
 })
 export class MercadoLibre {
+  public authService = inject(AuthService);
+  @Output() editarFila = new EventEmitter<any>();
+
+  onEditarFila(fila: any, event: MouseEvent): void {
+    event.stopPropagation();
+    this.editarFila.emit(fila);
+  }
+
   private overlayService = inject(ProyeccionOverlayService);
   isCollapsed = signal(false);
 

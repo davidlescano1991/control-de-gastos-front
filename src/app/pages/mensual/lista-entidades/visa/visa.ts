@@ -1,4 +1,5 @@
-import { Component, Input, signal, inject } from '@angular/core';
+import { AuthService } from '../../../../services/auth.service';
+import { Component, Input, signal, inject , EventEmitter, Output } from '@angular/core';
 import { CurrencyPipe, NgFor, NgIf } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
@@ -13,6 +14,14 @@ import { ProyeccionOverlayService } from '../../../../services/proyeccion-overla
   imports: [NgFor, NgIf, CurrencyPipe, MatProgressSpinnerModule, MatCardModule],
 })
 export class VisaComponent {
+  public authService = inject(AuthService);
+  @Output() editarFila = new EventEmitter<any>();
+
+  onEditarFila(fila: any, event: MouseEvent): void {
+    event.stopPropagation();
+    this.editarFila.emit(fila);
+  }
+
   private overlayService = inject(ProyeccionOverlayService);
   isCollapsed = signal(false);
 

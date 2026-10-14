@@ -162,6 +162,11 @@ export class GraficoCuotasCoincidentes implements OnChanges {
       const actual = parseInt(matchCuota[1], 10);
       const total = parseInt(matchCuota[2], 10);
 
+      // Validar que sea una cuota real válida (no decretos ni años)
+      if (isNaN(actual) || isNaN(total) || actual < 1 || actual > total || total > 60) {
+        continue;
+      }
+
       const ratioStr = `${actual}/${total}`;
       const label = `Cuota ${ratioStr}`;
       const key = `cuota_${actual}_${total}`;

@@ -15,6 +15,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
 
 import { AppConfigService } from '../../../services/app-config.service';
+import { MensualItemsService } from '../../../services/mensual-items.service';
+import { firstValueFrom } from 'rxjs';
 import { ProyeccionOverlayService } from '../../../services/proyeccion-overlay.service';
 
 @Component({
@@ -52,6 +54,7 @@ export class Resumen implements OnInit, OnChanges {
   isCargando = signal(false);
   isBrowser = false;
   private appConfig = inject(AppConfigService);
+  private mensualItemsService = inject(MensualItemsService);
   private store = inject(MovimientosStoreGoogle);
   private cdr = inject(ChangeDetectorRef);
   private platformId = inject(PLATFORM_ID);
@@ -101,14 +104,88 @@ export class Resumen implements OnInit, OnChanges {
     if (!this.isBrowser || !this.mesSeleccionado) return;
 
     if (!this.appConfig.isSheetsActivo(this.anioSeleccionado)) {
-      this.entidades = [];
-      this.resumen = {};
-      this.totales = [];
-      this.meses = [];
-      this.mesesResumen = [];
-      this.isCargando.set(false);
-      this.cdr.detectChanges();
-      return;
+      try {
+        const res = await firstValueFrom(this.mensualItemsService.getItems(this.anioSeleccionado));
+        const allItems = res?.items || [];
+        const mesesNombres = [
+          'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+        ];
+
+        const index = mesesNombres.indexOf(this.mesSeleccionado);
+        const anterioresYPosteriores: string[] = [];
+        if (index > 0) anterioresYPosteriores.push(mesesNombres[index - 1]);
+        anterioresYPosteriores.push(mesesNombres[index >= 0 ? index : 0]);
+        for (let i = 1; anterioresYPosteriores.length < 6 && (index >= 0 ? index + i : i) < mesesNombres.length; i++) {
+          anterioresYPosteriores.push(mesesNombres[index >= 0 ? index + i : i]);
+        }
+
+        const entidadMap: Record<string, string> = {
+          'visa galicia': 'visa',
+          'master card galicia': 'mastercard',
+          'naranja': 'naranja',
+          'bancor': 'bancor',
+          'mercado libre': 'ml'
+        };
+
+        const subOtrosKeys: string[] = [];
+        this.subOtrosNombres.clear();
+
+        const mesesNumeros = anterioresYPosteriores.map(m => mesesNombres.indexOf(m) + 1);
+        const itemsVentana = allItems.filter(it => mesesNumeros.includes(it.mes));
+
+        // Detectar sub-conceptos de Otros
+        for (const it of itemsVentana) {
+          if (it.entidad.toLowerCase() === 'otros') {
+            const baseConcepto = (it.concepto || 'Otros').replace(/\s*\d+\/\d+.*$/, '').trim();
+            const key = 'otros_' + baseConcepto.toLowerCase();
+            if (!subOtrosKeys.includes(key)) {
+              subOtrosKeys.push(key);
+              this.subOtrosNombres.set(key, baseConcepto);
+            }
+          }
+        }
+
+        // Armar lista de entidades presentes
+        const listaEntidades: string[] = [];
+        for (const [nombreDb, key] of Object.entries(entidadMap)) {
+          if (itemsVentana.some(it => it.entidad.toLowerCase() === nombreDb)) {
+            listaEntidades.push(key);
+          }
+        }
+        listaEntidades.push(...subOtrosKeys);
+        this.entidades = listaEntidades;
+
+        // Inicializar matriz de resumen
+        this.resumen = {};
+        for (const ent of this.entidades) {
+          this.resumen[ent] = {};
+          for (const m of anterioresYPosteriores) {
+            this.resumen[ent][m] = 0;
+          }
+        }
+
+        // Llenar valores
+        for (const it of itemsVentana) {
+          const mesNombre = mesesNombres[it.mes - 1];
+          const entLower = it.entidad.toLowerCase();
+          let entKey = entidadMap[entLower];
+          if (entLower === 'otros') {
+            const baseConcepto = (it.concepto || 'Otros').replace(/\s*\d+\/\d+.*$/, '').trim();
+            entKey = 'otros_' + baseConcepto.toLowerCase();
+          }
+          if (entKey && this.resumen[entKey] && this.resumen[entKey][mesNombre] !== undefined) {
+            this.resumen[entKey][mesNombre] += Number(it.monto);
+          }
+        }
+
+        this.meses = anterioresYPosteriores;
+        this.isCargando.set(false);
+        this.cdr.detectChanges();
+        return;
+      } catch (err) {
+        console.warn('⚠️ [Resumen] Error al cargar resumen desde BD:', err);
+      }
     }
 
     console.log(

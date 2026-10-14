@@ -1,4 +1,5 @@
-import { Component, effect, Inject, inject, Input, PLATFORM_ID, signal, SimpleChanges } from '@angular/core';
+import { AuthService } from '../../../../services/auth.service';
+import { Component, effect, Inject, inject, Input, PLATFORM_ID, signal, SimpleChanges , EventEmitter, Output } from '@angular/core';
 import { MovimientosStoreGoogle } from '../../../../stores/movimiento.google';
 import { CurrencyPipe, isPlatformBrowser, NgFor, NgIf } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -13,6 +14,14 @@ import { ProyeccionOverlayService } from '../../../../services/proyeccion-overla
   providers: [CurrencyPipe]
 })
 export class Otros {
+  public authService = inject(AuthService);
+  @Output() editarFila = new EventEmitter<any>();
+
+  onEditarFila(fila: any, event: MouseEvent): void {
+    event.stopPropagation();
+    this.editarFila.emit(fila);
+  }
+
   private overlayService = inject(ProyeccionOverlayService);
   isCollapsed = signal(false);
 

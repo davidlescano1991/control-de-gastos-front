@@ -8,6 +8,9 @@ import {
   signal,
 } from '@angular/core';
 import { CommonModule, CurrencyPipe, isPlatformBrowser } from '@angular/common';
+import { firstValueFrom } from 'rxjs';
+import { AppConfigService } from '../../../../services/app-config.service';
+import { MensualItemsService } from '../../../../services/mensual-items.service';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Entidad } from '../../../../models/entidad';
@@ -55,6 +58,8 @@ export class TablaProyeccionTotales implements OnChanges {
   filasProyeccion = signal<RowProyeccion[]>([]);
 
   private storeGoogle = inject(MovimientosStoreGoogle);
+  private appConfig = inject(AppConfigService);
+  private mensualItemsService = inject(MensualItemsService);
   private cdr = inject(ChangeDetectorRef);
   private platformId = inject(PLATFORM_ID);
 
@@ -95,6 +100,48 @@ export class TablaProyeccionTotales implements OnChanges {
 
     // Conservar todos los meses del año para no perder los meses anteriores al cambiar de mes
     const mesesAMostrar = [...mesesDelAnio];
+
+    // 🚀 Si está en modo Base de Datos (PostgreSQL), calcular la proyección desde la BD
+    if (!this.appConfig.isSheetsActivo(this.anioSeleccionado)) {
+      try {
+        const resAnio = await firstValueFrom(this.mensualItemsService.getItems(this.anioSeleccionado));
+        const allItems = resAnio?.items || [];
+        const resultadosBD: RowProyeccion[] = [];
+
+        for (let idx = 0; idx < mesesAMostrar.length; idx++) {
+          const mes = mesesAMostrar[idx];
+          const estadoMes = this.obtenerEstadoMes(mes, idx);
+          const mesNum = idx + 1;
+
+          let subtotalMes = 0;
+          if (mesNum <= 12) {
+            const itemsMes = allItems.filter((it) => it.mes === mesNum && it.esCuota);
+            for (const it of itemsMes) {
+              if (it.cuotaActual && it.totalCuotas) {
+                const restantes = it.totalCuotas - it.cuotaActual + 1;
+                subtotalMes += Number(it.monto) * restantes;
+              }
+            }
+          }
+
+          resultadosBD.push({
+            mes,
+            subtotal: subtotalMes,
+            esMesActual: estadoMes === 'mes-actual' || mes === this.mesSeleccionado,
+            estadoMes,
+          });
+        }
+
+        const mesActualObj = resultadosBD.find((r) => r.estadoMes === 'mes-actual') || resultadosBD.find((r) => r.esMesActual);
+        this.totalMesActual.set(mesActualObj ? mesActualObj.subtotal : 0);
+        this.filasProyeccion.set(resultadosBD);
+        this.cdr.detectChanges();
+        this.isCargando.set(false);
+        return;
+      } catch (err) {
+        console.warn('⚠️ [TablaProyeccionTotales] Error cargando desde BD, recurriendo a Sheets como fallback:', err);
+      }
+    }
 
     // Asegurar que las hojas de todos los meses a mostrar estén cargadas en el store de Google Sheets
     for (const mes of mesesAMostrar) {

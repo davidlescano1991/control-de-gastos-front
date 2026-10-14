@@ -1,4 +1,5 @@
-import { Component, Input, signal, OnChanges } from '@angular/core';
+import { Component, Input, signal, OnChanges, inject } from '@angular/core';
+import { ThemeService } from '../../../services/theme.service';
 import { CurrencyPipe, NgIf } from '@angular/common';
 import { MatCard, MatCardContent, MatCardHeader, MatCardTitle } from '@angular/material/card';
 import { Entidad } from '../../../models/entidad';
@@ -12,6 +13,7 @@ import { Entidad } from '../../../models/entidad';
   styleUrls: ['./actualizacion-cuotas.scss'],
 })
 export class NovedadesCuotas implements OnChanges {
+  public themeService = inject(ThemeService);
   isCollapsed = signal(false);
 
   @Input() set forceCollapsed(val: boolean) {
@@ -82,9 +84,9 @@ export class NovedadesCuotas implements OnChanges {
   }
 
   getColorPorValor(valor: number): string {
-    if (valor < 0) return 'red';
-    if (valor > 0) return 'green';
-    return 'black';
+    if (valor < 0) return '#ef4444';
+    if (valor > 0) return '#10b981';
+    return this.themeService.isDarkMode() ? '#ffffff' : '#1e293b';
   }
 
   private normalizar(texto: string | undefined): string {

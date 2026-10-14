@@ -33,7 +33,7 @@
           <span class="subtitulo-badge" *ngIf="modo === 'completo'">
             <mat-icon class="icon-small">{{ vistaAnioCompleto() ? 'calendar_month' : 'table_chart' }}</mat-icon>
             <span *ngIf="vistaAnioCompleto()">Todo el año {{ anio }} (Enero — Diciembre)</span>
-            <span *ngIf="!vistaAnioCompleto()">Vista Google Sheets (Mes anterior + 4 posteriores)</span>
+            <span *ngIf="!vistaAnioCompleto()">{{ appConfig.isSheetsActivo(anio) ? 'Vista Google Sheets (Mes anterior + 4 posteriores)' : 'Vista Base de Datos (Mes anterior + 4 posteriores)' }}</span>
           </span>
           <span class="subtitulo-badge cuota" *ngIf="modo === 'fila'">
             <mat-icon class="icon-small">timeline</mat-icon>

@@ -1,0 +1,312 @@
+﻿<div
+  *ngIf="visible"
+  class="modal-backdrop"
+  [class.es-dark]="themeService.isDarkMode()"
+  [class.es-light]="!themeService.isDarkMode()"
+  (click)="cerrar()"
+>
+  <div class="modal-dialog" (click)="$event.stopPropagation()">
+    <!-- Encabezado del Modal -->
+    <div class="modal-header">
+      <div class="header-title-group">
+        <div class="header-icon-badge" [class.badge-edit]="esModoEdicion()">
+          <mat-icon>{{ esModoEdicion() ? 'edit_note' : 'add_card' }}</mat-icon>
+        </div>
+        <div>
+          <h2 class="modal-title">{{ esModoEdicion() ? 'Editar Ítem o Cuota' : 'Cargar Ítem o Cuota Mensual' }}</h2>
+          <p class="modal-subtitle">
+            {{ esModoEdicion() ? 'Modifica el concepto, monto/fórmula o notas de este registro' : 'Ingresa compras con cuotas, impuestos o fórmulas aritméticas (=x+y+z)' }}
+          </p>
+        </div>
+      </div>
+      <button type="button" class="btn-close" (click)="cerrar()" [disabled]="isGuardando()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <!-- Alertas de Estado -->
+    <div *ngIf="successMessage()" class="alert-box success">
+      <mat-icon>check_circle</mat-icon>
+      <span>{{ successMessage() }}</span>
+    </div>
+
+    <div *ngIf="errorMessage()" class="alert-box error">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ errorMessage() }}</span>
+    </div>
+
+    <!-- Vista de Confirmación de Eliminación -->
+    <div *ngIf="confirmandoEliminar()" class="confirmacion-eliminar-container">
+      <div class="confirm-card-warning">
+        <mat-icon class="icon-warning-delete">warning_amber</mat-icon>
+        <div class="warning-text">
+          <h3>¿Eliminar este ítem?</h3>
+          <p>
+            Vas a eliminar el registro <strong>"{{ concepto() }}"</strong> por un valor de
+            <strong>{{ calculoEnVivo()?.monto | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>.
+          </p>
+        </div>
+      </div>
+
+      <!-- Opciones para compras en cuotas con serie -->
+      <div *ngIf="esCuotaItem() && grupoCuotaIdItem()" class="opciones-borrado-cuotas">
+        <span class="cuotas-label-pregunta">Esta compra forma parte de un plan de cuotas:</span>
+        <label class="opcion-radio-cuota" [class.selected]="!borrarSerieCompleta()">
+          <input
+            type="radio"
+            name="serieOpcion"
+            [checked]="!borrarSerieCompleta()"
+            (change)="borrarSerieCompleta.set(false)"
+          />
+          <span class="radio-custom"></span>
+          <div class="radio-info">
+            <strong>Eliminar sólo esta cuota ({{ cuotaActualItem() }}/{{ totalCuotasItem() }})</strong>
+            <small>Conserva las demás cuotas en los otros meses.</small>
+          </div>
+        </label>
+
+        <label class="opcion-radio-cuota" [class.selected]="borrarSerieCompleta()">
+          <input
+            type="radio"
+            name="serieOpcion"
+            [checked]="borrarSerieCompleta()"
+            (change)="borrarSerieCompleta.set(true)"
+          />
+          <span class="radio-custom"></span>
+          <div class="radio-info">
+            <strong>Eliminar compra completa (todas las cuotas)</strong>
+            <small>Elimina toda la serie de cuotas asociadas en todos los meses.</small>
+          </div>
+        </label>
+      </div>
+
+      <div class="confirm-actions-row">
+        <button type="button" class="btn btn-secondary" (click)="cancelarEliminar()" [disabled]="isGuardando()">
+          Cancelar
+        </button>
+        <button type="button" class="btn btn-danger-solid" (click)="confirmarEliminacion()" [disabled]="isGuardando()">
+          <mat-spinner *ngIf="isGuardando()" diameter="18" class="btn-spinner"></mat-spinner>
+          <mat-icon *ngIf="!isGuardando()">delete_forever</mat-icon>
+          <span>{{ isGuardando() ? 'Eliminando...' : 'Confirmar Eliminación' }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Cuerpo del Formulario (visible cuando NO estamos confirmando eliminación) -->
+    <div class="modal-body" *ngIf="!confirmandoEliminar()">
+      <!-- 1. Selección de Entidad Financiera -->
+      <div class="form-group">
+        <label class="form-label">
+          <mat-icon class="label-icon">account_balance</mat-icon>
+          Entidad o Cuenta Destino
+        </label>
+        <div class="entidades-grid">
+          <button
+            type="button"
+            *ngFor="let ent of entidades"
+            class="entidad-chip"
+            [class.selected]="entidad() === ent.id"
+            (click)="seleccionarEntidad(ent.id)"
+          >
+            <img *ngIf="ent.logoUrl" [src]="ent.logoUrl" [alt]="ent.nombre" class="chip-logo" />
+            <mat-icon *ngIf="!ent.logoUrl" class="chip-icon">category</mat-icon>
+            <span class="chip-label">{{ ent.nombre }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. Período: Mes y Año -->
+      <div class="form-row">
+        <div class="form-group flex-1">
+          <label class="form-label">
+            <mat-icon class="label-icon">calendar_month</mat-icon>
+            Mes
+          </label>
+          <select class="form-control" [ngModel]="mes()" (ngModelChange)="setMes($event)" [disabled]="esModoEdicion()">
+            <option *ngFor="let m of mesesLista" [value]="m">{{ m }}</option>
+          </select>
+        </div>
+
+        <div class="form-group flex-1">
+          <label class="form-label">
+            <mat-icon class="label-icon">event</mat-icon>
+            Año
+          </label>
+          <input
+            type="number"
+            class="form-control"
+            [ngModel]="anio()"
+            (ngModelChange)="anio.set($event)"
+            min="2020"
+            max="2035"
+            [disabled]="esModoEdicion()"
+          />
+        </div>
+      </div>
+
+      <!-- 3. Concepto / Descripción con Detección de Cuotas -->
+      <div class="form-group">
+        <div class="label-with-tip">
+          <label class="form-label">
+            <mat-icon class="label-icon">description</mat-icon>
+            Concepto o Descripción
+          </label>
+          <span class="tip-badge">Soporta cuotas formato 1/x (ej: MPago 1/3)</span>
+        </div>
+        <input
+          type="text"
+          class="form-control input-lg"
+          placeholder="Ej: MPago 1/3, Impuesto al sello, Expensas, Supermercado..."
+          [ngModel]="concepto()"
+          (ngModelChange)="concepto.set($event)"
+          autofocus
+        />
+
+        <!-- Banner informativo reactivo en modo Creación si detecta cuotas -->
+        <div *ngIf="!esModoEdicion() && infoCuota() as cuota" class="cuota-banner-detector">
+          <div class="detector-header">
+            <mat-icon class="detector-icon">bolt</mat-icon>
+            <div>
+              <strong>Compra en {{ cuota.totalCuotas }} cuotas detectada</strong>
+              <p *ngIf="cuota.esPrimerCuota">
+                Se registrará la cuota <strong>1/{{ cuota.totalCuotas }}</strong> en {{ mes() }} {{ anio() }}
+                y se generarán automáticamente las siguientes <strong>{{ cuota.cuotasRestantes }} cuotas</strong>
+                en los meses consecutivos.
+              </p>
+              <p *ngIf="!cuota.esPrimerCuota">
+                Se registrará la cuota intermedia <strong>{{ cuota.cuotaActual }}/{{ cuota.totalCuotas }}</strong>.
+              </p>
+            </div>
+          </div>
+
+          <div *ngIf="cuota.esPrimerCuota" class="cuota-toggle-option">
+            <label class="checkbox-container">
+              <input
+                type="checkbox"
+                [checked]="autoPropagarCuotas()"
+                (change)="autoPropagarCuotas.set($any($event.target).checked)"
+              />
+              <span class="checkmark"></span>
+              <span class="checkbox-label">
+                Propagar cuotas consecutivas automáticamente (2/{{ cuota.totalCuotas }} a {{ cuota.totalCuotas }}/{{ cuota.totalCuotas }})
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Banner informativo en modo Edición para series de cuotas -->
+        <div *ngIf="esModoEdicion() && esCuotaItem() && grupoCuotaIdItem()" class="cuota-banner-propagacion">
+          <div class="propagacion-header">
+            <mat-icon class="propagacion-icon">sync</mat-icon>
+            <div>
+              <strong>Compra en {{ totalCuotasItem() }} cuotas (Cuota actual: {{ cuotaActualItem() }}/{{ totalCuotasItem() }})</strong>
+              <p>Puedes elegir si deseas propagar este cambio de importe o fórmula al resto de las cuotas pendientes.</p>
+            </div>
+          </div>
+          <div class="propagacion-checkbox">
+            <label class="checkbox-container">
+              <input
+                type="checkbox"
+                [checked]="actualizarSerieCompleta()"
+                (change)="actualizarSerieCompleta.set($any($event.target).checked)"
+              />
+              <span class="checkmark"></span>
+              <span class="checkbox-label">
+                Actualizar serie completa: aplicar este monto/fórmula a las cuotas restantes
+              </span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Monto o Función Matemática -->
+      <div class="form-group">
+        <div class="label-with-tip">
+          <label class="form-label">
+            <mat-icon class="label-icon">calculate</mat-icon>
+            Monto o Función Matemática
+          </label>
+          <span class="tip-badge formula-tip">Admite fórmulas con <code>=</code> (ej: =74996.63+23393.02)</span>
+        </div>
+        <input
+          type="text"
+          class="form-control input-lg formula-input"
+          placeholder="Ej: 98389.65 o =74996.63+23393.02 o =15000+500*2"
+          [ngModel]="montoOFormula()"
+          (ngModelChange)="montoOFormula.set($event)"
+        />
+
+        <!-- Feedback reactivo de la fórmula en vivo -->
+        <div *ngIf="calculoEnVivo() as calc" class="calculo-preview-box">
+          <div *ngIf="!calc.error" class="preview-success">
+            <mat-icon class="preview-icon">functions</mat-icon>
+            <span class="preview-label">
+              {{ calc.esFormula ? 'Fórmula evaluada:' : 'Monto ingresado:' }}
+            </span>
+            <strong class="preview-monto">
+              {{ calc.monto | currency:'ARS':'symbol':'1.2-2':'es-AR' }}
+            </strong>
+          </div>
+
+          <div *ngIf="calc.error" class="preview-error">
+            <mat-icon class="preview-icon">warning</mat-icon>
+            <span>{{ calc.error }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Notas / Observaciones opcionales -->
+      <div class="form-group">
+        <label class="form-label">
+          <mat-icon class="label-icon">notes</mat-icon>
+          Notas u Observaciones (Opcional)
+        </label>
+        <input
+          type="text"
+          class="form-control"
+          placeholder="Aclaración adicional, número de comprobante, etc."
+          [ngModel]="notas()"
+          (ngModelChange)="notas.set($event)"
+        />
+      </div>
+    </div>
+
+    <!-- Pie de Acciones del Modal -->
+    <div class="modal-footer" *ngIf="!confirmandoEliminar()" [class.footer-con-eliminar]="esModoEdicion()">
+      <div *ngIf="esModoEdicion()" class="footer-left">
+        <button
+          type="button"
+          class="btn btn-danger-outline"
+          (click)="iniciarEliminar()"
+          [disabled]="isGuardando()"
+          title="Eliminar este ítem de la base de datos"
+        >
+          <mat-icon>delete</mat-icon>
+          <span>Eliminar</span>
+        </button>
+      </div>
+
+      <div class="footer-right">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          (click)="cerrar()"
+          [disabled]="isGuardando()"
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="guardar()"
+          [disabled]="isGuardando() || !concepto().trim() || !montoOFormula().trim()"
+        >
+          <mat-spinner *ngIf="isGuardando()" diameter="20" class="btn-spinner"></mat-spinner>
+          <mat-icon *ngIf="!isGuardando()">{{ esModoEdicion() ? 'check_circle' : 'save' }}</mat-icon>
+          <span>{{ isGuardando() ? (esModoEdicion() ? 'Actualizando...' : 'Guardando...') : (esModoEdicion() ? 'Actualizar Ítem' : 'Guardar Ítem') }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
