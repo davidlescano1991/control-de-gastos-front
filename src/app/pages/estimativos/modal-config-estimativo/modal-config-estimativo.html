@@ -1,0 +1,264 @@
+<div *ngIf="visible" class="modal-estimativo-wrapper" [class.es-dark]="themeService.isDarkMode()">
+  <div class="modal-backdrop" (click)="cerrarModal()"></div>
+
+  <div class="modal-panel">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="header-titulo">
+        <mat-icon class="icon-header">tune</mat-icon>
+        <div>
+          <h3>Configurar Ciclo Estimativo — {{ mesNombre }} {{ year }}</h3>
+          <span class="subtitulo">
+            Ajuste de fechas según cobro de sueldo, descuento contable de gastos e importes diarios
+          </span>
+        </div>
+      </div>
+      <button type="button" class="btn-cerrar" (click)="cerrarModal()" title="Cerrar modal">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <!-- Spinner de carga inicial -->
+    <div *ngIf="cargando()" class="loading-state">
+      <mat-spinner diameter="44"></mat-spinner>
+      <span>Cargando datos contables y gastos presupuestados del mes...</span>
+    </div>
+
+    <!-- Body -->
+    <div *ngIf="!cargando()" class="modal-body">
+      <!-- Sección 1: Período del Ciclo (Cobro a Cobro) -->
+      <div class="seccion-card">
+        <div class="seccion-header">
+          <mat-icon>calendar_month</mat-icon>
+          <h4>Período Intermensual (Fecha de Cobro)</h4>
+          <span class="badge-dias" *ngIf="totalDiasCalculados > 0">
+            {{ totalDiasCalculados }} días de ciclo
+          </span>
+        </div>
+        <p class="seccion-desc">
+          El ciclo comienza el día en que cobras tu sueldo y finaliza el día anterior al próximo cobro.
+        </p>
+
+        <div class="form-grid dos-columnas">
+          <div class="form-group">
+            <label for="fechaInicio">
+              <span>Fecha Inicio (Cobro Sueldo)</span>
+              <mat-icon class="info-icon" matTooltip="Día 1 del ciclo en que se percibe el ingreso">info</mat-icon>
+            </label>
+            <input
+              type="date"
+              id="fechaInicio"
+              [(ngModel)]="fechaInicio"
+              (ngModelChange)="onFechaChange()"
+              class="input-control"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="fechaFin">
+              <span>Fecha Fin (Víspera próximo cobro)</span>
+              <mat-icon class="info-icon" matTooltip="Último día del ciclo antes del próximo sueldo">info</mat-icon>
+            </label>
+            <input
+              type="date"
+              id="fechaFin"
+              [(ngModel)]="fechaFin"
+              (ngModelChange)="onFechaChange()"
+              class="input-control"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección 2: Ingresos, Gastos y Remanentes -->
+      <div class="seccion-card">
+        <div class="seccion-header">
+          <mat-icon>account_balance_wallet</mat-icon>
+          <h4>Ingresos, Gastos Presupuestados y Remanentes</h4>
+        </div>
+        <p class="seccion-desc">
+          Al cobrar el sueldo, se descuenta de forma íntegra el total de gastos presupuestados del mes.
+        </p>
+
+        <div class="form-grid tres-columnas">
+          <div class="form-group">
+            <label for="sueldoNeto">
+              <span>Sueldo / Ingreso Neto ($)</span>
+              <mat-icon class="info-icon" matTooltip="Total percibido en mano al iniciar el ciclo">info</mat-icon>
+            </label>
+            <input
+              type="number"
+              id="sueldoNeto"
+              [(ngModel)]="sueldoNeto"
+              (ngModelChange)="onParametrosChange()"
+              placeholder="Ej: 2500000"
+              class="input-control"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="gastosPresupuestados">
+              <span>Gastos del Mes (Pre-cargado)</span>
+              <span class="badge-tag" *ngIf="itemsPresupuestadosCount > 0">{{ itemsPresupuestadosCount }} ítems</span>
+            </label>
+            <input
+              type="number"
+              id="gastosPresupuestados"
+              [(ngModel)]="gastosPresupuestados"
+              (ngModelChange)="onParametrosChange()"
+              placeholder="0.00"
+              class="input-control input-destacado-gasto"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="remanenteAnterior">
+              <span>Remanente Mes Anterior</span>
+              <mat-icon class="info-icon" matTooltip="Saldo que quedó en la cuenta bancaria del ciclo anterior">info</mat-icon>
+            </label>
+            <input
+              type="number"
+              id="remanenteAnterior"
+              [(ngModel)]="remanenteAnterior"
+              (ngModelChange)="onParametrosChange()"
+              placeholder="0.00"
+              class="input-control"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección 3: Parámetros Diarios (I1 y J1) y Deuda -->
+      <div class="seccion-card">
+        <div class="seccion-header">
+          <mat-icon>trending_down</mat-icon>
+          <h4>Parámetros de Evolución Diaria y Deuda</h4>
+        </div>
+
+        <div class="form-grid tres-columnas">
+          <div class="form-group">
+            <label for="gastoFijoDiario">
+              <span>Gasto Fijo Diario (I1)</span>
+              <mat-icon class="info-icon" matTooltip="Monto estimado que se resta cada día (ej: $10.500)">info</mat-icon>
+            </label>
+            <input
+              type="number"
+              id="gastoFijoDiario"
+              [(ngModel)]="gastoFijoDiario"
+              (ngModelChange)="onParametrosChange()"
+              placeholder="Ej: 10500"
+              class="input-control"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="ingresoInteresDiario">
+              <span>Interés Diario a Favor (J1)</span>
+              <mat-icon class="info-icon" matTooltip="Intereses ganados diarios en cuentas remuneradas (ej: $600)">info</mat-icon>
+            </label>
+            <input
+              type="number"
+              id="ingresoInteresDiario"
+              [(ngModel)]="ingresoInteresDiario"
+              (ngModelChange)="onParametrosChange()"
+              placeholder="Ej: 600"
+              class="input-control"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="deudaInicial">
+              <span>Deuda Inicial Proyectada ($)</span>
+              <mat-icon class="info-icon" matTooltip="Deuda global de tarjetas/préstamos con la que inicia el ciclo">info</mat-icon>
+            </label>
+            <input
+              type="number"
+              id="deudaInicial"
+              [(ngModel)]="deudaInicial"
+              placeholder="0.00"
+              class="input-control input-destacado-deuda"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección 4: Cálculo Contable Día 1 -->
+      <div class="calculo-card">
+        <div class="calculo-header">
+          <div class="calculo-titulo">
+            <mat-icon class="icon-calc">calculate</mat-icon>
+            <h4>Cálculo Contable del Saldo Inicial (Día 1)</h4>
+          </div>
+          <button
+            type="button"
+            class="btn-toggle-auto"
+            [class.activo]="usarCalculoAutomatico"
+            (click)="toggleCalculoAutomatico()"
+          >
+            <mat-icon>{{ usarCalculoAutomatico ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
+            <span>Cálculo Automático Fiel al Excel</span>
+          </button>
+        </div>
+
+        <div class="formula-breakdown">
+          <div class="item-formula positivo">
+            <span class="label">+ Sueldo Neto:</span>
+            <span class="monto">{{ sueldoNeto | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+          </div>
+          <div class="item-formula negativo">
+            <span class="label">- Gastos Totales del Mes:</span>
+            <span class="monto">{{ gastosPresupuestados | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+          </div>
+          <div class="item-formula positivo" *ngIf="remanenteAnterior !== 0">
+            <span class="label">+ Remanente Anterior:</span>
+            <span class="monto">{{ remanenteAnterior | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+          </div>
+          <div class="item-formula negativo">
+            <span class="label">- Gasto Diario Día 1 (I1):</span>
+            <span class="monto">{{ gastoFijoDiario | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+          </div>
+          <div class="item-formula positivo" *ngIf="ingresoInteresDiario > 0">
+            <span class="label">+ Interés Diario Día 1 (J1):</span>
+            <span class="monto">{{ ingresoInteresDiario | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+          </div>
+        </div>
+
+        <div class="resultado-box">
+          <div class="resultado-label">
+            <span>Saldo Inicial Disponible (Día 1):</span>
+            <small *ngIf="!usarCalculoAutomatico">(Modo de ajuste manual habilitado)</small>
+          </div>
+          <div class="resultado-monto">
+            <span *ngIf="usarCalculoAutomatico">
+              {{ saldoInicialCalculado | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+            </span>
+            <input
+              *ngIf="!usarCalculoAutomatico"
+              type="number"
+              [(ngModel)]="saldoInicialManual"
+              class="input-saldo-manual"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button type="button" class="btn-cancelar" (click)="cerrarModal()" [disabled]="guardando()">
+        Cancelar
+      </button>
+
+      <button
+        type="button"
+        class="btn-guardar"
+        (click)="guardar()"
+        [disabled]="guardando() || cargando() || totalDiasCalculados <= 0"
+      >
+        <mat-spinner diameter="18" *ngIf="guardando()"></mat-spinner>
+        <mat-icon *ngIf="!guardando()">save</mat-icon>
+        <span>{{ guardando() ? 'Generando ciclo...' : 'Guardar y Generar Ciclo' }}</span>
+      </button>
+    </div>
+  </div>
+</div>

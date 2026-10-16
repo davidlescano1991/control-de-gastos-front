@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
@@ -14,6 +14,7 @@ import { ThemeService } from './services/theme.service';
 import { MovimientosStoreGoogle } from './stores/movimiento.google';
 import { SseService } from './services/sse.service';
 import { AuthService } from './services/auth.service';
+import { ModalExportarExcelComponent } from './common/modal-exportar-excel/modal-exportar-excel.component';
 
 type AppWindow = Window & { __APP_VERSION__?: string };
 
@@ -37,12 +38,14 @@ export interface Tile {
     MatIconModule,
     MatDividerModule,
     CommonModule,
+    ModalExportarExcelComponent,
   ],
   styleUrls: ['./app.scss'],
 })
 export class AppComponent {
   isMobile = false;
   readonly appVersion = this.obtenerVersionApp();
+  isModalExportarAbierto = signal<boolean>(false);
   private breakpointObserver = inject(BreakpointObserver);
   private themeService = inject(ThemeService);
   private storeGoogle = inject(MovimientosStoreGoogle);
@@ -71,6 +74,14 @@ export class AppComponent {
   recargarDatos(): void {
     this.storeGoogle.limpiarStorageYRecargar();
     window.location.reload();
+  }
+
+  abrirModalExportarExcel(): void {
+    this.isModalExportarAbierto.set(true);
+  }
+
+  cerrarModalExportarExcel(): void {
+    this.isModalExportarAbierto.set(false);
   }
 
   private obtenerVersionApp(): string {

@@ -149,6 +149,16 @@ export class HojasComponent implements OnInit {
       filasTablaAnual: [84, [Validators.required]],
       celdaIngresoNeto: ['K21', [Validators.required]],
     });
+
+    this.sheetForm.get('activo')?.valueChanges.subscribe((activo) => {
+      const sheetIdControl = this.sheetForm.get('sheetId');
+      if (activo) {
+        sheetIdControl?.setValidators([Validators.required]);
+      } else {
+        sheetIdControl?.clearValidators();
+      }
+      sheetIdControl?.updateValueAndValidity();
+    });
   }
 
   cargarHojas(): void {
@@ -249,7 +259,7 @@ export class HojasComponent implements OnInit {
     this.successMessage.set('');
 
     const val = this.sheetForm.value;
-    const cleanId = this.sheetConfigService.cleanSheetId(val.sheetId);
+    const cleanId = val.sheetId ? this.sheetConfigService.cleanSheetId(val.sheetId) : `bd-${val.year}`;
 
     // Parse meses extra
     const mesesExtra = val.mesesExtra

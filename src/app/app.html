@@ -44,6 +44,11 @@
                 <mat-icon class="icon-violet">table_chart</mat-icon>
                 <span>Hojas de Google</span>
               </button>
+              <mat-divider></mat-divider>
+              <button mat-menu-item (click)="abrirModalExportarExcel()">
+                <mat-icon class="icon-violet">file_download</mat-icon>
+                <span>Exportar a Excel</span>
+              </button>
             </div>
           </mat-menu>
         </span>
@@ -127,6 +132,10 @@
               <mat-icon class="icon-violet">table_chart</mat-icon>
               <span>Hojas de Google</span>
             </button>
+            <button mat-menu-item (click)="abrirModalExportarExcel()">
+              <mat-icon class="icon-violet">file_download</mat-icon>
+              <span>Exportar a Excel</span>
+            </button>
           </ng-container>
           <button mat-menu-item (click)="recargarDatos()">
             <mat-icon color="primary">refresh</mat-icon>
@@ -162,4 +171,10 @@
   <footer class="app-footer">
     <span class="app-version">{{ appVersion }}</span>
   </footer>
+
+  <!-- Modal de Exportación a Excel (.xlsx) -->
+  <app-modal-exportar-excel
+    *ngIf="isModalExportarAbierto()"
+    (cerrar)="cerrarModalExportarExcel()">
+  </app-modal-exportar-excel>
 </div>

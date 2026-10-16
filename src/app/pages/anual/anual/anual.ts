@@ -8,8 +8,9 @@ import { MovimientosStoreGoogle } from '../../../stores/movimiento.google';
 import { WakeLockService } from '../../../services/wake-lock.service';
 import { AppConfigService } from '../../../services/app-config.service';
 import { SseService } from '../../../services/sse.service';
-import { Subscription } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
 import { Prestamo } from '../../../models/prestamo';
+import { LoansService, Loan } from '../../../services/loans.service';
 import { GraficoSaldoAnual } from '../grafico-saldo-anual/grafico-saldo-anual';
 import { GraficoDiasRestantesAnual } from '../grafico-dias-restantes-anual/grafico-dias-restantes-anual';
 import { RendimientosPositivosMensuales } from '../rendimientos-positivos-mensuales/rendimientos-positivos-mensuales';
@@ -109,6 +110,7 @@ export class Anual implements OnInit, OnDestroy {
   private appConfig = inject(AppConfigService);
   private cotizacionStore = inject(CotizacionStore);
   private sseService = inject(SseService);
+  private loansService = inject(LoansService);
   private sseSub: Subscription | null = null;
   anios: number[] = [];
   readonly anioActual = new Date().getFullYear();
@@ -260,11 +262,28 @@ export class Anual implements OnInit, OnDestroy {
 
   private async CargarTablaAnual(anio: number, force = false) {
     if (!this.appConfig.isSheetsActivo(anio)) {
-      this.setSignalIfChanged(this.filas, []);
-      this.setSignalIfChanged(this.categorias, []);
+      // 1. Cargar préstamos reales desde PostgreSQL para años en modo BD
+      try {
+        const resLoans = await firstValueFrom(this.loansService.getLoans(anio));
+        if (resLoans && resLoans.data && resLoans.data.length > 0) {
+          const { filas, categorias } = this.construirTablaPrestamosDesdeBD(resLoans.data, anio);
+          this.setSignalIfChanged(this.filas, filas);
+          this.setSignalIfChanged(this.categorias, categorias);
+          this.setSignalIfChanged(this.resultado, this.porcentajeRestanteFinalRefactorizado());
+        } else {
+          this.setSignalIfChanged(this.filas, []);
+          this.setSignalIfChanged(this.categorias, []);
+          this.setSignalIfChanged(this.resultado, {});
+        }
+      } catch (err) {
+        console.warn(`Error al cargar préstamos de BD para año ${anio}:`, err);
+        this.setSignalIfChanged(this.filas, []);
+        this.setSignalIfChanged(this.categorias, []);
+        this.setSignalIfChanged(this.resultado, {});
+      }
+
       this.setSignalIfChanged(this.filasSecundarias, []);
       this.setSignalIfChanged(this.categoriasSecundarias, []);
-      this.setSignalIfChanged(this.resultado, {});
       this.setSignalIfChanged(this.gastosMensuales, []);
       this.setSignalIfChanged(this.gastosDiarioPromedio, []);
       this.setSignalIfChanged(this.graficoAnual, []);
@@ -884,5 +903,79 @@ export class Anual implements OnInit, OnDestroy {
 
   esAnioEnBD(anio: number): boolean {
     return this.appConfig.esAnioEnBD(anio);
+  }
+
+  async onPrestamoCreado(loan?: Loan | void): Promise<void> {
+    console.log('⚡ [Anual] Préstamo registrado/modificado. Recargando datos...', loan);
+    await this.CargarTablaAnual(this.anioSeleccionado(), true);
+  }
+
+  private construirTablaPrestamosDesdeBD(loans: Loan[], anio: number): { filas: Prestamo[]; categorias: string[] } {
+    if (!loans || loans.length === 0) {
+      return { filas: [], categorias: [] };
+    }
+
+    const categorias = loans.map((l) => l.nombre);
+    const nombresMeses = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+    ];
+
+    // Fila 0: Prestado (capital tomado)
+    const filaPrestado: Prestamo = {
+      nombreFila: 'Prestado',
+      valores: {},
+      valoresPrestamo: {},
+      colores: {},
+    };
+    for (const loan of loans) {
+      filaPrestado.valores[loan.nombre] = loan.capitalTomado;
+      filaPrestado.valoresPrestamo[loan.nombre] = loan.capitalTomado;
+      filaPrestado.colores[loan.nombre] = '#000000';
+    }
+
+    // Filas 1 a 12: Cuotas mensuales
+    const filasMeses: Prestamo[] = [];
+    for (let m = 1; m <= 12; m++) {
+      const filaMes: Prestamo = {
+        nombreFila: nombresMeses[m - 1],
+        valores: {},
+        valoresPrestamo: {},
+        colores: {},
+      };
+
+      for (const loan of loans) {
+        const cuota = loan.installments?.find((i) => i.year === anio && i.mes === m);
+        if (cuota) {
+          filaMes.valores[loan.nombre] = cuota.monto;
+          filaMes.valoresPrestamo[loan.nombre] = cuota.monto;
+          filaMes.colores[loan.nombre] = cuota.pagada ? '#0000ff' : '#000000';
+        } else {
+          filaMes.valores[loan.nombre] = 0;
+          filaMes.valoresPrestamo[loan.nombre] = 0;
+          filaMes.colores[loan.nombre] = '#000000';
+        }
+      }
+      filasMeses.push(filaMes);
+    }
+
+    // Fila 13: Total a devolver
+    const filaDevolver: Prestamo = {
+      nombreFila: 'Total a devolver',
+      valores: {},
+      valoresPrestamo: {},
+      colores: {},
+    };
+    for (const loan of loans) {
+      const sumaCuotas = loan.installments
+        ?.filter((i) => i.year === anio)
+        .reduce((acc, i) => acc + (i.monto || 0), 0) ?? loan.deudaTotal;
+      filaDevolver.valores[loan.nombre] = sumaCuotas;
+      filaDevolver.valoresPrestamo[loan.nombre] = sumaCuotas;
+      filaDevolver.colores[loan.nombre] = '#000000';
+    }
+
+    const filas: Prestamo[] = [filaPrestado, ...filasMeses, filaDevolver];
+    return { filas, categorias };
   }
 }

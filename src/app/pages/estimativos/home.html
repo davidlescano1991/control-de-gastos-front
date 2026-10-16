@@ -55,6 +55,9 @@
               [estimativoFilas]="estimativoFilas()"
               [isColIzquierdaContraida]="colIzquierdaContraida()"
               (toggleHorizontalCollapse)="toggleColIzquierdaHorizontal()"
+              (estimativoActualizado)="seleccionarMesMensual(mesSeleccionado(), true)"
+              (abrirConfig)="abrirModalConfig()"
+              (editarDia)="abrirEditarDia($event)"
             ></app-estimativo-mensual>
           } @else {
             <div class="franja-colapsada" (click)="toggleColIzquierdaHorizontal()" title="Expandir columna izquierda">
@@ -96,4 +99,20 @@
       </div>
     </div>
   </div>
+
+  <app-modal-config-estimativo
+    [visible]="modalConfigVisible()"
+    [year]="anioSeleccionado()"
+    [mesNombre]="mesSeleccionado()"
+    [mesNumero]="mesNumero()"
+    (cerrar)="cerrarModalConfig()"
+    (configurado)="onEstimativoConfigurado()"
+  ></app-modal-config-estimativo>
+
+  <app-modal-editar-dia
+    [visible]="modalEditarDiaVisible()"
+    [fila]="diaParaEditar()"
+    (cerrar)="cerrarEditarDia()"
+    (guardado)="onDiaGuardado()"
+  ></app-modal-editar-dia>
 </ng-container>

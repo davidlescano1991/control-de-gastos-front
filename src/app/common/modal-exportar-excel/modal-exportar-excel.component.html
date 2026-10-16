@@ -1,0 +1,128 @@
+<div class="modal-exportar-backdrop" (click)="onCerrar()">
+  <div class="modal-exportar-panel" (click)="$event.stopPropagation()">
+
+    <!-- Encabezado del Modal -->
+    <div class="modal-header">
+      <div class="header-title-flex">
+        <div class="icon-excel-badge">
+          <mat-icon>table_view</mat-icon>
+        </div>
+        <div>
+          <h3>Exportar Datos a Excel (.xlsx)</h3>
+          <p class="subtitle">Descarga una copia fiel del libro con todas sus hojas y fórmulas</p>
+        </div>
+      </div>
+      <button class="btn-close" (click)="onCerrar()" [disabled]="isExportando()" aria-label="Cerrar modal">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <!-- Cuerpo del Modal -->
+    <div class="modal-body">
+
+      <!-- 1. Selección de Año -->
+      <div class="form-group">
+        <label class="section-label">Seleccionar Año a Exportar</label>
+        <div class="anios-selector-grid">
+          <button type="button" *ngFor="let anio of aniosDisponibles()" class="btn-anio-chip"
+            [class.selected]="anioSeleccionado() === anio" (click)="seleccionarAnio(anio)" [disabled]="isExportando()">
+            <span>{{ anio }}</span>
+            <span class="chip-badge" [class.badge-sheets-dot]="appConfigService.isSheetsActivo(anio)"
+              [class.badge-bd-dot]="!appConfigService.isSheetsActivo(anio)"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. Información del Origen de Datos -->
+      <div class="origen-info-card">
+        <div class="origen-header">
+          <span class="origen-title">Origen de los Datos (Año {{ anioSeleccionado() }}):</span>
+          <span class="badge-origen" [ngClass]="getOrigenBadgeClass()">
+            <mat-icon class="badge-icon">{{ esSheetsActivo() ? 'cloud_download' : 'storage' }}</mat-icon>
+            {{ getOrigenLabel() }}
+          </span>
+        </div>
+        <p class="origen-desc">
+          <ng-container *ngIf="esSheetsActivo()">
+            Se descargará archivo Excel con origen de datos de Google Sheets
+          </ng-container>
+          <ng-container *ngIf="!esSheetsActivo()">
+            Se descargará archivo Excel con origen de datos de la Base de Datos.
+          </ng-container>
+        </p>
+      </div>
+
+      <!-- 3. Contenido del Libro Recreado -->
+      <div class="sheets-included-section">
+        <span class="section-label">Hojas Incluidas en el Archivo Excel</span>
+        <div class="sheets-grid">
+          <div class="sheet-item-card">
+            <mat-icon class="sheet-icon text-blue">receipt_long</mat-icon>
+            <div class="sheet-item-text">
+              <strong>12 Hojas Mensuales</strong>
+              <span>Enero a Diciembre desglosado por entidades (Visa, Naranja, Bancor, etc.)</span>
+            </div>
+          </div>
+          <div class="sheet-item-card">
+            <mat-icon class="sheet-icon text-emerald">swap_horiz</mat-icon>
+            <div class="sheet-item-text">
+              <strong>Hoja Movimientos</strong>
+              <span>Registro cronológico completo de ingresos, gastos, métodos de pago y comprobantes</span>
+            </div>
+          </div>
+          <div class="sheet-item-card">
+            <mat-icon class="sheet-icon text-indigo">query_stats</mat-icon>
+            <div class="sheet-item-text">
+              <strong>Hoja Anual {{ anioSeleccionado() }}</strong>
+              <span>Balance general de ingresos, gastos y cronograma completo de préstamos personales</span>
+            </div>
+          </div>
+          <div class="sheet-item-card">
+            <mat-icon class="sheet-icon text-amber">calendar_month</mat-icon>
+            <div class="sheet-item-text">
+              <strong>Hojas de Estimativos</strong>
+              <span>Control diario mes a mes con fórmulas I1/J1/L1, saldos en cuenta y deudas reales</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feedback de Carga / Éxito / Error -->
+      <div class="feedback-card loading" *ngIf="isExportando()">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>{{ mensajeEstado() }}</span>
+      </div>
+
+      <div class="feedback-card success" *ngIf="descargaExitosa()">
+        <mat-icon>check_circle</mat-icon>
+        <span>{{ mensajeEstado() }}</span>
+      </div>
+
+      <div class="feedback-card error" *ngIf="errorMensaje()">
+        <mat-icon>error</mat-icon>
+        <span>{{ errorMensaje() }}</span>
+      </div>
+
+    </div>
+
+    <!-- Pie del Modal con Botones -->
+    <div class="modal-footer">
+      <div class="footer-filename">
+        <mat-icon>description</mat-icon>
+        <span>Archivo: <strong>{{ getNombreArchivo() }}</strong></span>
+      </div>
+
+      <div class="footer-actions">
+        <button type="button" class="btn-cancel" (click)="onCerrar()" [disabled]="isExportando()">
+          Cancelar
+        </button>
+        <button type="button" class="btn-export" (click)="exportar()" [disabled]="isExportando()">
+          <mat-spinner *ngIf="isExportando()" diameter="18"></mat-spinner>
+          <mat-icon *ngIf="!isExportando()">file_download</mat-icon>
+          <span>{{ isExportando() ? 'Descargando...' : 'Descargar Excel (.xlsx)' }}</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>

@@ -84,8 +84,8 @@ export class NovedadesCuotas implements OnChanges {
   }
 
   getColorPorValor(valor: number): string {
-    if (valor < 0) return '#ef4444';
-    if (valor > 0) return '#10b981';
+    if (valor < 0) return 'red';
+    if (valor > 0) return 'green';
     return this.themeService.isDarkMode() ? '#ffffff' : '#1e293b';
   }
 

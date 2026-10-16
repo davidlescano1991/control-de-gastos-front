@@ -11,7 +11,8 @@
   <div class="movimientos-wrapper-all tabla-anual-full">
     <app-tabla-prestamos [anioSeleccionado]="anioSeleccionado()" [filas]="filas()" [categorias]="categorias()"
       [resultado]="resultado()" [isCargando]="isCargando()"
-      [totalesPendientes]="calcularTotalesPendientes()"></app-tabla-prestamos>
+      [totalesPendientes]="calcularTotalesPendientes()"
+      (prestamoAgregado)="onPrestamoCreado($event)"></app-tabla-prestamos>
     <app-origen-datos [anio]="anioSeleccionado()"></app-origen-datos>
   </div>
   <main class="contenido-dos-columnas" [class.col-izq-contraida]="colIzquierdaContraida()"

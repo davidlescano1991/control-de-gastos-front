@@ -1,17 +1,37 @@
 <mat-card class="example-card contenedor" appearance="outlined" [class.is-collapsed]="isCollapsed()">
-  <div class="card-header-wrapper" style="padding: 16px 16px 0 16px;">
-    <h3 style="margin:0; font-size: 1.25rem; font-weight: 600;">Préstamos y Rendimientos Anuales</h3>
-    <button
-      type="button"
-      class="btn-collapse-card"
-      [class.collapsed]="isCollapsed()"
-      (click)="toggleCollapse()"
-      [title]="isCollapsed() ? 'Expandir Préstamos Anuales' : 'Contraer Préstamos Anuales'"
-    >
-      <svg class="icon-triangle" viewBox="0 0 24 24" width="24" height="24">
-        <path fill="currentColor" d="M7 10l5 5 5-5z" />
-      </svg>
-    </button>
+  <div class="prestamos-header-bar">
+    <!-- Columna Izquierda: Botón Cargar Préstamo pegado al margen izquierdo -->
+    <div class="header-col-left">
+      <button
+        type="button"
+        class="btn-cargar-prestamo-action"
+        (click)="abrirModalCargar()"
+        title="Registrar nuevo préstamo para este año"
+      >
+        <mat-icon>add_circle</mat-icon>
+        <span>Cargar Préstamo</span>
+      </button>
+    </div>
+
+    <!-- Columna Central: Título centrado sin posibilidad de colisión -->
+    <div class="header-col-title">
+      <h3>Préstamos y Rendimientos Anuales</h3>
+    </div>
+
+    <!-- Columna Derecha: Botón de colapsar pegado al margen derecho -->
+    <div class="header-col-right">
+      <button
+        type="button"
+        class="btn-collapse-card"
+        [class.collapsed]="isCollapsed()"
+        (click)="toggleCollapse()"
+        [title]="isCollapsed() ? 'Expandir Préstamos Anuales' : 'Contraer Préstamos Anuales'"
+      >
+        <svg class="icon-triangle" viewBox="0 0 24 24" width="24" height="24">
+          <path fill="currentColor" d="M7 10l5 5 5-5z" />
+        </svg>
+      </button>
+    </div>
   </div>
   <mat-card-content *ngIf="!isCollapsed()">
     <div *ngIf="isCargando; else lista" class="spinner-wrapper">
@@ -111,24 +131,31 @@
                 </td>
 
                 <!-- Columnas de Categorías -->
-                <td *ngFor="let cat of categorias" class="col-valor texto-derecha">
+                <td *ngFor="let cat of categorias" class="col-valor texto-derecha"
+                    [class.celda-primera-cuota-no-paga]="esPrimeraCuotaNoPaga(cat, i)"
+                    (click)="esPrimeraCuotaNoPaga(cat, i) ? abrirModalPagoCuota(cat, i, fila.valores[cat]) : null"
+                    [title]="esPrimeraCuotaNoPaga(cat, i) ? 'Click para registrar pago de cuota (' + cat + ')' : ''">
                   <ng-container *ngIf="i === 0">
                     <span class="monto-otorgado">
                       {{ fila.valores[cat] | currency: 'ARS' : 'symbol' : '1.0-0' : 'es-AR' }}
                     </span>
                   </ng-container>
                   <ng-container *ngIf="i !== 0">
-                    <span
-                      *ngIf="fila.valores[cat] && fila.valores[cat] !== 0"
-                      [ngStyle]="{
-                        'text-decoration':
-                          fila.colores[cat] === '#0000ff' ? 'line-through' : 'none',
-                        color: fila.colores[cat] === '#0000ff' ? '#60a5fa' : 'inherit',
-                        'font-weight': fila.colores[cat] === '#0000ff' ? '500' : '600',
-                      }"
-                    >
-                      {{ fila.valores[cat] | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
-                    </span>
+                    <div class="celda-cuota-wrapper" *ngIf="fila.valores[cat] && fila.valores[cat] !== 0">
+                      <span
+                        [ngStyle]="{
+                          'text-decoration':
+                            fila.colores[cat] === '#0000ff' ? 'line-through' : 'none',
+                          color: fila.colores[cat] === '#0000ff' ? '#60a5fa' : 'inherit',
+                          'font-weight': fila.colores[cat] === '#0000ff' ? '500' : '600',
+                        }"
+                      >
+                        {{ fila.valores[cat] | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                      </span>
+                      <span *ngIf="esPrimeraCuotaNoPaga(cat, i)" class="badge-pagar-cuota" title="Registrar pago">
+                        <mat-icon class="icon-pagar-mini">check_circle</mat-icon>
+                      </span>
+                    </div>
                     <span
                       class="celda-vacia-guion"
                       *ngIf="!fila.valores[cat] || fila.valores[cat] === 0"
@@ -235,4 +262,18 @@
     </ng-template>
   </mat-card-content>
 </mat-card>
+
+<app-modal-cargar-prestamo
+  *ngIf="mostrarModalCargar()"
+  [anioInicial]="anioSeleccionado"
+  (cerrar)="cerrarModalCargar()"
+  (prestamoCreado)="onPrestamoCreado($event)"
+></app-modal-cargar-prestamo>
+
+<app-modal-pagar-cuota-prestamo
+  *ngIf="mostrarModalPago() && cuotaSeleccionada()"
+  [cuotaInfo]="cuotaSeleccionada()!"
+  (cerrar)="cerrarModalPago()"
+  (cuotaPagada)="onCuotaPagada($event)"
+></app-modal-pagar-cuota-prestamo>
 

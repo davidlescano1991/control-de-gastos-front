@@ -28,7 +28,7 @@ interface AppConfig {
 export class AppConfigService {
   private config: AppConfig = {};
   private aniosInicio: number[] = [2026, 2025, 2024, 2023];
-  private aniosEstimativos: number[] = [2026, 2025, 2024, 2023];
+  private aniosEstimativos: number[] = [2026, 2025, 2024, 2023, 2022];
   private aniosMensual: number[] = [2026, 2025, 2024, 2023, 2022];
   private aniosAnual: number[] = [2026, 2025, 2024, 2023, 2022];
   private http = inject(HttpClient);

@@ -19,6 +19,40 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-15 21:38] - Unificación Cromática de Rojo en Compensaciones (Actualización de Cuotas)
+- **Problema Detectado**:
+  - En la tarjeta "Actualización de Cuotas" de la vista mensual (`/mensual`), el valor de **Compensaciones** en estado negativo/deuda mostraba un tono de rojo diferente (`#ef4444`) al rojo puro (`red` / `#ff0000`) utilizado por la línea superior **"Total nuevas cuotas"**.
+- **Causa Raíz**:
+  - En `actualizacion-cuotas.html`, "Total nuevas cuotas" tenía hardcodeado el estilo inline `style="color: red"`.
+  - En `actualizacion-cuotas.ts`, el método `getColorPorValor()` devolvía el código hexadecimal `#ef4444` (rojo coral / Tailwind) para valores menores a 0, generando una discrepancia cromática visible entre líneas contiguas de la misma tarjeta.
+- **Solución Técnica Aplicada**:
+  - Se actualizó `getColorPorValor()` en `actualizacion-cuotas.ts` para devolver `'red'` cuando el valor es menor a 0 (y `'green'` cuando es positivo), igualando con total precisión el color rojo de "Total nuevas cuotas".
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/actualizacion-cuotas/actualizacion-cuotas.ts`
+
+
+### [2026-10-15 21:25] - Corrección de Desalineación y Salto de Altura en Celdas de Tablas de Entidades (Vista Mensual)
+- **Problema Detectado**:
+  - En la vista mensual (`/mensual`), las tarjetas de gastos por entidad (`Visa Galicia`, `Mastercard`, `Naranja`, `Bancor`, `Mercado Libre`, `Otros`) presentaban un escalón o quiebre vertical en la línea divisoria horizontal (`border-bottom`) entre la columna de descripciones y la columna de montos.
+  - El quiebre era especialmente notorio en modo oscuro, donde los fondos alternados de fila (`#162032` y `#1e293b`) se cortaban a alturas distintas, generando un "diente" visual continuo a lo largo de toda la tabla.
+- **Causa Raíz**:
+  - La celda de monto `<td class="col-monto-wrapper">` tenía aplicado directamente el estilo CSS `display: flex; align-items: center; justify-content: flex-end;`.
+  - En el modelo de renderizado de tablas HTML (`border-collapse: collapse`), al asignarle `display: flex` a un elemento `<td>`, el navegador le anula el comportamiento nativo `display: table-cell`.
+  - Como consecuencia, la celda flex deja de estirarse a la altura unificada de la fila (`<tr>`), calculando su propia altura aislada y dibujando su `border-bottom` en una coordenada vertical distinta a la de la primera celda (`td:first-child`), produciendo el salto de altura.
+- **Solución Técnica Aplicada**:
+  - Se desacopló la celda de tabla del contenedor flex:
+    - El elemento `<td>` ahora conserva su comportamiento nativo de celda de tabla con la clase `col-monto` (`text-align: right; vertical-align: middle;`).
+    - El layout flexbox se encapsuló en un contenedor interno `<div class="col-monto-wrapper">` (`display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; width: 100%;`).
+  - Al compartir ambas celdas el mismo contexto `display: table-cell`, la fila (`<tr>`) impone una altura uniforme idéntica en toda su extensión, garantizando una línea divisoria horizontal 100% continua y plana tanto en Modo Claro como en Modo Oscuro.
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/lista-entidades/visa/visa.html` y `visa.scss`
+  - `src/app/pages/mensual/lista-entidades/master-galicia/master-galicia.html` y `master-galicia.scss`
+  - `src/app/pages/mensual/lista-entidades/naranja/naranja.html` y `naranja.scss`
+  - `src/app/pages/mensual/lista-entidades/bancor/bancor.html` y `bancor.scss`
+  - `src/app/pages/mensual/lista-entidades/mercado-libre/mercado-libre.html` y `mercado-libre.scss`
+  - `src/app/pages/mensual/lista-entidades/otros/otros.html` y `otros.scss`
+
+
 ### [2026-10-02 21:45] - Corrección de Caché Permanente y Restauración de Compensaciones
 - **Problema 1 (Falta de Compensaciones en Anual)**:
   - En la vista anual ("Deuda total a pagar"), se había omitido la columna de **Compensaciones** y su cálculo con respecto a tarjetas y préstamos.
@@ -286,3 +320,342 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
   2. Se proyectan automáticamente las cuotas futuras y pasadas según `cuotaActual` y `totalCuotas`, y se mapean los gastos fijos para cada columna mensual.
   3. Se añadió `obtenerProyeccionFilaOtrosDesdeBD` para soportar el hover en ítems de Otros en modo BD.
   4. Se actualizó el subtítulo en `modal-proyeccion-entidad.html` para reflejar "Vista Base de Datos" en modo BD.
+
+### 🔹 [2026-10-14] Carga y Configuración de Estimativos (Ciclo de Cobro, Modo BD y Sincronización Diaria)
+- **Contexto**: Se completó la arquitectura contable e interactiva para la gestión de Estimativos tanto para años conectados a Google Sheets como para años en Base de Datos PostgreSQL (ej. 2022).
+- **Problema / Requerimiento**:
+  - Los ciclos de estimativos son intermensuales y variables (inician el día de cobro de sueldo, ej. 8 de Octubre, y finalizan el día anterior al próximo cobro, ej. 9 de Noviembre = 33 días).
+  - Al cobrar el sueldo (Día 1), contablemente se descuenta la totalidad de los gastos presupuestados del mes (tarjetas, cuotas, servicios) para conocer el remanente real disponible.
+  - Al cargar movimientos en `/nuevo`, el saldo consolidado y la deuda real deben impactar de inmediato en `daily_estimates` para ese día y propagar la deuda a los días subsiguientes.
+  - Los años en modo BD (como 2022) deben ser visualizables en `/estimativo` con su tabla, gráfico, barra de progreso y leyenda de origen de datos.
+- **Acciones Realizadas**:
+  1. **Frontend Service (`EstimatesService`)**:
+     - Creado `src/app/services/estimates.service.ts` con métodos `getMonthly(year, mes)`, `getPreviewGastos(year, mes)`, `upsertConfig(dto)` y `updateDaily(id, payload)`.
+  2. **Componente Modal `ModalConfigEstimativo`**:
+     - Creado `src/app/pages/estimativos/modal-config-estimativo/` (`modal-config-estimativo.ts`, `modal-config-estimativo.html`, `modal-config-estimativo.scss`).
+     - Formulario administrativo para fechas de inicio/fin de cobro, sueldo neto, pre-carga automática de gastos mensuales desde `preview-gastos`, remanente anterior, I1 (gasto diario) y J1 (intereses).
+     - Caja interactiva con la fórmula matemática paso a paso del Día 1 y cálculo automático de días.
+     - Cumplimiento estricto de la **Regla de Oro** (`AGENTS.md`) con tarjetas `.sub-card`, bordes sutiles, sombras suaves y soporte completo de tema oscuro.
+  3. **Conexión de `HomeEstimativo` y `EstimativoMensual` a PostgreSQL**:
+     - En `home.ts`: `seleccionarMesMensual` y `cargaInicial` consumen `estimatesService.getMonthly` cuando `isSheetsActivo(anio)` es falso (modo BD). Al seleccionar 2022 en el selector DeLorean, se muestran inmediatamente los 31 días migrados con `real` ($103.740,14), `deudaReal` ($2.532.885,48) y la leyenda `* Información obtenida desde la BD`.
+     - En `mensual.html`: agregado botón `tune` ("Configurar") para administradores, estado de spinner durante la carga y estado vacío con botón de acción directa.
+     - Suscripción reactiva en tiempo real al canal SSE `DATA_UPDATED` para recargar automáticamente la vista al recibir actualizaciones de movimientos.
+  4. **Backend (`control-de-gastos-api`)**:
+     - `MovementService.createMovementsBatch`: Vinculación por rango de fecha exacto (`startOfDay <= fecha <= endOfDay`), actualización de saldos/deudas reales y propagación inteligente de deuda a días subsiguientes.
+     - `EstimateService.getPreviewExpenses`: Sumatoria preliminar de `monthly_items` y lectura de remanentes de fin de mes del ciclo previo.
+     - Endpoints `/api/estimaciones/config` y `/api/estimaciones/preview-gastos`.
+  5. **Verificación de Compilación**:
+     - `ng build` completado exitosamente con **0 errores** de TypeScript y empaquetado limpio.
+### 🔹 [2026-10-14] Corrección de Contexto de Apilamiento y Posicionamiento de ModalConfigEstimativo
+- **Problema Reportado**: Al hacer clic en el botón "Configurar", el modal de configuración de estimativos aparecía recortado, desplazado y tapado por el gráfico de la columna derecha (`col-derecha-scroll`).
+- **Causa Raíz**:
+  - `ModalConfigEstimativo` estaba incrustado dentro del template de `EstimativoMensual` (`mensual.html`), el cual reside dentro de `<div class="col-izquierda">`.
+  - El contenedor de la columna izquierda tiene definida la regla CSS `transition: all 0.3s ease-in-out` para soportar el colapso horizontal. De acuerdo con las especificaciones del W3C para CSS, cualquier propiedad de transición o transformación crea un **nuevo contexto de formato y apilamiento local (containing block)**.
+  - Esto provocaba que las reglas `position: fixed; width: 100vw; height: 100vh` del modal quedaran atrapadas dentro del ancho limitado de `col-izquierda` en lugar de cubrir el viewport del navegador, haciendo que el hermano contiguo en el DOM (`col-derecha-scroll` con el gráfico) se dibujara por encima del modal.
+- **Solución Técnica Aplicada**:
+  1. Se reubicó `<app-modal-config-estimativo>` en la raíz de la página principal (`src/app/pages/estimativos/home.html`), fuera de `pantalla-mensual` y de la grilla de dos columnas.
+  2. `EstimativoMensual` (`mensual.ts`) ahora emite un evento limpio `@Output() abrirConfig = new EventEmitter<void>()` que es escuchado por `HomeEstimativo` (`home.ts`).
+  3. En `modal-config-estimativo.scss`, se reforzó el apilamiento con `position: fixed; inset: 0; z-index: 999999;`, un backdrop con `z-index: 1000000;` y el panel modal con `z-index: 1000001;`, garantizando que se renderice centrado sobre toda la pantalla sin interferencias de columnas hermanas.
+- **Compilación**: `ng build` completado exitosamente con 0 errores.
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/mensual/mensual.ts`
+  - `src/app/pages/estimativos/mensual/mensual.html`
+  - `src/app/pages/estimativos/home.ts`
+  - `src/app/pages/estimativos/home.html`
+  - `src/app/pages/estimativos/modal-config-estimativo/modal-config-estimativo.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### 🔹 [2026-10-14] Edición de Día Particular, Suma de Préstamos y Soporte 2027 sin Google Sheets
+- **Contexto**:
+  - El usuario requería poder modificar el valor de un día particular en `/estimativo` tal como en Excel (ajustar saldo presupuestado por fórmulas o gastos extraordinarios, saldo real y deuda real).
+  - Al ingresar o adquirir un nuevo préstamo, permitir sumarlo directamente a la deuda actual de ese día y propagarlo a los días subsiguientes del ciclo.
+  - Para el año 2027 (y posteriores), la deuda real inicial sugerida debe coincidir con la **Deuda Total Anual** que figura en la tabla Anual (`Tarjetas + Préstamos + Compensaciones`).
+  - Posibilitar la creación del año 2027 desde `/hojas` sin requerir una hoja de cálculo en Google Sheets (100% en Base de Datos / PostgreSQL).
+- **Acciones Realizadas**:
+  1. **Edición de Día en Tabla Mensual (`mensual.ts` / `mensual.html` / `mensual.scss`)**:
+     - Botón de edición con lápiz ✏️ integrado directamente en la primera columna (`Fecha`), junto al texto de cada fecha (`.fecha-flex`), garantizando visibilidad inmediata al 100% sin importar la resolución o el ancho de la columna, eliminando la necesidad de una 7ma columna final que quedaba oculta por desbordamiento horizontal (`overflow-x`).
+     - Estilizado reactivo para tema claro y oscuro (`:host-context(body.dark-mode)` con tonos violetas suaves).
+     - Modal emergente `modal-dia-wrapper` que permite editar:
+       - Saldo Real en cuenta bancaria.
+       - Deuda Real con botón `+ Sumar Préstamo` para agregar préstamos al vuelo.
+       - Saldo Presupuestado (para ajustes contables específicos de un día).
+       - Checkbox `Propagar Deuda Real a los días siguientes` (activo por defecto).
+     - Guardado persistente a través de `estimatesService.updateDaily` y recarga en tiempo real.
+  2. **Backend API (`estimate.service.ts` / `estimate.controller.ts`)**:
+     - `updateDailyReal`: Soporta actualización de `saldoPesos`, `deuda`, `real`, `deudaReal` y propagación masiva (`propagarDeuda: true`) sobre todos los días con `dia > existing.dia` en el ciclo actual.
+     - `getPreviewExpenses`: Calcula el desglose anual completo (`totalTarjetas`, `totalPrestamos`, `totalCompensaciones`, `deudaTotalAnual`). Para años `>= 2027`, `deudaSugerida` adopta automáticamente `deudaTotalAnual`.
+  3. **Alta de Año 2027 sin Google Sheets (`hojas.ts` / `hojas.html`)**:
+     - Al agregar o editar una configuración de año en `/hojas`, si el interruptor "En Base de Datos" está seleccionado (`activo === false`), el campo `sheetId` deja de ser obligatorio.
+     - La API asigna automáticamente `bd-${year}` si no se proporciona `sheetId`, habilitando la gestión del año 2027 completamente desconectado de Google Sheets.
+  6. **Soporte Interactivo de Fórmulas y Funciones estilo Excel (`ModalEditarDiaComponent`)**:
+     - **Funcionalidad**: Los campos `Saldo Real`, `Deuda Real`, `Saldo Presupuestado` y el monto del préstamo ahora admiten fórmulas matemáticas con o sin signo `=` inicial (`= 781839.33 + 416723.34`, `816116.38 - 50000 + 12000`, `(500000 - 20000) / 2`).
+     - **Funciones de Excel**: Soporte nativo para `=SUM(...)` o `=sum(...)` con separadores `;` o `,` (ej. `=sum(500000; 262902.07)`).
+     - **Previsualización en Vivo**: Badge reactivo debajo de cada campo que muestra en tiempo real el resultado formateado en pesos (`🧮 Resultado: $ 1.198.562,67`) o advertencia si la expresión está incompleta.
+     - **Resolución Atómica**: Al guardar, se evalúa y redondea cada expresión de forma segura para persistir valores numéricos exactos en la API.
+- **Compilación**: `ng build` completado exitosamente con **0 errores**.
+
+### 🔹 [2026-10-14] Módulo Anual 2.0: Automatización de Préstamos en Estimativos y Preparación de Gestión Desacoplada
+- **Contexto**:
+  - El usuario solicitó analizar el Excel 2026 (`Cuentas claras_2026.xlsx`, hoja `Anual 2026` filas 83 a 103 y hoja `Estimativo Octubre`) para entender al detalle cómo se comportan los préstamos, cuándo ingresa el capital tomado, cómo se cargan las cuotas (fijas o variables) y cómo se vinculan automáticamente a la deuda real en Estimativos.
+  - Se requirió dejar `Estimativos` 100% listo para que tome automáticamente los préstamos cargados:
+    1. A partir de la fecha de desembolso (`fechaDia >= fechaToma`), sumar la deuda total del préstamo a la `deudaReal`.
+    2. En el primer día del calendario de estimativos de cada ciclo mensual (día 8 de cobro), descontar mes a mes la cuota correspondiente a medida que se paga.
+  - Dejar estructurado el plan maestro integral en `PLAN_MIGRACION_CLOUD_API.md` (Fase 6.11) para luego desacoplar completamente la pantalla de **Anual** de Google Sheets y operar 100% sobre PostgreSQL.
+- **Acciones Realizadas**:
+  1. **Análisis Forense del Excel 2026**:
+     - Hoja `Anual 2026`: Fila 83 (nombre del préstamo: `NX 300k`), Fila 84 (capital tomado: `$350.000,00`), Filas 85 a 98 (cuotas de Enero a Diciembre + Enero y Febrero 2027 de `$69.453,89`), Fila 99 (Deuda total: `$416.723,34`).
+     - Hoja `Estimativo Octubre`: Día 08/10 arranca con `$781.839,33`. El día 09/10 (toma) la fórmula `=F2+'Anual 2026'!T99` suma `$416.723,34` pasando a `$1.198.562,67` y se propaga. En Noviembre, el día 1 de cobro descuenta la cuota 1 de `$69.453,89`, reduciendo la deuda pendiente a `$347.269,45`.
+  2. **Modelado en Base de Datos (`control-de-gastos-api/prisma/schema.prisma`)**:
+     - Creadas las entidades relacionales `Loan` y `LoanInstallment` con índices optimizados por `year` y `entidad`.
+     - Sincronizadas las tablas `loans` y `loan_installments` en PostgreSQL local y regenerado el cliente de Prisma.
+  3. **Backend API (`loan.service.ts` y `loan.controller.ts`)**:
+     - Endpoints CRUD implementados en `/api/prestamos`: `listLoans`, `getLoanById`, `createLoan` (autogeneración de cuotas uniformes o personalizadas), `updateLoan`, `deleteLoan` y `setInstallmentPaid`.
+     - Eventos SSE `DATA_UPDATED` para notificaciones en vivo.
+  4. **Automatización en Estimativos (`estimate.service.ts`)**:
+     - Método `getPrestamosImpactoParaPeriodo`: detecta préstamos tomados durante el ciclo o previos, calcula la deuda remanente descontando cuotas de meses concluidos y descuenta la cuota del mes en el día 1.
+     - En `upsertMonthlyConfig`: para los días del ciclo con `fechaDia >= fechaToma`, incorpora automáticamente el préstamo a la deuda real proyectada.
+     - En `getPreviewExpenses`: incluye `cuotasPrestamosCount`, `totalPrestamos` y `deudaTotalPrestamosActivos`, sumando automáticamente las cuotas de préstamos del mes al presupuesto.
+  5. **Frontend Service (`src/app/services/loans.service.ts`)**:
+     - Creado `LoansService` en Angular con interfaces fuertemente tipadas (`Loan`, `LoanInstallment`, `CreateLoanDTO`) y métodos observables conectados a `/api/prestamos`.
+  6. **Plan Maestro en `PLAN_MIGRACION_CLOUD_API.md`**:
+     - Incorporada la Fase **6.11: Módulo Anual 2.0 y Gestión Integral de Préstamos Desacoplados de Google Sheets** con los 8 subpasos de ejecución detallados.
+  7. **Compilación y Verificación**:
+     - `ng build` completado exitosamente con **0 errores**.
+     - API y Base de Datos verificadas con tests de creación, previsualización contable, pago de cuota y recálculo automático.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/prisma/schema.prisma`
+  - `control-de-gastos-api/src/services/loan.service.ts`
+  - `control-de-gastos-api/src/controllers/loan.controller.ts`
+  - `control-de-gastos-api/src/routes/loan.routes.ts`
+  - `control-de-gastos-api/src/routes/index.ts`
+  - `control-de-gastos-api/src/services/estimate.service.ts`
+  - `src/app/services/loans.service.ts`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### 🔹 [2026-10-14] Exportador Universal a Excel (.xlsx) Dual (Google Sheets + PostgreSQL Recreado)
+- **Contexto**:
+  - El usuario solicitó agregar un botón "Exportar a Excel" en el dropdown de **Configuración** de la barra de navegación superior (resaltado en captura adjunta).
+  - Al presionarlo, debe abrirse un modal interactivo para ingresar/seleccionar el año a exportar.
+  - Al confirmar, el sistema debe descargar un archivo `.xlsx` recreando fielmente el formato y contenido de los libros originales ("Cuentas claras_[Año].xlsx"):
+    - Si el año proviene de Google Sheets (como 2026): descarga directa del archivo original en vivo con sus fórmulas y hojas nativas.
+    - Si el año proviene de PostgreSQL (como 2022 o 2027+): reconstrucción fidedigna con `exceljs` conteniendo las 12 hojas mensuales por entidad, Movimientos, Anual y Estimativos diarios.
+- **Acciones Realizadas**:
+  1. **Backend API (`control-de-gastos-api`)**:
+     - Instalado `exceljs` para generación avanzada de libros con estilos, formatos numéricos y celdas combinadas.
+     - Creado `ExportExcelService` (`src/services/export-excel.service.ts`):
+       - Si el año tiene `activo: true` en Google Sheets: descarga directa del XLSX vía streaming (`docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`).
+       - Si el año está en PostgreSQL (`activo: false` o 2022/2027): reconstruye el libro con:
+         * 12 Hojas Mensuales (`Diciembre` a `Enero`): agrupadas por entidad con montos, cuotas y totales.
+         * Hoja `Movimientos`: registro detallado de ingresos y gastos con fechas, categorías, métodos de pago y formato de moneda.
+         * Hoja `Anual [Año]`: balance macroeconómico y cronograma de préstamos personales.
+         * Hojas de Estimativos (`Estimativo Enero` a `Estimativo Diciembre`): fila 1 con I1, J1, L1 y tabla de seguimiento diario.
+     - Creado `ExportExcelController` (`src/controllers/export-excel.controller.ts`) y montada la ruta `GET /api/exportar/excel?year=:year` en `src/routes/index.ts`.
+  2. **Frontend Service (`ExportExcelService`)**:
+     - Creado `src/app/services/export-excel.service.ts` con método `downloadYearExcel(year)` y utilidad `triggerBrowserDownload(blob, fileName)`.
+  3. **Componente Modal `ModalExportarExcelComponent`**:
+     - Creado `src/app/common/modal-exportar-excel/` (`modal-exportar-excel.component.ts/html/scss`).
+     - Selector rápido con chips interactivos para cada año disponible (`2027`, `2026`, `2025`, `2024`, `2023`, `2022`).
+     - Tarjeta dinámica de origen de datos con chip badge (verde para Google Sheets, violeta para PostgreSQL).
+     - Grid de 4 tarjetas descriptivas de las hojas incluidas.
+     - Feedback en vivo con spinner de carga y mensaje de descarga exitosa.
+     - Estilos adaptados para modo claro y modo oscuro, respetando la **Regla de Oro** (`AGENTS.md`).
+  4. **Integración en Navbar (`app.html` y `app.component.ts`)**:
+     - Agregada la opción "Exportar a Excel" (icono `file_download`) en el menú desplegable hover de `Configuración` y en el menú móvil.
+     - Apertura y cierre del modal administrado en la raíz de `AppComponent`.
+  5. **Verificación y Pruebas**:
+     - Prueba de exportación para 2026: Descarga exitosa de 2.8 MB directamente desde Google Sheets con cabecera `Origen: Google Sheets (En Vivo)`.
+     - Motor de Plantillas Maestras con Gráficos: Implementado en `ExportExcelService` utilizando las plantillas originales de `control-de-gastos-api/templates/`. Preserva el 100% de los gráficos nativos de Excel (`drawings` en `Saldo`, `Saldo 2022` y las 12 hojas de `Estimativo`), colores, fuentes y fórmulas, inyectando los movimientos actualizados de PostgreSQL (217 registros en 2022) y saldos diarios con tamaño fiel de 2.06 MB.
+     - `ng build` completado exitosamente con **0 errores**.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/package.json`
+  - `control-de-gastos-api/templates/Cuentas claras_2022.xlsx`
+  - `control-de-gastos-api/templates/Cuentas claras_2026.xlsx`
+  - `control-de-gastos-api/templates/Cuentas claras_template.xlsx`
+  - `control-de-gastos-api/src/services/export-excel.service.ts`
+  - `control-de-gastos-api/src/controllers/export-excel.controller.ts`
+  - `control-de-gastos-api/src/routes/export-excel.routes.ts`
+  - `control-de-gastos-api/src/routes/index.ts`
+  - `src/app/services/export-excel.service.ts`
+  - `src/app/common/modal-exportar-excel/modal-exportar-excel.component.ts`
+  - `src/app/common/modal-exportar-excel/modal-exportar-excel.component.html`
+  - `src/app/common/modal-exportar-excel/modal-exportar-excel.component.scss`
+  - `src/app/app.component.ts`
+  - `src/app/app.html`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### 2026-10-15 09:15 - Optimización Visual y Estética de Gráficos en Exportación a Excel (.xlsx)
+- **Resumen**: Rediseño estético y espacial de todos los gráficos nativos de Excel (Barras, Líneas y Áreas) en las exportaciones mensuales y anuales, resolviendo la colisión de números, eliminando leyendas redundantes y preservando el 100% de los gráficos en años de base de datos.
+- **Problemas Detectados**:
+  1. En los gráficos de barras mensuales (ítems a pagar/cuotas MPago), los montos horizontales colisionaban entre barras contiguas haciéndose ilegibles.
+  2. En los gráficos de evolución de gastos (líneas), marcadores circulares de 10pt tapaban la trayectoria y las etiquetas numéricas adyacentes se montaban unas sobre otras.
+  3. Las leyendas laterales a la derecha robaban entre un 20% y 25% del ancho del gráfico, comprimiendo las barras y acentuando las colisiones.
+  4. Al exportar años gestionados por base de datos (ej. 2022), el proceso de reescritura de ExcelJS eliminaba las carpetas OpenXML de gráficos y dibujos.
+- **Causa Raíz**:
+  - Falta de configuración explícita de orientación espacial (`<a:bodyPr rot="..."/>`) y posición (`<c:dLblPos/>`) en los XML de gráficos generados por Google Sheets.
+  - Limitación inherente de la librería `exceljs` que purga elementos `drawing` y `chart` al reconstruir hojas.
+- **Solución Técnica**:
+  - Implementación de `optimizeChartsInBuffer(buffer)` con `JSZip` en `ExportExcelService`, aplicable tanto a descargas dinámicas de Google Sheets como a plantillas maestras locales.
+  - **Barras de Cuotas**: Etiquetas rotadas a -90° vertical (`rot="-5400000"`) en posición `outEnd`, fuente Segoe UI 8pt negrita (#1E293B), barras en azul (#3B82F6) y eliminación de leyendas laterales para ocupar todo el ancho.
+  - **Líneas de Evolución**: Reducción de marcadores a 6pt, curvatura spline suavizada (`smooth="1"`), etiquetas superiores a -30° (#0F172A) y trazado índigo (#4F46E5).
+  - **Áreas y Tendencias**: Etiquetas despegadas del eje inferior rotadas a -30° y remoción de leyenda repetitiva de series.
+  - **Contenedores de Dibujo (`drawing*.xml`)**: Ancho expandido a 720px (`cx="6858000"`) para brindar máxima holgura.
+  - **Años de BD**: Carga directa y optimización del buffer de la plantilla maestra preservando los 85 gráficos y drawings intactos.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/export-excel.service.ts`
+  - `control-de-gastos-api/templates/Cuentas claras_2026.xlsx`
+  - `control-de-gastos-api/templates/Cuentas claras_2022.xlsx`
+  - `control-de-gastos-api/templates/Cuentas claras_template.xlsx`
+  - `REGISTRO_ACCIONES_FRONT.md`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+
+### 2026-10-15 11:15 - Corrección de Validación de Esquema OpenXML y Compatibilidad Estricta con Microsoft Excel
+- **Resumen**: Corrección de validación del esquema OpenXML en gráficos nativos que provocaba el mensaje "Hemos encontrado un problema con contenido... libro dañado" en Microsoft Excel de escritorio al abrir los archivos exportados.
+- **Problema Detectado**: Al abrir en Excel las descargas `.xlsx`, la aplicación mostraba un diálogo de archivo dañado y no permitía su reparación.
+- **Causa Raíz**:
+  - En la especificación OpenXML de gráficos (`drawingml/2006/chart`), la inyección de la etiqueta `<c:dLblPos>` sin un nodo `<c:dLbl>` previo o fuera de la secuencia estricta requerida por el esquema CT_DLbls invalidaba el validador estricto de Microsoft Excel desktop.
+- **Solución Técnica**:
+  - Se eliminó la inyección de `<c:dLblPos>`, logrando la orientación vertical y el desfasado visual de los montos exclusivamente mediante `<a:bodyPr rot="-5400000"/>` (rotación a -90°) y `<a:bodyPr rot="-1800000"/>` (rotación a -30°) dentro de `<c:txPr>`.
+  - Se verificó y validó de forma automatizada mediante automatización COM real de Microsoft Excel (`test_excel_open.ps1`), confirmando apertura exitosa con 31 hojas en 2022 y 34 hojas en 2026 sin alertas ni diálogos de reparación.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/export-excel.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+
+### 2026-10-15 13:15 - Restauración de Anclajes de Dibujo Fieles a Google Sheets y Aislamiento de Ejes
+- **Resumen**: Restauración de las dimensiones y coordenadas exactas de todos los gráficos en `drawing*.xml` para evitar solapamientos con las tablas contables adyacentes, y aislamiento de la rotación para que afecte única y exclusivamente a las etiquetas de datos sobre las barras sin alterar los ejes.
+- **Problemas Detectados**:
+  1. Los gráficos de las hojas mensuales se expandían horizontalmente solapándose entre sí y cubriendo la tabla de "item a pagar / subtotal" de las columnas S y T.
+  2. Los valores numéricos del eje vertical (Y) aparecían rotados lateralmente a 90° de manera antiestética.
+- **Causa Raíz**:
+  - Se había forzado un ancho de 720px (`cx="6858000"`) en los anclajes `oneCellAnchor` de `drawing*.xml`, desalineando la cuadrícula original diseñada en Google Sheets (donde `cx="5029200"` encaja justo entre columnas G y L, y M y R sin tocar la columna S).
+  - La sustitución regex de `<a:bodyPr/>` se aplicaba a nivel global de todo el chart XML, alcanzando accidentalmente el eje vertical `<c:valAx>`.
+- **Solución Técnica**:
+  - Se preservan intactos al 100% los archivos de dibujo `drawing*.xml` con sus coordenadas y dimensiones nativas (`cx="5029200"` y `cx="5657850"`).
+  - La rotación vertical a -90° se acotó estrictamente al bloque de etiquetas de datos (`<c:dLbls>`), preservando la orientación horizontal limpia y natural de los ejes X e Y (`<c:valAx>` y `<c:catAx>`).
+  - Validación con COM de Microsoft Excel confirmando 0 solapamientos y perfecta alineación con las tablas.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/export-excel.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+
+### 2026-10-15 15:15 - Soporte Multianual Auténtico (2022 a 2026) y Descarga Robusta de Google Sheets
+- **Resumen**: Corrección integral del exportador a Excel donde la descarga de años anteriores (ej. 2023) devolvía un archivo con datos y solapas de 2026 (`Febrero_2027 / Enero_2027`).
+- **Problema Detectado**: Al solicitar la exportación de 2023, 2024 o 2025, el archivo descargado contenía la estructura de pestañas de 2026 (`Febrero_2027 / Enero_2027`).
+- **Causa Raíz**:
+  1. En `control-de-gastos-api/templates/` únicamente existían los archivos `Cuentas claras_2022.xlsx` y `Cuentas claras_2026.xlsx`.
+  2. Al solicitar 2023, el `fetch` nativo de Node.js a Google Docs sufría `ECONNRESET` debido al stack TLS en Windows; la API caía en el fallback por defecto (`Cuentas claras_template.xlsx`), el cual correspondía a 2026.
+- **Solución Técnica**:
+  1. Se descargaron e integraron en `templates/` las planillas oficiales nativas para cada uno de los años configurados:
+     - `Cuentas claras_2022.xlsx` (2.13 MB, 31 hojas, `Anual 2022`)
+     - `Cuentas claras_2023.xlsx` (2.48 MB, 33 hojas, `Anual 2023`, `Enero 2024`, etc.)
+     - `Cuentas claras_2024.xlsx` (2.70 MB, 34 hojas, `Anual 2024`, `Enero_2025`, etc.)
+     - `Cuentas claras_2025.xlsx` (2.86 MB, 34 hojas, `Anual 2025`, `Febrero_2026`, etc.)
+     - `Cuentas claras_2026.xlsx` (2.66 MB, 34 hojas, `Anual 2026`, `Febrero_2027`, etc.)
+  2. Se incorporó en `ExportExcelService` un método de descarga en vivo tolerante a fallos TLS (`downloadLiveFromGoogle`) con fallback automático a la plantilla específica del año solicitado.
+  3. Prueba de regresión automatizada con COM de Microsoft Excel Desktop sobre los 5 años completos confirmando apertura exitosa de cada uno con su conteo exacto de hojas y 0 errores.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/export-excel.service.ts`
+  - `control-de-gastos-api/templates/Cuentas claras_2022.xlsx`
+  - `control-de-gastos-api/templates/Cuentas claras_2023.xlsx`
+  - `control-de-gastos-api/templates/Cuentas claras_2024.xlsx`
+  - `control-de-gastos-api/templates/Cuentas claras_2025.xlsx`
+  - `control-de-gastos-api/templates/Cuentas claras_2026.xlsx`
+  - `REGISTRO_ACCIONES_FRONT.md`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+
+### 2026-10-15 16:25 - Gestión de Préstamos Desacoplados de Google Sheets: Modal Interactivo y Soporte BD en Anual
+- **Resumen**: Implementación del modal interactivo de carga de préstamos `ModalCargarPrestamoComponent`, botón `[+ Cargar Préstamo]` en `TablaPrestamosComponent`, e integración reactiva con `LoansService` para construir la tabla anual de préstamos desde PostgreSQL cuando el año esté en modo Base de Datos.
+- **Funcionalidades Añadidas**:
+  1. **Modal de Carga de Préstamos (`ModalCargarPrestamoComponent`)**:
+     - Selector con chips de entidades bancarias habituales (`Naranja X`, `Mercado Pago`, `Bancor`, `Banco Galicia`, `Personal Pay`, `Ualá`, `BBVA`, `Santander`, `Otra`).
+     - Campos de Capital Recibido ($), Fecha de Toma (calendario con impacto en Deuda Real de Estimativos), Fecha de Primera Cuota (con cálculo automático al día 8), y Total de Cuotas (3x, 6x, 9x, 12x, 18x, 24x o personalizado).
+     - Modos de cuota: "Monto Uniforme (Fijo)" vs "Personalizar por Cuota (Variable)".
+     - Columna lateral de preview contable en vivo: Capital Tomado, Total a Devolver, Costo Financiero Total e Intereses porcentuales, junto al cronograma interactivo mes a mes con detección automática de cruce de año (ej. 2026 -> 2027).
+  2. **Botón [+ Cargar Préstamo] en `TablaPrestamosComponent`**:
+     - Integrado en el encabezado de la tarjeta principal junto al botón de colapso, con estilos en degradé esmeralda (`#10b981` a `#059669`) respetando la Regla de Oro (`AGENTS.md`).
+  3. **Desacople de la Vista Anual (`AnualComponent`)**:
+     - Cuando el año seleccionado está en modo Base de Datos (`!isSheetsActivo(anio)`), `CargarTablaAnual` consulta `loansService.getLoans(anio)`.
+     - Implementación de `construirTablaPrestamosDesdeBD()` para transformar el modelo de `Loan[]` a la matriz contable de `Prestamo[]` (Fila 0 "Prestado", Filas 1-12 de cuotas mensuales con estado azul `#0000ff` para cuotas pagadas, y Fila 13 "Total a devolver").
+     - Vinculación del evento `(prestamoAgregado)` para recargar la vista anual y propagar el impacto inmediato a la Deuda Real en Estimativos vía SSE (`DATA_UPDATED`).
+- **Validación Técnica**:
+  - Compilación limpia con `npx ng build` finalizada con código 0.
+- **Archivos Afectados**:
+  - `src/app/pages/anual/tabla-prestamos/modal-cargar-prestamo/modal-cargar-prestamo.component.ts`
+  - `src/app/pages/anual/tabla-prestamos/modal-cargar-prestamo/modal-cargar-prestamo.component.html`
+  - `src/app/pages/anual/tabla-prestamos/modal-cargar-prestamo/modal-cargar-prestamo.component.scss`
+  - `src/app/pages/anual/tabla-prestamos/tabla-prestamos.ts`
+  - `src/app/pages/anual/tabla-prestamos/tabla-prestamos.html`
+  - `src/app/pages/anual/tabla-prestamos/tabla-prestamos.scss`
+  - `src/app/pages/anual/anual/anual.ts`
+  - `src/app/pages/anual/anual/anual.html`
+  - `REGISTRO_ACCIONES_FRONT.md`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+
+### 2026-10-15 20:12 - Ajuste Visual: Dark Mode en Modal de Préstamos y Reposicionamiento del Botón a la Izquierda
+- **Resumen**: Aplicación del soporte integral de Dark Mode en `ModalCargarPrestamoComponent` y reposicionamiento del botón `[+ Cargar Préstamo]` en el extremo izquierdo del encabezado de la tarjeta.
+- **Problemas Detectados**:
+  1. En modo oscuro, el modal se visualizaba mayormente con fondos claros y bordes grises (`#ffffff` y `#fafafc`).
+  2. La posición del botón `+ Cargar Préstamo` junto al título en el centro rompía la armonía estética de la tarjeta.
+- **Solución Técnica**:
+  1. **Dark Mode Completo (`modal-cargar-prestamo.component.scss`)**:
+     - Estilos específicos bajo `:host-context(body.dark-mode)` y `:host-context(.dark-theme)`.
+     - Fondo del panel en `#1e293b` (slate 800), bordes en `#334155`, cabecera y pie en `#0f172a` (slate 900).
+     - Textos en `#f8fafc` y `#e2e8f0`, inputs en `#0f172a` con bordes `#334155`.
+     - Chips de entidad y cuotas con fondo `#0f172a` y estados activos preservados (`#3b82f6` y `#10b981`).
+     - Columna de previsualización adaptada: cards KPI en `#1e293b`, cronograma en `#1e293b` con filas en `#334155`, cuotas de años futuros en `rgba(168, 85, 247, 0.12)`, y alerta de sincronización en `rgba(37, 99, 235, 0.15)`.
+     - Botón Cancelar en `#1e293b` con bordes `#334155` y hover `#334155`.
+  2. **Layout del Encabezado (`tabla-prestamos.html` y `tabla-prestamos.scss`)**:
+     - Estructura `.prestamos-header-bar` con 3 columnas simétricas en flexbox puro (sin `position: absolute` para evitar cualquier colisión de elementos):
+       - `.header-col-left`: Botón `[+ Cargar Préstamo]` alineado de forma fija al extremo izquierdo (`flex: 0 0 auto; min-width: 150px`).
+       - `.header-col-title`: Título centrado naturalmente (`flex: 1 1 auto; text-align: center; white-space: nowrap`).
+       - `.header-col-right`: Botón de colapsar `[ v ]` en el extremo derecho (`flex: 0 0 auto; min-width: 150px`).
+- **Validación Técnica**:
+  - Compilación exitosa con `npx ng build` finalizada con código 0.
+- **Archivos Afectados**:
+  - `src/app/pages/anual/tabla-prestamos/modal-cargar-prestamo/modal-cargar-prestamo.component.scss`
+  - `src/app/pages/anual/tabla-prestamos/tabla-prestamos.html`
+  - `src/app/pages/anual/tabla-prestamos/tabla-prestamos.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### 2026-10-15 20:48 - Flujo Interactivo de Pago de Cuotas de Préstamo con Impacto en Deuda Real y Movimientos
+- **Resumen**: Implementación de la selección interactiva de la primera cuota impaga en la tabla de préstamos anuales (`TablaPrestamosComponent`), apertura del modal interactivo `ModalPagarCuotaPrestamoComponent` para registrar la fecha de pago, y liquidación en cascada en la API (`LoanService.setInstallmentPaid`), asentar egreso en Movimientos y descontar Deuda Real en Estimativos.
+- **Funcionalidades Añadidas**:
+  1. **Regla de Primera Cuota Impaga (`esPrimeraCuotaNoPaga`)**:
+     - Para cada columna de préstamo (`cat`), la tabla inspecciona los meses (Enero a Diciembre) y localiza con precisión la primera cuota que aún no fue abonada (las cuotas pasadas figuran tachadas en `#0000ff`).
+     - Para la situación actual del usuario (Noviembre 2026), se habilita de forma exclusiva dicha cuota con la clase `.celda-primera-cuota-no-paga`, cursor pointer, highlight esmeralda interactivo y badge de pago `check_circle`.
+  2. **Modal de Confirmación de Pago (`ModalPagarCuotaPrestamoComponent`)**:
+     - Creado en `src/app/pages/anual/tabla-prestamos/modal-pagar-cuota-prestamo/`.
+     - Soporte completo de Dark Mode nativo (`:host-context(body.dark-mode)`).
+     - Exhibe el nombre del préstamo, entidad, período (ej: "Noviembre 2026"), número de cuota (ej: "Cuota 8 de 11") y monto a pagar.
+     - Permite ingresar la **Fecha de Pago** con calendario interactivo (por defecto hoy).
+     - Incluye casillas para "Registrar en Movimientos" y "Descontar de Deuda Real en Estimativos".
+  3. **Backend y Cascada en el Sistema (`loan.service.ts` y `loan.controller.ts`)**:
+     - `setInstallmentPaid` extendido para recibir `fechaPago` y `registrarMovimiento`.
+     - Actualiza la cuota a `pagada: true` con su `fechaPago`.
+     - Crea automáticamente un registro de tipo `EGRESO` en `prisma.movement` vinculado a la categoría `Préstamos` y subcategoría del préstamo.
+     - Localiza el ciclo mensual correspondiente en `prisma.monthlyEstimateConfig` y descuenta el importe de la cuota de la `deudaReal` en las filas de `dailyEstimate` a partir del día del pago.
+     - Emite evento SSE `DATA_UPDATED` para refresco reactivo automático en todos los módulos.
+  4. **Frontend Reactivo**:
+     - La cuota pasa inmediatamente en memoria al estado azul `#0000ff` tachado (`line-through`).
+     - Se recalculan instantáneamente los totales de Resta por Pagar, % Restante y KPIs superiores.
+- **Validación Técnica**:
+  - Compilación limpia con `npx ng build` finalizada con código 0.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/loan.service.ts`
+  - `control-de-gastos-api/src/controllers/loan.controller.ts`
+  - `src/app/services/loans.service.ts`
+  - `src/app/pages/anual/tabla-prestamos/modal-pagar-cuota-prestamo/modal-pagar-cuota-prestamo.component.ts`
+  - `src/app/pages/anual/tabla-prestamos/modal-pagar-cuota-prestamo/modal-pagar-cuota-prestamo.component.html`
+  - `src/app/pages/anual/tabla-prestamos/modal-pagar-cuota-prestamo/modal-pagar-cuota-prestamo.component.scss`
+  - `src/app/pages/anual/tabla-prestamos/tabla-prestamos.ts`
+  - `src/app/pages/anual/tabla-prestamos/tabla-prestamos.html`
+  - `src/app/pages/anual/tabla-prestamos/tabla-prestamos.scss`
+  - `src/app/pages/anual/anual/anual.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+
+
+
+
