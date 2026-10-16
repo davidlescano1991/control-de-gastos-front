@@ -7,12 +7,12 @@ import { MatCardModule } from '@angular/material/card';
 import { ProyeccionOverlayService } from '../../../../services/proyeccion-overlay.service';
 import { computed } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { ModalPagarEntidadComponent, EntidadAPagarInfo } from '../../modal-pagar-entidad/modal-pagar-entidad.component';
+import { EntidadAPagarInfo } from '../../modal-pagar-entidad/modal-pagar-entidad.component';
 import { EntityPaymentService, EntityPayment } from '../../../../services/entity-payment.service';
 
 @Component({
   selector: 'app-master-galicia',
-  imports: [NgFor, NgIf, CurrencyPipe, MatProgressSpinnerModule, MatCardModule, MatIconModule, ModalPagarEntidadComponent],
+  imports: [NgFor, NgIf, CurrencyPipe, MatProgressSpinnerModule, MatCardModule, MatIconModule],
   templateUrl: './master-galicia.html',
   providers: [CurrencyPipe],
   styleUrl: './master-galicia.scss'
@@ -63,7 +63,7 @@ export class MasterGalicia {
   });
 
   abrirModalPago(): void {
-    this.modalPagoAbierto.set(true);
+    this.paymentService.abrirModalPago(this.entidadAPagarInfo());
   }
 
   onPagoConfirmado(pago: EntityPayment): void {

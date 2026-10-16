@@ -227,6 +227,14 @@
   <app-modal-cargar-item [visible]="mostrarModalCargar()" [anioSeleccionado]="anioSeleccionado()"
     [mesSeleccionado]="mesSeleccionado()" [itemAEditar]="itemParaEditar()" (cerrado)="cerrarModalCargar()"
     (itemCreado)="onItemCreado($event)"></app-modal-cargar-item>
+
+  <!-- Modal de Pago de Entidades a nivel raíz (supera cualquier stacking context) -->
+  <app-modal-pagar-entidad
+    *ngIf="entityPaymentService.entidadAPagarSeleccionada()"
+    [entidadInfo]="entityPaymentService.entidadAPagarSeleccionada()!"
+    (cerrar)="entityPaymentService.cerrarModalPago()"
+    (pagoConfirmado)="entityPaymentService.cerrarModalPago()"
+  ></app-modal-pagar-entidad>
 </ng-container>
 
 

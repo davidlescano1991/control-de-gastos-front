@@ -9,6 +9,7 @@ import { EntityPaymentService } from '../../services/entity-payment.service';
 import { MensualItemsService } from '../../services/mensual-items.service';
 import { SyncMensualSheetsDbService } from '../../services/sync-mensual-sheets-db.service';
 import { ModalCargarItemComponent } from './modal-cargar-item/modal-cargar-item';
+import { ModalPagarEntidadComponent } from './modal-pagar-entidad/modal-pagar-entidad.component';
 import { VisaComponent } from './lista-entidades/visa/visa';
 import { NgFor, NgIf } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -80,6 +81,7 @@ import { ProyeccionOverlayService } from '../../services/proyeccion-overlay.serv
     OrigenDatosComponent,
     ModalProyeccionEntidad,
     ModalCargarItemComponent,
+    ModalPagarEntidadComponent,
   ],
 })
 export class Mensual implements OnInit, OnDestroy {
@@ -267,7 +269,7 @@ export class Mensual implements OnInit, OnDestroy {
   }
 
   private breakpointObserver = inject(BreakpointObserver);
-  private entityPaymentService = inject(EntityPaymentService);
+  public entityPaymentService = inject(EntityPaymentService);
 
 
   constructor() {

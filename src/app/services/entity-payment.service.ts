@@ -34,6 +34,17 @@ export interface RegisterPaymentDTO {
   notas?: string;
 }
 
+export interface EntidadAPagarInfo {
+  year: number;
+  mes: number;
+  mesNombre: string;
+  entidad: string;
+  itemId?: string;
+  concepto?: string;
+  totalOriginal: number;
+  pagoExistente?: EntityPayment;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -43,6 +54,17 @@ export class EntityPaymentService {
 
   // Estado reactivo en memoria: Map(`${year}::${mes}`, EntityPayment[])
   pagosMesSignal = signal<Map<string, EntityPayment[]>>(new Map());
+
+  // Manejo global del modal de pago (evita problemas de stacking context / overflow)
+  entidadAPagarSeleccionada = signal<EntidadAPagarInfo | null>(null);
+
+  abrirModalPago(info: EntidadAPagarInfo): void {
+    this.entidadAPagarSeleccionada.set(info);
+  }
+
+  cerrarModalPago(): void {
+    this.entidadAPagarSeleccionada.set(null);
+  }
 
   getPayments(year: number, mes: number): Observable<{ success: boolean; data: EntityPayment[] }> {
     return this.http.get<{ success: boolean; data: EntityPayment[] }>(`${this.apiUrl}?year=${year}&mes=${mes}`).pipe(

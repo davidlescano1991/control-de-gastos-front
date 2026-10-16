@@ -205,9 +205,4 @@
     </mat-card-content>
   </mat-card>
 </ng-template>
-<app-modal-pagar-entidad
-  *ngIf="modalPagoAbierto()"
-  [entidadInfo]="entidadAPagarInfo()"
-  (cerrar)="modalPagoAbierto.set(false)"
-  (pagoConfirmado)="onPagoConfirmado($event)"
-></app-modal-pagar-entidad>
+

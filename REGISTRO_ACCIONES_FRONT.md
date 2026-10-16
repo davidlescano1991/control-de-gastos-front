@@ -19,6 +19,36 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-16 09:25] - Reubicación de Modal de Pago al Nivel Raíz (Fix Stacking Context) y Registro Directo en BD de Pagos de Octubre 2026
+- **Problema 1 (Modal Oculto tras Contenedor de Gráficos de la Derecha)**:
+  - Al presionar el botón de pagar (`$`) en las cabeceras o filas de entidades en la vista mensual (`/mensual`), la columna izquierda se oscurecía con el backdrop pero el diálogo modal quedaba tapado detrás del panel de la derecha ("Resumen gráfico").
+  - **Causa Raíz**:
+    - `<app-modal-pagar-entidad>` estaba instanciado dentro del DOM de cada tarjeta hija (`app-visa`, `app-bancor`, etc.), contenido dentro de `.col-izquierda`.
+    - Al tener la columna derecha `.sticky-grafico` con `z-index: 10`, el stacking context de CSS provocaba que todo el contenido de `.col-izquierda` (incluso con `position: fixed`) se renderizara por debajo de la columna derecha.
+  - **Solución Técnica Aplicada**:
+    - Se refactorizó la apertura del modal para gestionarla centralizadamente a través de `EntityPaymentService` (`entidadAPagarSeleccionada`, `abrirModalPago()`, `cerrarModalPago()`).
+    - Se reubicó `<app-modal-pagar-entidad>` en el nivel raíz de la página mensual (`mensual.html`), fuera de las columnas y de `.pantalla-mensual`, análogo a los modales de proyección y de carga.
+    - Se elevó el `.modal-backdrop` a `z-index: 999999 !important` con `inset: 0` y centrado flex garantizado sobre la totalidad de la ventana.
+- **Punto 2 (Carga Directa en Base de Datos de Pagos de Octubre 2026 sin Movimientos)**:
+  - Siguiendo la instrucción explícita del usuario de no asentar egresos en movimientos para no restar saldos diarios ni alterar compensaciones en este ciclo, se insertaron directamente en la tabla relacional `entity_payments` de PostgreSQL los siguientes pagos con fecha `08/10/2026`:
+    - **Visa Galicia**: `$650.000` abonados (Total: `$836.190,30`, Restante: `$186.190,30`, Estado: `PARCIAL`).
+    - **Master Card Galicia**: `$470.000` abonados (Total: `$3.062.848,43`, Restante: `$2.592.848,43`, Estado: `PARCIAL`).
+    - **Naranja X**: Totalmente abonada `$367.180,10` (Restante: `$0`, Estado: `COMPLETO`).
+    - **Bancor**: `$430.000` abonados (Total: `$1.385.544,91`, Restante: `$955.544,91`, Estado: `PARCIAL`).
+    - **Otros**: Totalmente abonado `$1.020.605,63` a nivel global y en cada uno de sus ítems individuales (`internet`: $23.300, `Nafta`: $7.000, `Cuota Alimentaria`: $684.048,60, `Claro`: $40.873,95, `Prestamo`: $265.383,08) con Restante: `$0` y Estado: `COMPLETO`.
+- **Archivos Afectados**:
+  - `src/app/services/entity-payment.service.ts`
+  - `src/app/pages/mensual/mensual.ts`, `mensual.html`
+  - `src/app/pages/mensual/modal-pagar-entidad/modal-pagar-entidad.component.scss`
+  - `src/app/pages/mensual/lista-entidades/visa/visa.ts`, `visa.html`
+  - `src/app/pages/mensual/lista-entidades/master-galicia/master-galicia.ts`, `master-galicia.html`
+  - `src/app/pages/mensual/lista-entidades/naranja/naranja.ts`, `naranja.html`
+  - `src/app/pages/mensual/lista-entidades/bancor/bancor.ts`, `bancor.html`
+  - `src/app/pages/mensual/lista-entidades/mercado-libre/mercado-libre.ts`, `mercado-libre.html`
+  - `src/app/pages/mensual/lista-entidades/otros/otros.ts`, `otros.html`
+  - Base de datos PostgreSQL (`control-de-gastos-api`, tabla `entity_payments`)
+
+
 ### [2026-10-15 23:30] - Sistema Integral de Pago de Entidades (Mensual 2.0), Compensaciones en Anual e Impacto en Estimativos
 - **Funcionalidad y Requerimiento**:
   - En la vista mensual (`/mensual`), se agregó un botón de pago con ícono de pesos (`$`) y tooltip `"Pagar entidad"` ubicado inmediatamente a la derecha del logo en la cabecera de las tarjetas de crédito (`Visa Galicia`, `Mastercard`, `Naranja`, `Bancor`, `Mercado Libre`).

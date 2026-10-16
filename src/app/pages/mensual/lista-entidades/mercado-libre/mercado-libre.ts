@@ -6,7 +6,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ProyeccionOverlayService } from '../../../../services/proyeccion-overlay.service';
 import { computed } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { ModalPagarEntidadComponent, EntidadAPagarInfo } from '../../modal-pagar-entidad/modal-pagar-entidad.component';
+import { EntidadAPagarInfo } from '../../modal-pagar-entidad/modal-pagar-entidad.component';
 import { EntityPaymentService, EntityPayment } from '../../../../services/entity-payment.service';
 
 interface MercadoLibreFila {
@@ -17,7 +17,7 @@ interface MercadoLibreFila {
 
 @Component({
   selector: 'app-mercado-libre',
-  imports: [NgFor, NgIf, CurrencyPipe, MatProgressSpinnerModule, MatCardModule, MatIconModule, ModalPagarEntidadComponent],
+  imports: [NgFor, NgIf, CurrencyPipe, MatProgressSpinnerModule, MatCardModule, MatIconModule],
   templateUrl: './mercado-libre.html',
   styleUrl: './mercado-libre.scss',
 })
@@ -67,7 +67,7 @@ export class MercadoLibre {
   });
 
   abrirModalPago(): void {
-    this.modalPagoAbierto.set(true);
+    this.paymentService.abrirModalPago(this.entidadAPagarInfo());
   }
 
   onPagoConfirmado(pago: EntityPayment): void {
