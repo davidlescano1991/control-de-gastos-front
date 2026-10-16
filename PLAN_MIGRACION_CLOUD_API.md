@@ -1044,3 +1044,27 @@ gantt
         - Implementación de `downloadLiveFromGoogle` en `ExportExcelService` tolerante a fallos TLS (`ECONNRESET`) de Windows para sincronización en caliente, con fallback automático a la plantilla auténtica de cada año, eliminando por completo la contaminación cruzada con datos o solapas de otros años.
         - Validación cruzada automatizada con la suite de Excel de Windows (`test_excel_open.ps1`) confirmando apertura exitosa e instantánea para cada uno de los 5 años con sus respectivas hojas exactas y 0 errores. *(Completado)*
 
+  * **6.13**: Sistema Integral de Pago de Entidades y Cuotas (Mensual 2.0), Compensaciones Automáticas en Anual y Conciliación de Deuda Real en Estimativos:
+    * **¿Qué es y por qué se hace de esta manera?**:
+      * Permite gestionar la cancelación total o parcial de los resúmenes de tarjetas de crédito y conceptos mensuales directamente desde la interfaz web (`/mensual`), garantizando coherencia contable automática en todo el sistema:
+        1. **Pago Total vs Pago Parcial**: Al abonar una entidad, se puede cancelar el 100% de la deuda o ingresar un pago parcial.
+        2. **Cálculo de Compensaciones en Anual**: En la vista Anual (`/anual`), las compensaciones de un mes dado son la suma exacta de los saldos impagos de las tarjetas de ese ciclo:
+           $$\text{Compensaciones (Mes } M) = \sum (\text{Total Tarjeta} - \text{Monto Pagado})$$
+           Dicho remanente se suma a la Deuda Total anual (`deudaCompensacion = totalTarjetasImpago`).
+        3. **Deducción de Saldo y Deuda en Estimativos**: El monto abonado se resta del saldo real del día (`DailyEstimate.real`) y reduce la deuda del mes, manteniendo la diferencia no pagada en `deudaReal`.
+        4. **Asiento Contable en Movimientos**: Genera automáticamente el registro de egreso (`GASTO`) con la fecha de pago y cuenta de origen.
+        5. **Indicadores Visuales en Cabeceras y Filas**:
+           - Ícono de pesos (`$`) con tooltip "Pagar entidad" en las cabeceras de `Visa`, `Mastercard`, `Naranja`, `Bancor` y `Mercado Libre`.
+           - Estado visual: Verde (`check_circle`) para pago completo, Amarillo (`pending`) para pago parcial.
+           - En la entidad "Otros", el control de pago y el estado se integran fila por fila (al ser conceptos independientes).
+        6. **Histórico Consolidado**: Los meses anteriores a Octubre 2026 y años previos (2022-2025) figuran 100% pagados (verde). Para Octubre 2026, Visa, Mastercard y Bancor inicializan con pago parcial (amarillo).
+    * **Subpasos de Ejecución**:
+      * **6.13.1**: Backend: Modelo relacional `EntityPayment` en `schema.prisma` (`entity_payments`) con clave única compuesta `@@unique([year, mes, entidad, itemId])`, índices optimizados por `[year, mes]` y `[entidad]`, migrado con `prisma db push` y cliente regenerado. *(Completado)*
+      * **6.13.2**: Backend: `EntityPaymentService` y `EntityPaymentController` con endpoints `GET /api/pagos-entidades`, `POST /api/pagos-entidades` y `GET /api/pagos-entidades/impagas`, persistencia atómica, registro automático de egreso en `movements` (`GASTO`), decremento de saldo real en `DailyEstimate.real` de `MonthlyEstimateConfig`, y emisión reactiva SSE `DATA_UPDATED` con acción `ENTITY_PAYMENT_UPDATED`. *(Completado)*
+      * **6.13.3**: Frontend: Creación del servicio `EntityPaymentService` (`pagosMesSignal`, `getPayments`, `registerPayment`, `getUnpaid`) y componente modal `ModalPagarEntidadComponent` (`src/app/pages/mensual/modal-pagar-entidad/`) con soporte completo para Modo Claro y Modo Oscuro, selección dinámica Total/Parcial, cálculo reactivo de remanente y cuenta de origen. *(Completado)*
+      * **6.13.4**: Frontend: Integración del botón de pago (`$`) con tooltip `"Pagar entidad"` y badges de estado (`check_circle` verde para `COMPLETO`, `pending` amarillo con animación de pulso para `PARCIAL`) en las cabeceras de `Visa`, `Mastercard`, `Naranja`, `Bancor` y `Mercado Libre`. *(Completado)*
+      * **6.13.5**: Frontend: Integración de pagos e indicadores de estado individuales fila por fila en la tarjeta "Otros" (al lado del monto de cada concepto), manteniendo la coherencia heterogénea de sus registros. *(Completado)*
+      * **6.13.6**: Frontend & Backend: Vinculación reactiva con la columna Compensaciones en la vista Anual (`anual.ts`) para computar la sumatoria de saldos impagos como deuda (`deudaCompensacion = -compRaw`) y sincronización de Deuda Real en Estimativos (`estimativo.component.ts`). *(Completado)*
+      * **6.13.7**: Verificación de compilación limpia de frontend y backend (`npm run build`), validación de paridad y actualización de bitácoras. *(Completado)*
+
+

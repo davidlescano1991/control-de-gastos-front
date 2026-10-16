@@ -5,15 +5,71 @@ import { CurrencyPipe, isPlatformBrowser, NgFor, NgIf } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
 import { ProyeccionOverlayService } from '../../../../services/proyeccion-overlay.service';
+import { computed } from '@angular/core';
+import { MatIconModule } from '@angular/material/icon';
+import { ModalPagarEntidadComponent, EntidadAPagarInfo } from '../../modal-pagar-entidad/modal-pagar-entidad.component';
+import { EntityPaymentService, EntityPayment } from '../../../../services/entity-payment.service';
 
 @Component({
   selector: 'app-master-galicia',
-  imports: [NgFor, NgIf, CurrencyPipe, MatProgressSpinnerModule, MatCardModule],
+  imports: [NgFor, NgIf, CurrencyPipe, MatProgressSpinnerModule, MatCardModule, MatIconModule, ModalPagarEntidadComponent],
   templateUrl: './master-galicia.html',
   providers: [CurrencyPipe],
   styleUrl: './master-galicia.scss'
 })
 export class MasterGalicia {
+  private paymentService = inject(EntityPaymentService);
+  modalPagoAbierto = signal(false);
+
+  private MESES_MAP: Record<string, number> = {
+    enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6,
+    julio: 7, agosto: 8, septiembre: 9, octubre: 10, noviembre: 11, diciembre: 12
+  };
+
+  getMesNumero(): number {
+    const normal = (this.mes || '').toLowerCase().trim();
+    return this.MESES_MAP[normal] || (new Date().getMonth() + 1);
+  }
+
+  pagoInfo = computed(() => {
+    const mesNum = this.getMesNumero();
+    const key = `${this.anio}::${mesNum}`;
+    const pagos = this.paymentService.pagosMesSignal().get(key) || [];
+    return pagos.find(p => p.entidad.toLowerCase().includes('master') && (!p.itemId || p.itemId === '')) || null;
+  });
+
+  estadoPago = computed(() => {
+    return this.pagoInfo()?.estado || null;
+  });
+
+  tooltipEstadoPago = computed(() => {
+    const p = this.pagoInfo();
+    if (!p) return '';
+    if (p.estado === 'COMPLETO') {
+      return `Pagado en su totalidad${p.fechaPago ? ' el ' + new Date(p.fechaPago).toLocaleDateString('es-AR') : ''}`;
+    }
+    return `Pago parcial: Abonado $ ${p.montoPagado.toLocaleString('es-AR', { minimumFractionDigits: 2 })} (Resta $ ${p.montoRestante.toLocaleString('es-AR', { minimumFractionDigits: 2 })})`;
+  });
+
+  entidadAPagarInfo = computed<EntidadAPagarInfo>(() => {
+    return {
+      year: this.anio,
+      mes: this.getMesNumero(),
+      mesNombre: this.mes,
+      entidad: this.entidad || 'Master Card Galicia',
+      totalOriginal: this.totalMes(),
+      pagoExistente: this.pagoInfo() || undefined,
+    };
+  });
+
+  abrirModalPago(): void {
+    this.modalPagoAbierto.set(true);
+  }
+
+  onPagoConfirmado(pago: EntityPayment): void {
+    this.modalPagoAbierto.set(false);
+  }
+
   public authService = inject(AuthService);
   @Output() editarFila = new EventEmitter<any>();
 

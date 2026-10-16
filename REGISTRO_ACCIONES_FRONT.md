@@ -19,6 +19,62 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-15 23:30] - Sistema Integral de Pago de Entidades (Mensual 2.0), Compensaciones en Anual e Impacto en Estimativos
+- **Funcionalidad y Requerimiento**:
+  - En la vista mensual (`/mensual`), se agregó un botón de pago con ícono de pesos (`$`) y tooltip `"Pagar entidad"` ubicado inmediatamente a la derecha del logo en la cabecera de las tarjetas de crédito (`Visa Galicia`, `Mastercard`, `Naranja`, `Bancor`, `Mercado Libre`).
+  - Al presionar el botón se abre un modal interactivo (`ModalPagarEntidadComponent`) que permite registrar un **Pago Total** (100%) o **Pago Parcial**.
+  - **Lógica Contable de Compensación**:
+    - Si se paga parcial, lo que resta pagar genera una compensación automática:
+      $$\text{Compensaciones (Mes } M) = \sum (\text{Total Tarjeta} - \text{Monto Pagado})$$
+    - Dicha sumatoria impacta directamente en la columna **Compensaciones** de la vista Anual (`/anual`), aumentando la deuda total del mes (`deudaCompensacion = -compRaw = totalTarjetasImpago`).
+    - En la vista Estimativos (`/estimativo`), el monto pagado se descuenta del saldo real del día (`DailyEstimate.real`) y disminuye la deuda del mes, manteniendo la diferencia no pagada en `deudaReal`.
+    - Genera automáticamente el asiento de egreso (`GASTO`) en la tabla de **Movimientos** con la fecha y cuenta de origen seleccionadas.
+  - **Indicadores Visuales de Estado**:
+    - 🟢 **Ícono Verde** (`check_circle`): Pago completo (`COMPLETO`).
+    - 🟡 **Ícono Amarillo** (`pending` con animación pulse suave): Pago parcial (`PARCIAL`), con tooltip detallando el monto abonado y el remanente impago.
+  - **Caso Especial "Otros"**:
+    - Al contener múltiples conceptos heterogéneos independientes (alquiler, expensas, servicios, etc.), el botón de pago y los badges verde/amarillo se integran **fila por fila al lado del monto de cada registro**.
+  - **Regla Histórica**:
+    - Meses anteriores a Octubre 2026 y años previos (2022-2025) figuran como 100% pagados (verde).
+    - Para Octubre 2026, Visa, Mastercard y Bancor inicializan como pago parcial (amarillo).
+- **Archivos Afectados**:
+  - Frontend:
+    - `src/app/services/entity-payment.service.ts`
+    - `src/app/pages/mensual/modal-pagar-entidad/modal-pagar-entidad.component.ts`, `.html`, `.scss`
+    - `src/app/pages/mensual/lista-entidades/visa/visa.ts`, `.html`
+    - `src/app/pages/mensual/lista-entidades/master-galicia/master-galicia.ts`, `.html`
+    - `src/app/pages/mensual/lista-entidades/naranja/naranja.ts`, `.html`
+    - `src/app/pages/mensual/lista-entidades/bancor/bancor.ts`, `.html`
+    - `src/app/pages/mensual/lista-entidades/mercado-libre/mercado-libre.ts`, `.html`
+    - `src/app/pages/mensual/lista-entidades/otros/otros.ts`, `.html`
+    - `src/app/pages/mensual/mensual.ts`
+    - `src/app/pages/anual/anual/anual.ts`
+    - `src/styles.scss`
+  - Backend:
+    - `prisma/schema.prisma` (`EntityPayment`)
+    - `src/services/entity-payment.service.ts`
+    - `src/controllers/entity-payment.controller.ts`
+    - `src/routes/entity-payment.routes.ts`, `src/routes/index.ts`
+
+
+### [2026-10-15 22:30] - Pago Interactivo de Cuotas en Tabla de Préstamos Personales con Tachado Azul y Conciliación Automática
+- **Funcionalidad y Requerimiento**:
+  - En la tabla de préstamos personales de la vista Anual (`/anual`), se implementó la selección interactiva de cuotas impagas:
+    - El sistema habilita de forma inteligente para selección únicamente la **primera cuota pendiente de pago** de cada préstamo.
+    - Al hacer clic sobre dicha cuota, se abre un diálogo modal para ingresar la fecha en que se efectuó el pago.
+    - Una vez confirmado:
+      1. La celda de la cuota se marca visualmente como **pagada en azul vibrante y tachada** (`line-through`).
+      2. Se asienta automáticamente el movimiento de egreso contable en la tabla de **Movimientos** (`GASTO`).
+      3. Se actualiza en tiempo real la **Deuda Real** en la vista de Estimativos (`/estimativo`), recalculando la proyección presupuestaria y los saldos diarios.
+      4. Se emite la notificación SSE en tiempo real (`DATA_UPDATED` con acción `LOAN_INSTALLMENT_UPDATED`) para refrescar las demás vistas sin requerir recarga manual.
+- **Archivos Afectados**:
+  - `src/app/pages/anual/tabla-prestamos/tabla-prestamos.ts`, `.html`, `.scss`
+  - `src/app/pages/anual/tabla-prestamos/modal-pagar-cuota/modal-pagar-cuota.component.ts`, `.html`, `.scss`
+  - `src/app/services/loans.service.ts`
+  - `control-de-gastos-api/src/services/loan.service.ts`
+  - `control-de-gastos-api/src/controllers/loan.controller.ts`
+
+
 ### [2026-10-15 21:38] - Unificación Cromática de Rojo en Compensaciones (Actualización de Cuotas)
 - **Problema Detectado**:
   - En la tarjeta "Actualización de Cuotas" de la vista mensual (`/mensual`), el valor de **Compensaciones** en estado negativo/deuda mostraba un tono de rojo diferente (`#ef4444`) al rojo puro (`red` / `#ff0000`) utilizado por la línea superior **"Total nuevas cuotas"**.

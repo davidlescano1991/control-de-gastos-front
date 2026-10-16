@@ -105,6 +105,23 @@
                 <div class="col-monto-wrapper">
                   <span class="monto-texto">{{ fila['monto'] }}</span>
                   <button
+                    type="button"
+                    class="btn-pagar-fila"
+                    (click)="abrirModalPagoFila(fila, $event)"
+                    title="Pagar registro"
+                  >
+                    <span class="icono-pesos">$</span>
+                  </button>
+                  <span
+                    *ngIf="getEstadoPagoFila(fila)"
+                    class="badge-estado-fila"
+                    [class.completo]="getEstadoPagoFila(fila) === 'COMPLETO'"
+                    [class.parcial]="getEstadoPagoFila(fila) === 'PARCIAL'"
+                    [title]="getTooltipPagoFila(fila)"
+                  >
+                    <mat-icon>{{ getEstadoPagoFila(fila) === 'COMPLETO' ? 'check_circle' : 'pending' }}</mat-icon>
+                  </span>
+                  <button
                     *ngIf="fila['id'] && authService.isAdmin()"
                     type="button"
                     class="btn-accion-editar"
@@ -146,4 +163,10 @@
       <strong>- Atención:</strong> No hay datos para este mes en <strong>{{ entidad }}</strong>.
     </mat-card-content>
   </mat-card>
-</ng-template>
+</ng-template>
+<app-modal-pagar-entidad
+  *ngIf="modalPagoAbierto() && filaSeleccionadaParaPago()"
+  [entidadInfo]="entidadAPagarInfo()"
+  (cerrar)="modalPagoAbierto.set(false)"
+  (pagoConfirmado)="onPagoConfirmado($event)"
+></app-modal-pagar-entidad>

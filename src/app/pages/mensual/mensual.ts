@@ -5,6 +5,7 @@ import { AppConfigService } from '../../services/app-config.service';
 import { SseService } from '../../services/sse.service';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
+import { EntityPaymentService } from '../../services/entity-payment.service';
 import { MensualItemsService } from '../../services/mensual-items.service';
 import { SyncMensualSheetsDbService } from '../../services/sync-mensual-sheets-db.service';
 import { ModalCargarItemComponent } from './modal-cargar-item/modal-cargar-item';
@@ -266,6 +267,7 @@ export class Mensual implements OnInit, OnDestroy {
   }
 
   private breakpointObserver = inject(BreakpointObserver);
+  private entityPaymentService = inject(EntityPaymentService);
 
 
   constructor() {
@@ -385,6 +387,12 @@ export class Mensual implements OnInit, OnDestroy {
 
     try {
       this.mesSeleccionado.set(mes);
+      const mesIndex = this.meses.indexOf(mes) + 1;
+      if (mesIndex >= 1 && mesIndex <= 12) {
+        this.entityPaymentService.getPayments(this.anioSeleccionado(), mesIndex).subscribe({
+          error: (err) => console.warn('No se pudieron obtener pagos de entidades:', err),
+        });
+      }
       const anio = this.anioSeleccionado();
       const isSheetsActivo = this.appConfig.isSheetsActivo(anio);
 

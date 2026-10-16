@@ -88,6 +88,116 @@ body {
 }
 
 /* ==========================================================================
+   💳 BOTONES E ÍCONOS DE PAGO DE ENTIDADES (MENSUAL)
+   ========================================================================== */
+.btn-pagar-entidad {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #10b981;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  margin-left: 8px;
+  margin-right: 6px;
+  flex-shrink: 0;
+
+  &:hover {
+    background: #059669;
+    transform: scale(1.1);
+    box-shadow: 0 4px 10px rgba(16, 185, 129, 0.4);
+  }
+
+  .icono-pesos {
+    line-height: 1;
+  }
+}
+
+.badge-estado-pago {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+  flex-shrink: 0;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+
+  &.completo {
+    color: #4ade80 !important; /* Verde brillante */
+  }
+
+  &.parcial {
+    color: #fbbf24 !important; /* Amarillo / Ámbar */
+    animation: pulsePendiente 2.2s infinite ease-in-out;
+  }
+}
+
+@keyframes pulsePendiente {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.12); }
+}
+
+.btn-pagar-fila {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #10b981;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  width: 20px;
+  height: 20px;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  margin-left: 6px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    background: #059669;
+    transform: scale(1.15);
+  }
+
+  .icono-pesos {
+    line-height: 1;
+  }
+}
+
+.badge-estado-fila {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  flex-shrink: 0;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  &.completo {
+    color: #10b981 !important;
+  }
+
+  &.parcial {
+    color: #f59e0b !important;
+  }
+}
+
+/* ==========================================================================
    📊 ESTILOS UNIFICADOS PARA GRÁFICOS DIARIOS (Total Diario $ y Total Diario USD)
    ========================================================================== */
 app-movimientos,
