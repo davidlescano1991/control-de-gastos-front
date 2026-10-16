@@ -10,12 +10,14 @@
     <div class="modal-header">
       <div class="header-title-group">
         <div class="header-icon-badge" [class.badge-edit]="esModoEdicion()">
-          <mat-icon>{{ esModoEdicion() ? 'edit_note' : 'add_card' }}</mat-icon>
+          <mat-icon>{{ esModoEdicion() ? 'edit_note' : (mostrarCrearEntidad() ? 'add_business' : 'add_card') }}</mat-icon>
         </div>
         <div>
-          <h2 class="modal-title">{{ esModoEdicion() ? 'Editar Ítem o Cuota' : 'Cargar Ítem o Cuota Mensual' }}</h2>
+          <h2 class="modal-title">
+            {{ esModoEdicion() ? 'Editar Ítem o Cuota' : (mostrarCrearEntidad() ? 'Nueva Entidad Financiera' : 'Cargar Ítem o Cuota Mensual') }}
+          </h2>
           <p class="modal-subtitle">
-            {{ esModoEdicion() ? 'Modifica el concepto, monto/fórmula o notas de este registro' : 'Ingresa compras con cuotas, impuestos o fórmulas aritméticas (=x+y+z)' }}
+            {{ esModoEdicion() ? 'Modifica el concepto, monto/fórmula o notas de este registro' : (mostrarCrearEntidad() ? 'Configura la tarjeta o cuenta e ingresa todos sus ítems iniciales juntos' : 'Ingresa compras con cuotas, impuestos o fórmulas aritméticas (=x+y+z)') }}
           </p>
         </div>
       </div>
@@ -162,8 +164,19 @@
         <!-- Formulario Inline de Nueva Entidad -->
         <div *ngIf="mostrarCrearEntidad()" class="nueva-entidad-panel">
           <div class="panel-header">
-            <mat-icon>credit_card</mat-icon>
-            <strong>Configuración de Nueva Entidad</strong>
+            <div class="panel-header-title">
+              <mat-icon>credit_card</mat-icon>
+              <strong>Configuración de Nueva Entidad</strong>
+            </div>
+            <button
+              type="button"
+              class="btn-cancelar-nueva-entidad"
+              (click)="cancelarCrearEntidad()"
+              title="Volver a seleccionar entidades existentes"
+            >
+              <mat-icon>arrow_back</mat-icon>
+              <span>Volver a entidades</span>
+            </button>
           </div>
           <div class="form-row">
             <div class="form-group flex-2">
@@ -300,6 +313,7 @@
           placeholder="Ej: MPago 1/3, Impuesto al sello, Expensas, Supermercado..."
           [ngModel]="concepto()"
           (ngModelChange)="concepto.set($event)"
+          (keydown.enter)="onEnterEnItem($event)"
           autofocus
         />
 
@@ -375,6 +389,7 @@
           placeholder="Ej: 98389.65 o =74996.63+23393.02 o =15000+500*2"
           [ngModel]="montoOFormula()"
           (ngModelChange)="montoOFormula.set($event)"
+          (keydown.enter)="onEnterEnItem($event)"
         />
 
         <!-- Feedback reactivo de la fórmula en vivo -->
@@ -408,7 +423,68 @@
           placeholder="Aclaración adicional, número de comprobante, etc."
           [ngModel]="notas()"
           (ngModelChange)="notas.set($event)"
+          (keydown.enter)="onEnterEnItem($event)"
         />
+      </div>
+
+      <!-- Botón para agregar ítem a la lista en modo Nueva Entidad -->
+      <div *ngIf="mostrarCrearEntidad()" class="agregar-item-row">
+        <button
+          type="button"
+          class="btn-agregar-a-lista"
+          (click)="agregarItemANuevaEntidad()"
+          [disabled]="!concepto().trim() || !montoOFormula().trim()"
+          title="Agregar este ítem a la lista de la nueva entidad"
+        >
+          <mat-icon>playlist_add</mat-icon>
+          <span>+ Agregar ítem a la lista</span>
+        </button>
+        <span class="enter-shortcut-hint">
+          <mat-icon class="hint-icon">keyboard_return</mat-icon>
+          O presiona <code>Enter</code> tras escribir el monto
+        </span>
+      </div>
+
+      <!-- Tabla / Lista de Ítems acumulados para la nueva entidad -->
+      <div *ngIf="mostrarCrearEntidad() && itemsNuevaEntidad().length > 0" class="items-borrador-panel">
+        <div class="borrador-header">
+          <div class="borrador-count">
+            <mat-icon>checklist</mat-icon>
+            <strong>Ítems en esta entidad ({{ itemsNuevaEntidad().length }})</strong>
+          </div>
+          <div class="borrador-total">
+            <span>Subtotal inicial:</span>
+            <strong>{{ totalItemsNuevaEntidad() | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>
+          </div>
+        </div>
+
+        <div class="borrador-list">
+          <div *ngFor="let it of itemsNuevaEntidad(); let i = index" class="borrador-row">
+            <span class="row-num">{{ i + 1 }}</span>
+            <div class="row-info">
+              <div class="row-concepto-line">
+                <span class="row-concepto">{{ it.concepto }}</span>
+                <span *ngIf="it.esCuota" class="badge-cuota-mini">
+                  {{ it.cuotaActual }}/{{ it.totalCuotas }}
+                  <span *ngIf="it.autoPropagarCuotas"> (propagando)</span>
+                </span>
+              </div>
+              <small *ngIf="it.notas" class="row-notas">{{ it.notas }}</small>
+            </div>
+            <div class="row-monto-col">
+              <span class="row-monto">{{ it.montoCalculado | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</span>
+              <small *ngIf="it.montoOFormula.startsWith('=')" class="row-formula">{{ it.montoOFormula }}</small>
+            </div>
+            <button
+              type="button"
+              class="btn-eliminar-item-borrador"
+              (click)="quitarItemDeNuevaEntidad(it.idTemp)"
+              title="Quitar este ítem de la lista"
+            >
+              <mat-icon>delete_outline</mat-icon>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -441,11 +517,20 @@
           type="button"
           class="btn btn-primary"
           (click)="guardar()"
-          [disabled]="isGuardando() || !concepto().trim() || !montoOFormula().trim()"
+          [disabled]="isGuardando() || (!mostrarCrearEntidad() && (!concepto().trim() || !montoOFormula().trim())) || (mostrarCrearEntidad() && !nuevaEntidadNombre().trim())"
         >
           <mat-spinner *ngIf="isGuardando()" diameter="20" class="btn-spinner"></mat-spinner>
           <mat-icon *ngIf="!isGuardando()">{{ esModoEdicion() ? 'check_circle' : 'save' }}</mat-icon>
-          <span>{{ isGuardando() ? (esModoEdicion() ? 'Actualizando...' : 'Guardando...') : (esModoEdicion() ? 'Actualizar Ítem' : 'Guardar Ítem') }}</span>
+          <span *ngIf="isGuardando()">
+            {{ esModoEdicion() ? 'Actualizando...' : (mostrarCrearEntidad() ? 'Creando Entidad...' : 'Guardando...') }}
+          </span>
+          <span *ngIf="!isGuardando()">
+            <ng-container *ngIf="esModoEdicion()">Actualizar Ítem</ng-container>
+            <ng-container *ngIf="!esModoEdicion() && !mostrarCrearEntidad()">Guardar Ítem</ng-container>
+            <ng-container *ngIf="!esModoEdicion() && mostrarCrearEntidad()">
+              {{ itemsNuevaEntidad().length > 0 ? 'Guardar Entidad (' + itemsNuevaEntidad().length + ' ítems)' : 'Guardar Entidad' }}
+            </ng-container>
+          </span>
         </button>
       </div>
     </div>

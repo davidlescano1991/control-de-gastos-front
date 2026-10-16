@@ -19,6 +19,29 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-16 19:35] - Retorno a Entidades Existentes y Carga Masiva por Lotes de Ítems en Nueva Entidad
+- **Problemas Reportados por el Usuario**:
+  1. Al presionar `+ Nueva Entidad`, no se permitía volver a las otras entidades existentes (los chips quedaban bloqueados o no cerraban el panel).
+  2. Al dar de alta una nueva entidad, el sistema solo admitía cargar un único ítem inicial por vez, obligando al usuario a guardar y reabrir el modal 20 veces si la tarjeta contenía 20 ítems/compras.
+- **Causa Raíz**:
+  1. `seleccionarEntidad(nombre)` actualizaba únicamente el signal `entidad`, pero no desactivaba `mostrarCrearEntidad()`, manteniendo el panel de creación abierto permanentemente.
+  2. El modal no disponía de un estado en borrador (`buffer`) para acumular múltiples compras antes del guardado final, ejecutando un `POST` individual de inmediato.
+- **Solución Técnica Aplicada**:
+  - **1. Navegación y Retorno Ágil entre Entidades**:
+    - Se actualizó `seleccionarEntidad(nombre)` para restablecer automáticamente `mostrarCrearEntidad.set(false)`.
+    - Se incorporó en la cabecera del panel el botón explícito **"← Volver a entidades"** (`cancelarCrearEntidad()`).
+  - **2. Carga Masiva y Acumulación por Lotes (`itemsNuevaEntidad`)**:
+    - Nuevo signal reactivo `itemsNuevaEntidad = signal<ItemBorradorNuevaEntidad[]>([])` y cálculo en vivo del subtotal inicial `totalItemsNuevaEntidad`.
+    - Formulario interactivo con botón destacado **"+ Agregar ítem a la lista"** y atajo de teclado: presionar `Enter` en el monto o concepto agrega el ítem inmediatamente y resetea los campos para ingresar el siguiente ítem con fluidez.
+    - Panel visual de ítems acumulados con contador `(N)`, badges de cuota (ej: `1/12 (propagando)`), notas, monto formateado en ARS, y botón `🗑️` para quitar ítems antes de guardar.
+  - **3. Guardado Atómico en Backend**:
+    - El botón principal adapta su texto a **"Guardar Entidad (N ítems)"**.
+    - En una sola transacción HTTP atómica, se crea la entidad junto con todos sus ítems iniciales y propagación automática de cuotas hacia meses futuros.
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.ts`
+  - `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.html`
+  - `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.scss`
+
 ### [2026-10-16 15:35] - Carga, Optimización y Compresión en Cliente de Logos para Nuevas Entidades Financieras
 - **Requerimiento**:
   - Dar la posibilidad de guardar un logo/ícono al crear una nueva entidad financiera desde el modal de carga.

@@ -22,6 +22,18 @@ export interface EntidadOption {
   color: string;
 }
 
+export interface ItemBorradorNuevaEntidad {
+  idTemp: string;
+  concepto: string;
+  montoOFormula: string;
+  montoCalculado: number;
+  notas?: string;
+  autoPropagarCuotas: boolean;
+  esCuota?: boolean;
+  cuotaActual?: number;
+  totalCuotas?: number;
+}
+
 @Component({
   selector: 'app-modal-cargar-item',
   standalone: true,
@@ -145,6 +157,10 @@ export class ModalCargarItemComponent {
   nuevaEntidadLogo = signal<string>('');
   logoSizeKb = signal<number | null>(null);
   logoError = signal<string>('');
+  itemsNuevaEntidad = signal<ItemBorradorNuevaEntidad[]>([]);
+  totalItemsNuevaEntidad = computed(() => {
+    return this.itemsNuevaEntidad().reduce((acc, it) => acc + (it.montoCalculado || 0), 0);
+  });
 
   readonly coloresPresets: string[] = [
     '#1A1F71', // Azul Galicia
@@ -267,6 +283,11 @@ export class ModalCargarItemComponent {
 
   seleccionarEntidad(nombre: string): void {
     this.entidad.set(nombre);
+    this.mostrarCrearEntidad.set(false);
+  }
+
+  cancelarCrearEntidad(): void {
+    this.mostrarCrearEntidad.set(false);
   }
 
   setMes(m: string): void {
@@ -352,6 +373,58 @@ export class ModalCargarItemComponent {
     }
   }
 
+  agregarItemANuevaEntidad(): void {
+    const conc = this.concepto().trim();
+    const montoRaw = this.montoOFormula().trim();
+
+    if (!conc) {
+      this.errorMessage.set('Por favor ingresa un concepto o descripción para el ítem.');
+      return;
+    }
+
+    if (!montoRaw) {
+      this.errorMessage.set('Por favor ingresa un monto o fórmula aritmética (ej: 15000 o =50000+25000).');
+      return;
+    }
+
+    const calc = this.calculoEnVivo();
+    if (calc?.error) {
+      this.errorMessage.set(`Error en la fórmula aritmética: ${calc.error}`);
+      return;
+    }
+
+    const cuota = this.infoCuota();
+
+    const nuevo: ItemBorradorNuevaEntidad = {
+      idTemp: 'temp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      concepto: conc,
+      montoOFormula: montoRaw,
+      montoCalculado: calc?.monto || 0,
+      notas: this.notas().trim() || undefined,
+      autoPropagarCuotas: this.autoPropagarCuotas(),
+      esCuota: cuota?.esCuota,
+      cuotaActual: cuota?.cuotaActual,
+      totalCuotas: cuota?.totalCuotas,
+    };
+
+    this.itemsNuevaEntidad.update((items) => [...items, nuevo]);
+    this.concepto.set('');
+    this.montoOFormula.set('');
+    this.notas.set('');
+    this.errorMessage.set('');
+  }
+
+  quitarItemDeNuevaEntidad(idTemp: string): void {
+    this.itemsNuevaEntidad.update((items) => items.filter((it) => it.idTemp !== idTemp));
+  }
+
+  onEnterEnItem(event: Event): void {
+    event.preventDefault();
+    if (this.mostrarCrearEntidad()) {
+      this.agregarItemANuevaEntidad();
+    }
+  }
+
   cerrar(): void {
     if (this.isGuardando()) return;
     this.errorMessage.set('');
@@ -372,6 +445,7 @@ export class ModalCargarItemComponent {
     this.nuevaEntidadLogo.set('');
     this.logoSizeKb.set(null);
     this.logoError.set('');
+    this.itemsNuevaEntidad.set([]);
     this.eliminarHaciaElFuturo.set(false);
   }
 
@@ -418,6 +492,81 @@ export class ModalCargarItemComponent {
     this.errorMessage.set('');
     this.successMessage.set('');
 
+    // Caso 1: Crear una Nueva Entidad (con lista de múltiples ítems o sin ítems iniciales)
+    if (this.mostrarCrearEntidad()) {
+      const nombreNueva = this.nuevaEntidadNombre().trim();
+      if (!nombreNueva) {
+        this.errorMessage.set('Por favor ingresa un nombre para la nueva entidad o tarjeta.');
+        return;
+      }
+
+      // Si el usuario escribió un ítem en los inputs pero no presionó "Agregar a la lista", lo incorporamos automáticamente si es válido
+      const concPendiente = this.concepto().trim();
+      const montoPendiente = this.montoOFormula().trim();
+      const calcPendiente = this.calculoEnVivo();
+
+      let listaFinal = [...this.itemsNuevaEntidad()];
+
+      if (concPendiente && montoPendiente) {
+        if (calcPendiente?.error) {
+          this.errorMessage.set(`Error en la fórmula del ítem: ${calcPendiente.error}`);
+          return;
+        }
+        const cuota = this.infoCuota();
+        listaFinal.push({
+          idTemp: 'pending_' + Date.now(),
+          concepto: concPendiente,
+          montoOFormula: montoPendiente,
+          montoCalculado: calcPendiente?.monto || 0,
+          notas: this.notas().trim() || undefined,
+          autoPropagarCuotas: this.autoPropagarCuotas(),
+          esCuota: cuota?.esCuota,
+          cuotaActual: cuota?.cuotaActual,
+          totalCuotas: cuota?.totalCuotas,
+        });
+      } else if (concPendiente && !montoPendiente) {
+        this.errorMessage.set('Tienes un ítem sin monto ingresado. Completa el monto o borra el concepto antes de guardar.');
+        return;
+      }
+
+      this.isGuardando.set(true);
+
+      this.mensualService
+        .crearEntidad({
+          nombre: nombreNueva,
+          tipo: this.nuevaEntidadTipo(),
+          color: this.nuevaEntidadColor(),
+          logoUrl: this.nuevaEntidadLogo().trim() || undefined,
+          vigenteDesdeAnio: this.anio(),
+          vigenteDesdeMes: this.mesNumero(),
+          itemsIniciales: listaFinal.map((it) => ({
+            concepto: it.concepto,
+            montoOFormula: it.montoOFormula,
+            notas: it.notas,
+            autoPropagarCuotas: it.autoPropagarCuotas,
+          })),
+        })
+        .subscribe({
+          next: (res) => {
+            this.isGuardando.set(false);
+            this.successMessage.set(res.message);
+            this.itemCreado.emit(res);
+            this.cargarEntidadesVigentes();
+
+            setTimeout(() => {
+              this.limpiarFormulario();
+              this.cerrar();
+            }, 1000);
+          },
+          error: (err) => {
+            this.isGuardando.set(false);
+            const msg = err?.error?.message || err?.message || 'Error al crear la entidad';
+            this.errorMessage.set(msg);
+          },
+        });
+      return;
+    }
+
     const conc = this.concepto().trim();
     const montoRaw = this.montoOFormula().trim();
 
@@ -440,47 +589,6 @@ export class ModalCargarItemComponent {
     this.isGuardando.set(true);
 
     try {
-      // Caso 1: Crear una Nueva Entidad con este ítem inicial
-      if (this.mostrarCrearEntidad() && this.nuevaEntidadNombre().trim()) {
-        const nombreNueva = this.nuevaEntidadNombre().trim();
-        this.mensualService
-          .crearEntidad({
-            nombre: nombreNueva,
-            tipo: this.nuevaEntidadTipo(),
-            color: this.nuevaEntidadColor(),
-            logoUrl: this.nuevaEntidadLogo().trim() || undefined,
-            vigenteDesdeAnio: this.anio(),
-            vigenteDesdeMes: this.mesNumero(),
-            itemsIniciales: [
-              {
-                concepto: conc,
-                montoOFormula: montoRaw,
-                notas: this.notas().trim() || undefined,
-                autoPropagarCuotas: this.autoPropagarCuotas(),
-              },
-            ],
-          })
-          .subscribe({
-            next: (res) => {
-              this.isGuardando.set(false);
-              this.successMessage.set(res.message);
-              this.itemCreado.emit(res);
-              this.cargarEntidadesVigentes();
-
-              setTimeout(() => {
-                this.limpiarFormulario();
-                this.cerrar();
-              }, 1000);
-            },
-            error: (err) => {
-              this.isGuardando.set(false);
-              const msg = err?.error?.message || err?.message || 'Error al crear la entidad';
-              this.errorMessage.set(msg);
-            },
-          });
-        return;
-      }
-
       // Caso 2: Modo Edición
       if (this.esModoEdicion() && this.itemId()) {
         const payload: UpdateMonthlyItemPayload = {
