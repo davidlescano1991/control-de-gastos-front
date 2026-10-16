@@ -98,8 +98,29 @@
 <ng-template #lista>
     <mat-card class="example-card" appearance="outlined" *ngIf="datosMes().length > 0" [class.is-collapsed]="isCollapsed()">
         <mat-card-header class="card-header-wrapper">
-            <img src="assets/logos/mastercard.svg" alt="Mastercard" class="entidad-logo" />
-            <mat-card-title
+      <div class="header-left-actions">
+        <img src="assets/logos/mastercard.svg" alt="Mastercard" class="entidad-logo" />
+        <button
+          type="button"
+          class="btn-pagar-entidad"
+          (click)="abrirModalPago()"
+          title="Pagar entidad"
+        >
+          <span class="icono-pesos">$</span>
+        </button>
+
+        <span
+          class="badge-estado-pago"
+          [class.completo]="estadoPago() === 'COMPLETO'"
+          [class.parcial]="estadoPago() === 'PARCIAL'"
+          [class.no-pagado]="estadoPago() === 'NO_PAGADO'"
+          [title]="tooltipEstadoPago()"
+        >
+          <mat-icon>{{ iconoEstadoPago() }}</mat-icon>
+        </span>
+      </div>
+
+      <mat-card-title
               (mouseenter)="onHoverTotal($event)"
               (mouseleave)="onLeaveTotal()"
               (click)="abrirModalCompleto()"
@@ -198,4 +219,5 @@
             <strong>- Atención:</strong> No hay datos para este mes en <strong>{{ entidad }}</strong>.
         </mat-card-content>
     </mat-card>
-</ng-template>
+</ng-template>
+

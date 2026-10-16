@@ -88,6 +88,156 @@ body {
 }
 
 /* ==========================================================================
+   💳 BOTONES E ÍCONOS DE PAGO DE ENTIDADES (MENSUAL)
+   ========================================================================== */
+.btn-pagar-entidad {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #10b981;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  margin-left: 0;
+  margin-right: 0;
+  flex-shrink: 0;
+
+  &:hover {
+    background: #059669;
+    transform: scale(1.1);
+    box-shadow: 0 4px 10px rgba(16, 185, 129, 0.4);
+  }
+
+  .icono-pesos {
+    line-height: 1;
+  }
+}
+
+.header-left-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 5;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.badge-estado-pago {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: default;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+
+  &.completo {
+    color: #22c55e !important; /* Verde esmeralda vivo */
+    background: rgba(34, 197, 94, 0.16) !important;
+    border: 1px solid rgba(34, 197, 94, 0.4) !important;
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.45);
+  }
+
+  &.parcial {
+    color: #fbbf24 !important; /* Amarillo / Ámbar dorado */
+    background: rgba(251, 191, 36, 0.16) !important;
+    border: 1px solid rgba(251, 191, 36, 0.4) !important;
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.45);
+    animation: pulsePendiente 2.2s infinite ease-in-out;
+  }
+
+  &.no-pagado {
+    color: #ef4444 !important; /* Rojo vibrante */
+    background: rgba(239, 68, 68, 0.16) !important;
+    border: 1px solid rgba(239, 68, 68, 0.4) !important;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.45);
+  }
+}
+
+@keyframes pulsePendiente {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(1.1); }
+}
+
+.btn-pagar-fila {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #10b981;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  width: 20px;
+  height: 20px;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  margin-left: 6px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    background: #059669;
+    transform: scale(1.15);
+  }
+
+  .icono-pesos {
+    line-height: 1;
+  }
+}
+
+.badge-estado-fila {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  margin-left: 4px;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  &.completo {
+    color: #22c55e !important;
+    background: rgba(34, 197, 94, 0.14) !important;
+    box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+  }
+
+  &.parcial {
+    color: #fbbf24 !important;
+    background: rgba(251, 191, 36, 0.14) !important;
+    box-shadow: 0 0 6px rgba(251, 191, 36, 0.4);
+  }
+
+  &.no-pagado {
+    color: #ef4444 !important;
+    background: rgba(239, 68, 68, 0.14) !important;
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+  }
+}
+
+/* ==========================================================================
    📊 ESTILOS UNIFICADOS PARA GRÁFICOS DIARIOS (Total Diario $ y Total Diario USD)
    ========================================================================== */
 app-movimientos,
@@ -1342,39 +1492,145 @@ body.dark-mode .tabla-deuda-total {
   position: relative !important;
   display: flex !important;
   align-items: center !important;
-  justify-content: center !important;
+  justify-content: space-between !important;
   width: 100% !important;
+  min-height: 48px !important;
   margin-bottom: 16px;
   box-sizing: border-box;
-  padding: 10px 16px !important;
+  padding: 8px 14px !important;
   background-color: #f1f5f9;
   border-radius: 8px;
   color: #1e293b;
 
+  .header-left-actions {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    z-index: 5 !important;
+    position: relative !important;
+    flex-shrink: 0 !important;
+
+    .entidad-logo {
+      position: static !important;
+      transform: none !important;
+      top: auto !important;
+      left: auto !important;
+      height: 24px !important;
+      max-width: 50px !important;
+      object-fit: contain !important;
+      border-radius: 4px !important;
+      pointer-events: none !important;
+      margin: 0 !important;
+      flex-shrink: 0 !important;
+      display: block !important;
+    }
+
+    .btn-pagar-entidad {
+      position: static !important;
+      margin: 0 !important;
+      flex-shrink: 0 !important;
+    }
+
+    .badge-estado-pago {
+      position: static !important;
+      margin: 0 !important;
+      flex-shrink: 0 !important;
+    }
+  }
+
+  .header-right-actions {
+    .btn-baja-entidad-header {
+      position: static !important;
+      margin: 0 !important;
+      flex-shrink: 0 !important;
+      background: rgba(239, 68, 68, 0.15) !important;
+      border: 1px solid rgba(239, 68, 68, 0.3) !important;
+      color: #ef4444 !important;
+      border-radius: 6px !important;
+      padding: 5px !important;
+      width: 28px !important;
+      height: 28px !important;
+      cursor: pointer !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      transition: all 0.2s ease !important;
+
+      &:hover {
+        background: #ef4444 !important;
+        color: #ffffff !important;
+        transform: scale(1.08) !important;
+      }
+    }
+
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    z-index: 5 !important;
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
+
+    .btn-proyeccion-header {
+      position: static !important;
+      margin: 0 !important;
+      flex-shrink: 0 !important;
+    }
+
+    .btn-collapse-card {
+      position: static !important;
+      transform: none !important;
+      top: auto !important;
+      right: auto !important;
+      flex-shrink: 0 !important;
+
+      &:hover {
+        transform: scale(1.08) !important;
+      }
+
+      &:active {
+        transform: scale(1) !important;
+      }
+    }
+  }
+
   .mat-mdc-card-header-text,
   .mat-card-header-text {
+    position: absolute !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    margin: 0 auto !important;
     width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
+    padding: 0 135px !important;
+    box-sizing: border-box !important;
     display: flex !important;
     justify-content: center !important;
     align-items: center !important;
     text-align: center !important;
+    pointer-events: none !important;
+    z-index: 1 !important;
   }
 
   h2,
   h3,
   h4,
   mat-card-title,
-  .mat-mdc-card-title {
+  .mat-mdc-card-title,
+  .titulo-entidad-interactivo {
     margin: 0 !important;
     padding: 0 !important;
     font-size: 1.1rem !important;
     font-weight: 600 !important;
     text-align: center !important;
     color: inherit !important;
-    width: 100% !important;
-    display: block !important;
+    pointer-events: auto !important;
+    display: inline-block !important;
+    width: auto !important;
+    max-width: 100% !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 }
 
@@ -1479,15 +1735,12 @@ body.dark-mode app-mercado-libre mat-card-header {
 
 /* 🏷️ LOGOS DE ENTIDADES EN HEADER */
 .entidad-logo {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  height: 26px;
-  max-width: 52px;
+  height: 24px;
+  max-width: 50px;
   object-fit: contain;
   border-radius: 4px;
   pointer-events: none;
+  display: block;
 }
 
 .movimientos-wrapper.is-collapsed,
@@ -1789,4 +2042,124 @@ body.dark-mode {
   color: #38bdf8 !important;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(56, 189, 248, 0.3) !important;
   line-height: 1.3 !important;
-}
+}
+/* ==========================================================================
+   🗑️ MODAL DE BAJA DE ENTIDAD CON INTEGRIDAD HISTÓRICA
+   ========================================================================== */
+.modal-baja-entidad {
+  max-width: 520px !important;
+  padding: 24px !important;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+
+  .modal-baja-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 18px;
+
+    .icono-peligro-circulo {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(239, 68, 68, 0.12);
+      color: #ef4444;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+
+      mat-icon {
+        font-size: 26px;
+        width: 26px;
+        height: 26px;
+      }
+    }
+
+    .modal-baja-title {
+      margin: 0 0 4px 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .subtitulo-baja {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+  }
+
+  .reglas-integridad-box {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px;
+
+    .regla-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.85rem;
+      line-height: 1.4;
+
+      mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+      }
+
+      &.regla-verde {
+        color: #15803d;
+        mat-icon { color: #16a34a; }
+      }
+
+      &.regla-roja {
+        color: #b91c1c;
+        mat-icon { color: #dc2626; }
+      }
+    }
+  }
+
+  .modal-baja-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 10px;
+  }
+}
+
+body.dark-mode .modal-baja-entidad {
+  background: #1e293b;
+  color: #ffffff;
+
+  .modal-baja-header .modal-baja-title {
+    color: #ffffff;
+  }
+
+  .modal-baja-header .subtitulo-baja {
+    color: #94a3b8;
+  }
+
+  .reglas-integridad-box {
+    background: #0f172a;
+    border-color: #334155;
+
+    .regla-item.regla-verde {
+      color: #86efac;
+      mat-icon { color: #4ade80; }
+    }
+
+    .regla-item.regla-roja {
+      color: #fca5a5;
+      mat-icon { color: #f87171; }
+    }
+  }
+}

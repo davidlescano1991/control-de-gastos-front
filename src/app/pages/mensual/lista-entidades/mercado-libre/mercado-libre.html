@@ -5,7 +5,28 @@
 <ng-template #lista>
   <mat-card class="example-card" appearance="outlined" *ngIf="datosMes().length > 0" [class.is-collapsed]="isCollapsed()">
     <mat-card-header class="card-header-wrapper">
-      <img src="assets/logos/mercadopago.png" alt="Mercado Pago" class="entidad-logo" />
+      <div class="header-left-actions">
+        <img src="assets/logos/mercadopago.png" alt="Mercado Pago" class="entidad-logo" />
+        <button
+          type="button"
+          class="btn-pagar-entidad"
+          (click)="abrirModalPago()"
+          title="Pagar entidad"
+        >
+          <span class="icono-pesos">$</span>
+        </button>
+
+        <span
+          class="badge-estado-pago"
+          [class.completo]="estadoPago() === 'COMPLETO'"
+          [class.parcial]="estadoPago() === 'PARCIAL'"
+          [class.no-pagado]="estadoPago() === 'NO_PAGADO'"
+          [title]="tooltipEstadoPago()"
+        >
+          <mat-icon>{{ iconoEstadoPago() }}</mat-icon>
+        </span>
+      </div>
+
       <mat-card-title
         (mouseenter)="onHoverTotal($event)"
         (mouseleave)="onLeaveTotal()"
@@ -30,7 +51,18 @@
           </svg>
         </button>
 
-        <button
+                <button
+          *ngIf="authService.isAdmin()"
+          type="button"
+          class="btn-baja-entidad-header"
+          (click)="solicitarBajaEntidad($event)"
+          [title]="'Dar de baja ' + entidad + ' a partir de este mes'"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+          </svg>
+        </button>
+<button
           type="button"
           class="btn-collapse-card"
           [class.collapsed]="isCollapsed()"
@@ -109,4 +141,6 @@
     </mat-card-content>
   </mat-card>
 </ng-template>
+
+
 

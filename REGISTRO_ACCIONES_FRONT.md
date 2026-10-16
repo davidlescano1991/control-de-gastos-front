@@ -19,6 +19,224 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-16 20:05] - Actualización Integral y Sincronización de Documentación (`README.md`) de Todo el Ecosistema
+- **Motivo / Requerimiento**:
+  - Los archivos `README.md` de los distintos proyectos del ecosistema (`control-de-gastos-front`, `control-de-gastos-api` y `control-de-gastos-infra`) habían quedado desactualizados frente a la profunda evolución técnica ocurrida (arquitectura híbrida, persistencia PostgreSQL con Prisma, SSE, catálogo dinámico de entidades con vigencia temporal, carga por lotes, optimización de logos, pagos con badges y exportación nativa a Excel).
+- **Acciones Realizadas**:
+  - **1. Backend (`control-de-gastos-api/README.md`)**:
+    - Se creó un README completo y exhaustivo de nivel de producción que documenta el stack Node.js/Express/TypeScript, el modelo relacional de Prisma (`DailyMovement`, `MonthlyItem`, `FinancialEntity`, `EntityPayment`, `Loan`), lógica contable (parser de fórmulas, cuotas, liquidaciones), catálogo completo de endpoints RESTful, eventos en tiempo real (SSE), exportación ExcelJS, variables de entorno y guías de ejecución.
+  - **2. Frontend (`control-de-gastos-front/README.md`)**:
+    - Se rediseñó el README para reflejar la **Arquitectura Híbrida Cloud**, sincronización en caliente, catálogo dinámico de entidades financieras, flujo de carga por lotes con foco veloz, optimizador de logos WebP en cliente, modal de pagos con badges de estado, exportación a Excel `.xlsx`, corrección de enlaces y matriz de pruebas QA actualizada.
+  - **3. Infraestructura (`control-de-gastos-infra/README.md`)**:
+    - Se corrigieron problemas de encoding UTF-8 en caracteres especiales y emojis, y se verificó la precisión de los pasos de aprovisionamiento con Terraform, publicación de contenedores Docker en Google Artifact Registry y túnel TLS con Cloud SQL Auth Proxy.
+  - **Sincronización Git**:
+    - Se commitearon y pushearon los tres repositorios a sus respectivas ramas principales (`develop` y `main`).
+- **Archivos Afectados**:
+  - `control-de-gastos-front/README.md`
+  - `control-de-gastos-api/README.md`
+  - `control-de-gastos-infra/README.md`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-16 19:35] - Retorno a Entidades Existentes y Carga Masiva por Lotes de Ítems en Nueva Entidad
+- **Problemas Reportados por el Usuario**:
+  1. Al presionar `+ Nueva Entidad`, no se permitía volver a las otras entidades existentes (los chips quedaban bloqueados o no cerraban el panel).
+  2. Al dar de alta una nueva entidad, el sistema solo admitía cargar un único ítem inicial por vez, obligando al usuario a guardar y reabrir el modal 20 veces si la tarjeta contenía 20 ítems/compras.
+- **Causa Raíz**:
+  1. `seleccionarEntidad(nombre)` actualizaba únicamente el signal `entidad`, pero no desactivaba `mostrarCrearEntidad()`, manteniendo el panel de creación abierto permanentemente.
+  2. El modal no disponía de un estado en borrador (`buffer`) para acumular múltiples compras antes del guardado final, ejecutando un `POST` individual de inmediato.
+- **Solución Técnica Aplicada**:
+  - **1. Navegación y Retorno Ágil entre Entidades**:
+    - Se actualizó `seleccionarEntidad(nombre)` para restablecer automáticamente `mostrarCrearEntidad.set(false)`.
+    - Se incorporó en la cabecera del panel el botón explícito **"← Volver a entidades"** (`cancelarCrearEntidad()`).
+  - **2. Carga Masiva y Acumulación por Lotes (`itemsNuevaEntidad`)**:
+    - Nuevo signal reactivo `itemsNuevaEntidad = signal<ItemBorradorNuevaEntidad[]>([])` y cálculo en vivo del subtotal inicial `totalItemsNuevaEntidad`.
+    - Formulario interactivo con botón destacado **"+ Agregar ítem a la lista"** y atajo de teclado: presionar `Enter` en el monto o concepto agrega el ítem inmediatamente y resetea los campos para ingresar el siguiente ítem con fluidez.
+    - **Foco automático veloz**: Al agregar cada ítem (por botón o `Enter`), el foco del cursor se traslada de inmediato al campo de Concepto (`conceptoInputRef.focus()`) mediante `@ViewChild('conceptoInput')`, permitiendo una carga ultraveloz y continua sin tocar el mouse.
+    - Panel visual de ítems acumulados con contador `(N)`, badges de cuota (ej: `1/12 (propagando)`), notas, monto formateado en ARS, y botón `🗑️` para quitar ítems antes de guardar.
+  - **3. Guardado Atómico en Backend**:
+    - El botón principal adapta su texto a **"Guardar Entidad (N ítems)"**.
+    - En una sola transacción HTTP atómica, se crea la entidad junto con todos sus ítems iniciales y propagación automática de cuotas hacia meses futuros.
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.ts`
+  - `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.html`
+  - `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.scss`
+
+### [2026-10-16 15:35] - Carga, Optimización y Compresión en Cliente de Logos para Nuevas Entidades Financieras
+- **Requerimiento**:
+  - Dar la posibilidad de guardar un logo/ícono al crear una nueva entidad financiera desde el modal de carga.
+  - El logo debe guardarse en una resolución chica y liviana para que no ocupe espacio innecesario en la base de datos, considerando que su visualización en el sistema es compacta (chips y cabeceras de tarjeta).
+- **Causa / Desafío**:
+  - Subir imágenes crudas de alta resolución (PNG/JPEG de 2 a 5 MB) directamente a la base de datos o almacenamiento genera sobrecarga de red y almacenamiento innecesario.
+  - La visualización del logo en los chips y cabeceras requiere como máximo 100x36 px.
+- **Solución Técnica Aplicada**:
+  - **1. Compresión Automática en Cliente (`modal-cargar-item.ts`)**:
+    - Implementación de `onLogoSeleccionado(event)`: Lee el archivo de imagen mediante `FileReader` e `Image`.
+    - Redimensionamiento proporcional restrictivo en un `<canvas>` HTML5 a un tamaño máximo de `100 px` de ancho por `36 px` de alto.
+    - Exportación a formato `image/webp` con calidad 0.82 (o fallback `image/png`), reduciendo cualquier imagen de varios megabytes a un Data URL Base64 ultraliviano de entre 1.5 y 2.5 KB.
+    - Señales reactivas: `nuevaEntidadLogo`, `logoSizeKb` y `logoError`.
+    - Método `quitarLogo(fileInput)` para descartar y limpiar el logo antes de guardar.
+  - **2. Interfaz y Previsualización (`modal-cargar-item.html` & `modal-cargar-item.scss`)**:
+    - Botón de acción con input tipo file oculto para seleccionar imágenes (`PNG, JPG, WebP, SVG`).
+    - Recuadro de previsualización en vivo con miniatura del logo sobre fondo neutro, etiqueta indicadora del peso optimizado en KB y botón de eliminación rápido (`✕`).
+    - Estilos integrados tanto en tema oscuro como en tema claro.
+  - **3. Integración en Flujo de Guardado y Persistencia**:
+    - Al crear la entidad (`crearEntidad`), se envía `logoUrl` comprimido en el payload.
+    - Se refleja inmediatamente en la grilla de chips del modal y en el catálogo reactivo de entidades.
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.ts`
+  - `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.html`
+  - `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.scss`
+
+### [2026-10-16 12:15] - Catálogo Dinámico de Entidades Financieras con Vigencia Temporal y Baja Histórica Inmutable
+- **Requerimiento**:
+  - Permitir al usuario dar de alta nuevas entidades financieras (tarjetas de crédito, billeteras, cuentas bancarias o grupos de gasto) desde el modal de carga con sus cuotas/ítems iniciales, replicándose automáticamente en los meses subsiguientes.
+  - Al eliminar una entidad en un mes determinado, debe dejar de figurar en ese mes y en los posteriores, pero **debe mantenerse 100% intacta en los meses anteriores** (inmutabilidad histórica contable).
+  - En "Otros" (o servicios recurrentes), permitir dar de baja un servicio desde ese mes en adelante sin tocar el pasado.
+- **Implementación Técnica Realizada**:
+  - **1. Backend (PostgreSQL & Prisma)**:
+    - Nuevo modelo `FinancialEntity` (`financial_entities`) con vigencia temporal: `valid_from_year`, `valid_from_month`, `valid_to_year`, `valid_to_month`, `tipo`, `color`, `logo_url`, `orden` y `activo`.
+    - Inicialización (seed) de las 6 entidades base (`Visa Galicia`, `Master Card Galicia`, `Naranja X`, `Bancor`, `Mercado Libre`, `Otros`).
+    - Endpoints `GET /api/mensual/entidades`, `POST /api/mensual/entidades` y `DELETE /api/mensual/entidades/:id?year=&mes=` con ajuste automático de corte en `mes - 1` y purga de ítems futuros.
+    - Soporte en `DELETE /api/mensual/items/:id?eliminarHaciaElFuturo=true` para dar de baja servicios recurrentes hacia el futuro.
+  - **2. Frontend (Angular 18+)**:
+    - **Modal de Carga (`modal-cargar-item`)**:
+      - Grilla dinámica de entidades vigentes en el mes y año consultados.
+      - Botón destacado **`+ Nueva Entidad`** con formulario desplegable inline (nombre, tipo, paleta de colores y aviso de vigencia).
+      - En confirmación de eliminación de servicios: selector entre *"Eliminar sólo en este mes"* y *"Dar de baja servicio (Eliminar de este mes en adelante)"*.
+    - **Vista Mensual (`mensual.html` & `mensual.ts`)**:
+      - Consulta reactiva de entidades vigentes según año y mes.
+      - Renderizado condicional de las tarjetas base con `estaEntidadVigente(...)`.
+      - Renderizado dinámico de cualquier nueva entidad creada (`entidadesPersonalizadasVigentes()`) manteniendo la Regla de Oro (`.movimientos-wrapper`, bordes, sombras y 100% de ancho).
+      - Botón de baja 🗑️ en cabeceras de tarjetas con diálogo de confirmación seguro que explica la preservación del pasado y la baja hacia el futuro.
+- **Archivos Afectados**:
+  - Backend: `prisma/schema.prisma`, `src/services/financial-entity.service.ts`, `src/controllers/financial-entity.controller.ts`, `src/routes/monthly-item.routes.ts`, `src/services/monthly-item.service.ts`, `src/controllers/monthly-item.controller.ts`.
+  - Frontend: `src/app/services/mensual-items.service.ts`, `src/app/pages/mensual/mensual.ts`, `src/app/pages/mensual/mensual.html`, `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.ts`, `modal-cargar-item.html`, `modal-cargar-item.scss`, `src/styles.scss`, y componentes de tarjetas en `src/app/pages/mensual/lista-entidades/`.
+
+### [2026-10-16 10:20] - Corrección de Superposición de Íconos y Logo en Cabecera de Entidades
+- **Problema Reportado**:
+  - En las cabeceras de las tarjetas de crédito (Visa, Mastercard, etc.) en la vista mensual, los elementos del extremo izquierdo (logo de la entidad, botón verde de pagar `$` y badge de estado circular) se mostraban superpuestos uno encima del otro en las mismas coordenadas.
+- **Causa Raíz**:
+  - En `src/styles.scss`, `.entidad-logo` mantenía una regla global heredada con `position: absolute; left: 14px; top: 50%; transform: translateY(-50%);`.
+  - Al estar `.entidad-logo` dentro del contenedor flex `.header-left-actions`, la regla absoluta lo sacaba del flujo horizontal normal y lo anclaba en la misma coordenada `left: 14px` donde iniciaban el botón `.btn-pagar-entidad` y el badge `.badge-estado-pago`, provocando una colisión visual y apilamiento directo.
+- **Solución Técnica Aplicada**:
+  - Se eliminó el `position: absolute` global de `.entidad-logo`, configurándolo como elemento de bloque estático en línea (`position: static !important; transform: none !important; height: 24px; max-width: 50px; object-fit: contain;`).
+  - Se blindó `.header-left-actions` como contenedor flex horizontal ordenado (`display: inline-flex !important; align-items: center !important; gap: 8px !important; z-index: 5 !important; position: relative !important; flex-shrink: 0 !important;`) donde sus tres elementos hijos (`.entidad-logo`, `.btn-pagar-entidad`, `.badge-estado-pago`) fluyen uno tras otro de izquierda a derecha sin solaparse.
+  - Se mantuvo el centrado simétrico absoluto del título de la entidad (`.mat-mdc-card-header-text` con `padding: 0 135px !important`), garantizando que el nombre quede exactamente centrado en la tarjeta sin colisionar con la izquierda ni con los controles de la derecha.
+- **Archivos Afectados**:
+  - `src/styles.scss`
+
+### [2026-10-16 10:10] - Destacado Visual de Badges, Centrado Simétrico de Cabeceras y Estado "No Pagado" en Rojo
+- **Mejoras Visuales y Funcionales Aplicadas**:
+  - **1. Mayor Destacado y Resplandor en Badges de Estado**:
+    - Se transformaron los badges `.badge-estado-pago` y `.badge-estado-fila` en elementos circulares (`26px` en cabeceras y `20px` en filas) con fondos translúcidos, bordes sutiles y resplandor suave (`box-shadow` tipo glow).
+    - 🟢 **`COMPLETO`**: Verde esmeralda vivo (`#22c55e`) con resplandor `rgba(34, 197, 94, 0.45)`.
+    - 🟡 **`PARCIAL`**: Ámbar dorado (`#fbbf24`) con resplandor `rgba(251, 191, 36, 0.45)` y animación de pulso suave.
+    - 🔴 **`NO_PAGADO`**: Rojo vibrante (`#ef4444`) con resplandor `rgba(239, 68, 68, 0.45)`.
+  - **2. Centrado Absoluto y Simétrico del Nombre de la Entidad**:
+    - Se agrupó el logo, el botón `$` y el badge de estado en el contenedor `.header-left-actions`.
+    - En `src/styles.scss`, el título de la tarjeta (`.titulo-entidad-interactivo` / `mat-card-title`) se posicionó mediante centrado absoluto simétrico (`top: 50%; transform: translateY(-50%); left: 0; right: 0; margin: 0 auto; padding: 0 100px; text-align: center;`), garantizando que el nombre quede exactamente centrado en el medio de la tarjeta sin verse desplazado por los botones o logos de la izquierda.
+  - **3. Estado Rojo "No Pagado" para Ciclos y Conceptos Futuros (Noviembre en adelante)**:
+    - En todas las tarjetas de crédito (`Visa`, `Mastercard`, `Naranja`, `Bancor`, `Mercado Libre`) y en las filas de `Otros`, si la entidad/concepto tiene saldo > $0 y no posee registro de pago en base de datos (por ejemplo, desde Noviembre en adelante), se muestra automáticamente el ícono rojo 🔴 `cancel` con tooltip `"No pagado (Pendiente de pago)"`.
+    - Si el monto es `$ 0,00` o si corresponde a un mes histórico ya abonado, conserva el estado 🟢 `COMPLETO`.
+- **Archivos Afectados**:
+  - `src/styles.scss`
+  - `src/app/pages/mensual/lista-entidades/visa/visa.ts`, `visa.html`
+  - `src/app/pages/mensual/lista-entidades/master-galicia/master-galicia.ts`, `master-galicia.html`
+  - `src/app/pages/mensual/lista-entidades/naranja/naranja.ts`, `naranja.html`
+  - `src/app/pages/mensual/lista-entidades/bancor/bancor.ts`, `bancor.html`
+  - `src/app/pages/mensual/lista-entidades/mercado-libre/mercado-libre.ts`, `mercado-libre.html`
+  - `src/app/pages/mensual/lista-entidades/otros/otros.ts`, `otros.html`
+
+
+### [2026-10-16 09:25] - Reubicación de Modal de Pago al Nivel Raíz (Fix Stacking Context) y Registro Directo en BD de Pagos de Octubre 2026
+- **Problema 1 (Modal Oculto tras Contenedor de Gráficos de la Derecha)**:
+  - Al presionar el botón de pagar (`$`) en las cabeceras o filas de entidades en la vista mensual (`/mensual`), la columna izquierda se oscurecía con el backdrop pero el diálogo modal quedaba tapado detrás del panel de la derecha ("Resumen gráfico").
+  - **Causa Raíz**:
+    - `<app-modal-pagar-entidad>` estaba instanciado dentro del DOM de cada tarjeta hija (`app-visa`, `app-bancor`, etc.), contenido dentro de `.col-izquierda`.
+    - Al tener la columna derecha `.sticky-grafico` con `z-index: 10`, el stacking context de CSS provocaba que todo el contenido de `.col-izquierda` (incluso con `position: fixed`) se renderizara por debajo de la columna derecha.
+  - **Solución Técnica Aplicada**:
+    - Se refactorizó la apertura del modal para gestionarla centralizadamente a través de `EntityPaymentService` (`entidadAPagarSeleccionada`, `abrirModalPago()`, `cerrarModalPago()`).
+    - Se reubicó `<app-modal-pagar-entidad>` en el nivel raíz de la página mensual (`mensual.html`), fuera de las columnas y de `.pantalla-mensual`, análogo a los modales de proyección y de carga.
+    - Se elevó el `.modal-backdrop` a `z-index: 999999 !important` con `inset: 0` y centrado flex garantizado sobre la totalidad de la ventana.
+- **Punto 2 (Carga Directa en Base de Datos de Pagos de Octubre 2026 sin Movimientos)**:
+  - Siguiendo la instrucción explícita del usuario de no asentar egresos en movimientos para no restar saldos diarios ni alterar compensaciones en este ciclo, se insertaron directamente en la tabla relacional `entity_payments` de PostgreSQL los siguientes pagos con fecha `08/10/2026`:
+    - **Visa Galicia**: `$650.000` abonados (Total: `$836.190,30`, Restante: `$186.190,30`, Estado: `PARCIAL`).
+    - **Master Card Galicia**: `$470.000` abonados (Total: `$3.062.848,43`, Restante: `$2.592.848,43`, Estado: `PARCIAL`).
+    - **Naranja X**: Totalmente abonada `$367.180,10` (Restante: `$0`, Estado: `COMPLETO`).
+    - **Bancor**: `$430.000` abonados (Total: `$1.385.544,91`, Restante: `$955.544,91`, Estado: `PARCIAL`).
+    - **Mercado Libre**: Totalmente abonado `$99.054,16` (Restante: `$0`, Estado: `COMPLETO`).
+    - **Otros**: Totalmente abonado `$1.020.605,63` a nivel global y en cada uno de sus ítems individuales (`internet`: $23.300, `Nafta`: $7.000, `Cuota Alimentaria`: $684.048,60, `Claro`: $40.873,95, `Prestamo`: $265.383,08) con Restante: `$0` y Estado: `COMPLETO`.
+  - **Regla Reactiva para Registros en Cero ($0) en "Otros"**:
+    - Cualquier fila o concepto de la entidad "Otros" cuyo monto sea `$ 0,00` se categoriza automáticamente como **pagado** (`COMPLETO`), mostrando el badge verde (`check_circle`) con el tooltip `"Sin saldo a pagar ($ 0,00) - Pagado"`, en lugar de figurar como pendiente.
+- **Archivos Afectados**:
+  - `src/app/services/entity-payment.service.ts`
+  - `src/app/pages/mensual/mensual.ts`, `mensual.html`
+  - `src/app/pages/mensual/modal-pagar-entidad/modal-pagar-entidad.component.scss`
+  - `src/app/pages/mensual/lista-entidades/visa/visa.ts`, `visa.html`
+  - `src/app/pages/mensual/lista-entidades/master-galicia/master-galicia.ts`, `master-galicia.html`
+  - `src/app/pages/mensual/lista-entidades/naranja/naranja.ts`, `naranja.html`
+  - `src/app/pages/mensual/lista-entidades/bancor/bancor.ts`, `bancor.html`
+  - `src/app/pages/mensual/lista-entidades/mercado-libre/mercado-libre.ts`, `mercado-libre.html`
+  - `src/app/pages/mensual/lista-entidades/otros/otros.ts`, `otros.html`
+  - Base de datos PostgreSQL (`control-de-gastos-api`, tabla `entity_payments`)
+
+
+### [2026-10-15 23:30] - Sistema Integral de Pago de Entidades (Mensual 2.0), Compensaciones en Anual e Impacto en Estimativos
+- **Funcionalidad y Requerimiento**:
+  - En la vista mensual (`/mensual`), se agregó un botón de pago con ícono de pesos (`$`) y tooltip `"Pagar entidad"` ubicado inmediatamente a la derecha del logo en la cabecera de las tarjetas de crédito (`Visa Galicia`, `Mastercard`, `Naranja`, `Bancor`, `Mercado Libre`).
+  - Al presionar el botón se abre un modal interactivo (`ModalPagarEntidadComponent`) que permite registrar un **Pago Total** (100%) o **Pago Parcial**.
+  - **Lógica Contable de Compensación**:
+    - Si se paga parcial, lo que resta pagar genera una compensación automática:
+      $$\text{Compensaciones (Mes } M) = \sum (\text{Total Tarjeta} - \text{Monto Pagado})$$
+    - Dicha sumatoria impacta directamente en la columna **Compensaciones** de la vista Anual (`/anual`), aumentando la deuda total del mes (`deudaCompensacion = -compRaw = totalTarjetasImpago`).
+    - En la vista Estimativos (`/estimativo`), el monto pagado se descuenta del saldo real del día (`DailyEstimate.real`) y disminuye la deuda del mes, manteniendo la diferencia no pagada en `deudaReal`.
+    - Genera automáticamente el asiento de egreso (`GASTO`) en la tabla de **Movimientos** con la fecha y cuenta de origen seleccionadas.
+  - **Indicadores Visuales de Estado**:
+    - 🟢 **Ícono Verde** (`check_circle`): Pago completo (`COMPLETO`).
+    - 🟡 **Ícono Amarillo** (`pending` con animación pulse suave): Pago parcial (`PARCIAL`), con tooltip detallando el monto abonado y el remanente impago.
+  - **Caso Especial "Otros"**:
+    - Al contener múltiples conceptos heterogéneos independientes (alquiler, expensas, servicios, etc.), el botón de pago y los badges verde/amarillo se integran **fila por fila al lado del monto de cada registro**.
+  - **Regla Histórica**:
+    - Meses anteriores a Octubre 2026 y años previos (2022-2025) figuran como 100% pagados (verde).
+    - Para Octubre 2026, Visa, Mastercard y Bancor inicializan como pago parcial (amarillo).
+- **Archivos Afectados**:
+  - Frontend:
+    - `src/app/services/entity-payment.service.ts`
+    - `src/app/pages/mensual/modal-pagar-entidad/modal-pagar-entidad.component.ts`, `.html`, `.scss`
+    - `src/app/pages/mensual/lista-entidades/visa/visa.ts`, `.html`
+    - `src/app/pages/mensual/lista-entidades/master-galicia/master-galicia.ts`, `.html`
+    - `src/app/pages/mensual/lista-entidades/naranja/naranja.ts`, `.html`
+    - `src/app/pages/mensual/lista-entidades/bancor/bancor.ts`, `.html`
+    - `src/app/pages/mensual/lista-entidades/mercado-libre/mercado-libre.ts`, `.html`
+    - `src/app/pages/mensual/lista-entidades/otros/otros.ts`, `.html`
+    - `src/app/pages/mensual/mensual.ts`
+    - `src/app/pages/anual/anual/anual.ts`
+    - `src/styles.scss`
+  - Backend:
+    - `prisma/schema.prisma` (`EntityPayment`)
+    - `src/services/entity-payment.service.ts`
+    - `src/controllers/entity-payment.controller.ts`
+    - `src/routes/entity-payment.routes.ts`, `src/routes/index.ts`
+
+
+### [2026-10-15 22:30] - Pago Interactivo de Cuotas en Tabla de Préstamos Personales con Tachado Azul y Conciliación Automática
+- **Funcionalidad y Requerimiento**:
+  - En la tabla de préstamos personales de la vista Anual (`/anual`), se implementó la selección interactiva de cuotas impagas:
+    - El sistema habilita de forma inteligente para selección únicamente la **primera cuota pendiente de pago** de cada préstamo.
+    - Al hacer clic sobre dicha cuota, se abre un diálogo modal para ingresar la fecha en que se efectuó el pago.
+    - Una vez confirmado:
+      1. La celda de la cuota se marca visualmente como **pagada en azul vibrante y tachada** (`line-through`).
+      2. Se asienta automáticamente el movimiento de egreso contable en la tabla de **Movimientos** (`GASTO`).
+      3. Se actualiza en tiempo real la **Deuda Real** en la vista de Estimativos (`/estimativo`), recalculando la proyección presupuestaria y los saldos diarios.
+      4. Se emite la notificación SSE en tiempo real (`DATA_UPDATED` con acción `LOAN_INSTALLMENT_UPDATED`) para refrescar las demás vistas sin requerir recarga manual.
+- **Archivos Afectados**:
+  - `src/app/pages/anual/tabla-prestamos/tabla-prestamos.ts`, `.html`, `.scss`
+  - `src/app/pages/anual/tabla-prestamos/modal-pagar-cuota/modal-pagar-cuota.component.ts`, `.html`, `.scss`
+  - `src/app/services/loans.service.ts`
+  - `control-de-gastos-api/src/services/loan.service.ts`
+  - `control-de-gastos-api/src/controllers/loan.controller.ts`
+
+
 ### [2026-10-15 21:38] - Unificación Cromática de Rojo en Compensaciones (Actualización de Cuotas)
 - **Problema Detectado**:
   - En la tarjeta "Actualización de Cuotas" de la vista mensual (`/mensual`), el valor de **Compensaciones** en estado negativo/deuda mostraba un tono de rojo diferente (`#ef4444`) al rojo puro (`red` / `#ff0000`) utilizado por la línea superior **"Total nuevas cuotas"**.

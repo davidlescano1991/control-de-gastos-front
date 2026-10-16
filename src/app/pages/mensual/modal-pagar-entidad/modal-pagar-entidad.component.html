@@ -1,0 +1,157 @@
+<div class="modal-backdrop" (click)="cerrar.emit()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="header-title-container">
+        <mat-icon class="header-icon">payments</mat-icon>
+        <div>
+          <h3>Pagar {{ entidadInfo.entidad }}</h3>
+          <p class="subtitulo">{{ entidadInfo.mesNombre }} {{ entidadInfo.year }}<span *ngIf="entidadInfo.concepto"> • {{ entidadInfo.concepto }}</span></p>
+        </div>
+      </div>
+      <button type="button" class="btn-cerrar" (click)="cerrar.emit()" [disabled]="isGuardando()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body">
+      <!-- Resumen del Total -->
+      <div class="resumen-total-box">
+        <span class="label-total">Total a Pagar del Resumen</span>
+        <span class="valor-total">{{ entidadInfo.totalOriginal | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+      </div>
+
+      <!-- Selector de Tipo de Pago -->
+      <div class="opciones-pago-container">
+        <label class="label-seccion">Modalidad de Pago</label>
+        <div class="tipo-pago-grid">
+          <div
+            class="tipo-pago-card"
+            [class.activo]="tipoPago() === 'TOTAL'"
+            (click)="setTipoPago('TOTAL')"
+          >
+            <div class="card-radio">
+              <span class="dot" *ngIf="tipoPago() === 'TOTAL'"></span>
+            </div>
+            <div class="card-text">
+              <strong>Pago Total (100%)</strong>
+              <span>Cancela el saldo completo de este mes</span>
+            </div>
+          </div>
+
+          <div
+            class="tipo-pago-card"
+            [class.activo]="tipoPago() === 'PARCIAL'"
+            (click)="setTipoPago('PARCIAL')"
+          >
+            <div class="card-radio">
+              <span class="dot" *ngIf="tipoPago() === 'PARCIAL'"></span>
+            </div>
+            <div class="card-text">
+              <strong>Pago Parcial</strong>
+              <span>Abona un importe y compensa la diferencia</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input Monto Parcial si aplica -->
+      <div class="campo-grupo" *ngIf="tipoPago() === 'PARCIAL'">
+        <label for="inputMontoParcial">Monto efectivamente abonado ($)</label>
+        <input
+          id="inputMontoParcial"
+          type="number"
+          step="0.01"
+          class="form-control input-monto"
+          [ngModel]="montoParcial()"
+          (ngModelChange)="montoParcial.set($event)"
+          placeholder="0.00"
+          [disabled]="isGuardando()"
+        />
+        <div class="detalle-compensacion-box">
+          <div class="fila-detalle">
+            <span>Abonas hoy:</span>
+            <strong>{{ montoAPagar() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong>
+          </div>
+          <div class="fila-detalle restante">
+            <span>Saldo restante impago:</span>
+            <strong class="texto-remanente">{{ montoRestante() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong>
+          </div>
+          <p class="hint-compensacion">
+            ⚠️ El saldo impago de <strong>{{ montoRestante() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong> se sumará a la columna <strong>Compensaciones</strong> de la vista Anual y aumentará la Deuda Real en Estimativos.
+          </p>
+        </div>
+      </div>
+
+      <!-- Fecha de Pago y Cuenta Origen -->
+      <div class="campos-row">
+        <div class="campo-grupo">
+          <label for="inputFechaPago">Fecha de Pago</label>
+          <input
+            id="inputFechaPago"
+            type="date"
+            class="form-control"
+            [ngModel]="fechaPago()"
+            (ngModelChange)="fechaPago.set($event)"
+            [disabled]="isGuardando()"
+          />
+        </div>
+
+        <div class="campo-grupo">
+          <label for="selectCuentaOrigen">Cuenta de Origen / Débito</label>
+          <select
+            id="selectCuentaOrigen"
+            class="form-control select-cuenta"
+            [ngModel]="cuentaOrigen()"
+            (ngModelChange)="cuentaOrigen.set($event)"
+            [disabled]="isGuardando()"
+          >
+            <option *ngFor="let c of cuentasDisponibles" [value]="c">{{ c }}</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Checkbox de impacto contable -->
+      <div class="checkbox-container">
+        <label class="checkbox-label">
+          <input
+            type="checkbox"
+            [checked]="registrarMovimiento()"
+            (change)="registrarMovimiento.set($any($event.target).checked)"
+            [disabled]="isGuardando()"
+          />
+          <span>Registrar egreso contable en la tabla de <strong>Movimientos</strong></span>
+        </label>
+      </div>
+
+      <!-- Mensaje de error -->
+      <div class="alerta-error" *ngIf="errorMensaje()">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ errorMensaje() }}</span>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button
+        type="button"
+        class="btn-cancelar"
+        (click)="cerrar.emit()"
+        [disabled]="isGuardando()"
+      >
+        Cancelar
+      </button>
+
+      <button
+        type="button"
+        class="btn-confirmar"
+        (click)="confirmarPago()"
+        [disabled]="isGuardando()"
+      >
+        <mat-spinner *ngIf="isGuardando()" diameter="18" class="spinner-btn"></mat-spinner>
+        <span>Confirmar Pago de {{ montoAPagar() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+      </button>
+    </div>
+  </div>
+</div>

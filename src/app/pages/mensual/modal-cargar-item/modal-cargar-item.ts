@@ -7,6 +7,8 @@ import {
   signal,
   computed,
   HostListener,
+  ViewChild,
+  ElementRef,
 } from '@angular/core';
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -20,6 +22,18 @@ export interface EntidadOption {
   nombre: string;
   logoUrl?: string;
   color: string;
+}
+
+export interface ItemBorradorNuevaEntidad {
+  idTemp: string;
+  concepto: string;
+  montoOFormula: string;
+  montoCalculado: number;
+  notas?: string;
+  autoPropagarCuotas: boolean;
+  esCuota?: boolean;
+  cuotaActual?: number;
+  totalCuotas?: number;
 }
 
 @Component({
@@ -39,12 +53,20 @@ export class ModalCargarItemComponent {
   private mensualService = inject(MensualItemsService);
   public themeService = inject(ThemeService);
 
+  @ViewChild('conceptoInput') conceptoInputRef?: ElementRef<HTMLInputElement>;
+
   @Input() visible = false;
   @Input() set anioSeleccionado(val: number) {
-    if (val) this.anio.set(val);
+    if (val) {
+      this.anio.set(val);
+      this.cargarEntidadesVigentes();
+    }
   }
   @Input() set mesSeleccionado(val: string) {
-    if (val) this.mes.set(val);
+    if (val) {
+      this.mes.set(val);
+      this.cargarEntidadesVigentes();
+    }
   }
   @Input() set entidadPreseleccionada(val: string) {
     if (val) this.entidad.set(val);
@@ -87,7 +109,9 @@ export class ModalCargarItemComponent {
       this.grupoCuotaIdItem.set(val.grupoCuotaId || null);
       this.actualizarSerieCompleta.set(false);
       this.borrarSerieCompleta.set(false);
+      this.eliminarHaciaElFuturo.set(false);
       this.confirmandoEliminar.set(false);
+      this.mostrarCrearEntidad.set(false);
     } else {
       this.esModoEdicion.set(false);
       this.itemId.set(null);
@@ -97,7 +121,9 @@ export class ModalCargarItemComponent {
       this.grupoCuotaIdItem.set(null);
       this.actualizarSerieCompleta.set(false);
       this.borrarSerieCompleta.set(false);
+      this.eliminarHaciaElFuturo.set(false);
       this.confirmandoEliminar.set(false);
+      this.mostrarCrearEntidad.set(false);
       this.limpiarFormulario();
     }
   }
@@ -116,6 +142,7 @@ export class ModalCargarItemComponent {
   actualizarSerieCompleta = signal<boolean>(false);
   confirmandoEliminar = signal<boolean>(false);
   borrarSerieCompleta = signal<boolean>(false);
+  eliminarHaciaElFuturo = signal<boolean>(false);
 
   // Estados del formulario
   entidad = signal<string>('Visa Galicia');
@@ -125,6 +152,32 @@ export class ModalCargarItemComponent {
   autoPropagarCuotas = signal<boolean>(true);
   anio = signal<number>(2026);
   mes = signal<string>('Octubre');
+
+  // Estados para creación de Nueva Entidad
+  mostrarCrearEntidad = signal<boolean>(false);
+  nuevaEntidadNombre = signal<string>('');
+  nuevaEntidadTipo = signal<string>('TARJETA');
+  nuevaEntidadColor = signal<string>('#1A1F71');
+  nuevaEntidadLogo = signal<string>('');
+  logoSizeKb = signal<number | null>(null);
+  logoError = signal<string>('');
+  itemsNuevaEntidad = signal<ItemBorradorNuevaEntidad[]>([]);
+  totalItemsNuevaEntidad = computed(() => {
+    return this.itemsNuevaEntidad().reduce((acc, it) => acc + (it.montoCalculado || 0), 0);
+  });
+
+  readonly coloresPresets: string[] = [
+    '#1A1F71', // Azul Galicia
+    '#EB001B', // Rojo Mastercard
+    '#FF6600', // Naranja
+    '#005CA9', // Celeste Bancor
+    '#009EE3', // Celeste ML
+    '#10B981', // Verde esmeralda
+    '#8B5CF6', // Violeta
+    '#EC4899', // Rosa
+    '#F59E0B', // Ámbar
+    '#475569', // Pizarra
+  ];
 
   // Estados de control
   isGuardando = signal<boolean>(false);
@@ -146,14 +199,42 @@ export class ModalCargarItemComponent {
     'Diciembre',
   ];
 
-  readonly entidades: EntidadOption[] = [
+  readonly entidadesFallback: EntidadOption[] = [
     { id: 'Visa Galicia', nombre: 'Visa Galicia', logoUrl: 'assets/logos/visa.png', color: '#1A1F71' },
     { id: 'Master Card Galicia', nombre: 'Master Card Galicia', logoUrl: 'assets/logos/mastercard.svg', color: '#EB001B' },
-    { id: 'Naranja', nombre: 'Naranja X', logoUrl: 'assets/logos/naranja.png', color: '#FF6600' },
+    { id: 'Naranja X', nombre: 'Naranja X', logoUrl: 'assets/logos/naranja.png', color: '#FF6600' },
     { id: 'Bancor', nombre: 'Bancor', logoUrl: 'assets/logos/bancor.png', color: '#005CA9' },
     { id: 'Mercado Libre', nombre: 'Mercado Libre / Pago', logoUrl: 'assets/logos/mercadopago.png', color: '#009EE3' },
     { id: 'Otros', nombre: 'Otros (Servicios / Gastos)', color: '#10B981' },
   ];
+
+  entidades = signal<EntidadOption[]>(this.entidadesFallback);
+
+  cargarEntidadesVigentes(): void {
+    const y = this.anio();
+    const m = this.mesNumero();
+    this.mensualService.getEntidadesVigentes(y, m).subscribe({
+      next: (ents) => {
+        if (ents && ents.length > 0) {
+          const list: EntidadOption[] = ents.map((e) => ({
+            id: e.nombre,
+            nombre: e.nombre,
+            logoUrl: e.logoUrl || undefined,
+            color: e.color || '#768699',
+          }));
+          this.entidades.set(list);
+          if (!list.some((e) => e.id === this.entidad())) {
+            this.entidad.set(list[0].id);
+          }
+        } else {
+          this.entidades.set(this.entidadesFallback);
+        }
+      },
+      error: () => {
+        this.entidades.set(this.entidadesFallback);
+      },
+    });
+  }
 
   // Detección reactiva de compras en cuotas (ej. "MPago 1/3")
   infoCuota = computed(() => {
@@ -206,10 +287,150 @@ export class ModalCargarItemComponent {
 
   seleccionarEntidad(nombre: string): void {
     this.entidad.set(nombre);
+    this.mostrarCrearEntidad.set(false);
+  }
+
+  cancelarCrearEntidad(): void {
+    this.mostrarCrearEntidad.set(false);
   }
 
   setMes(m: string): void {
     this.mes.set(m);
+  }
+
+  toggleCrearEntidad(): void {
+    this.mostrarCrearEntidad.update((v) => !v);
+  }
+
+  seleccionarColorPreset(c: string): void {
+    this.nuevaEntidadColor.set(c);
+  }
+
+  onLogoSeleccionado(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    this.logoError.set('');
+
+    if (!file.type.startsWith('image/')) {
+      this.logoError.set('El archivo seleccionado debe ser una imagen válida (PNG, JPG, WebP, SVG).');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e: ProgressEvent<FileReader>) => {
+      const result = e.target?.result as string;
+      if (!result) return;
+
+      const img = new Image();
+      img.onload = () => {
+        // Redimensionar a resolución pequeña y ligera (máx 100 x 36 px)
+        const maxW = 100;
+        const maxH = 36;
+        let w = img.width;
+        let h = img.height;
+
+        if (w > maxW || h > maxH) {
+          const ratio = Math.min(maxW / w, maxH / h);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(w, 1);
+        canvas.height = Math.max(h, 1);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          this.nuevaEntidadLogo.set(result);
+          return;
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        // Exportar a WebP de bajo peso (calidad 0.82) o PNG
+        let dataUrl = canvas.toDataURL('image/webp', 0.82);
+        if (!dataUrl.startsWith('data:image/webp')) {
+          dataUrl = canvas.toDataURL('image/png');
+        }
+
+        // Estimar peso en KB
+        const approxBytes = Math.round((dataUrl.length * 3) / 4);
+        this.logoSizeKb.set(Math.round((approxBytes / 1024) * 10) / 10);
+        this.nuevaEntidadLogo.set(dataUrl);
+      };
+      img.onerror = () => {
+        this.logoError.set('No se pudo procesar la imagen seleccionada.');
+      };
+      img.src = result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  quitarLogo(fileInput?: HTMLInputElement): void {
+    this.nuevaEntidadLogo.set('');
+    this.logoSizeKb.set(null);
+    this.logoError.set('');
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  }
+
+  agregarItemANuevaEntidad(): void {
+    const conc = this.concepto().trim();
+    const montoRaw = this.montoOFormula().trim();
+
+    if (!conc) {
+      this.errorMessage.set('Por favor ingresa un concepto o descripción para el ítem.');
+      return;
+    }
+
+    if (!montoRaw) {
+      this.errorMessage.set('Por favor ingresa un monto o fórmula aritmética (ej: 15000 o =50000+25000).');
+      return;
+    }
+
+    const calc = this.calculoEnVivo();
+    if (calc?.error) {
+      this.errorMessage.set(`Error en la fórmula aritmética: ${calc.error}`);
+      return;
+    }
+
+    const cuota = this.infoCuota();
+
+    const nuevo: ItemBorradorNuevaEntidad = {
+      idTemp: 'temp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      concepto: conc,
+      montoOFormula: montoRaw,
+      montoCalculado: calc?.monto || 0,
+      notas: this.notas().trim() || undefined,
+      autoPropagarCuotas: this.autoPropagarCuotas(),
+      esCuota: cuota?.esCuota,
+      cuotaActual: cuota?.cuotaActual,
+      totalCuotas: cuota?.totalCuotas,
+    };
+
+    this.itemsNuevaEntidad.update((items) => [...items, nuevo]);
+    this.concepto.set('');
+    this.montoOFormula.set('');
+    this.notas.set('');
+    this.errorMessage.set('');
+
+    setTimeout(() => {
+      this.conceptoInputRef?.nativeElement?.focus();
+    }, 0);
+  }
+
+  quitarItemDeNuevaEntidad(idTemp: string): void {
+    this.itemsNuevaEntidad.update((items) => items.filter((it) => it.idTemp !== idTemp));
+  }
+
+  onEnterEnItem(event: Event): void {
+    event.preventDefault();
+    if (this.mostrarCrearEntidad()) {
+      this.agregarItemANuevaEntidad();
+    }
   }
 
   cerrar(): void {
@@ -227,6 +448,13 @@ export class ModalCargarItemComponent {
     this.errorMessage.set('');
     this.successMessage.set('');
     this.confirmandoEliminar.set(false);
+    this.mostrarCrearEntidad.set(false);
+    this.nuevaEntidadNombre.set('');
+    this.nuevaEntidadLogo.set('');
+    this.logoSizeKb.set(null);
+    this.logoError.set('');
+    this.itemsNuevaEntidad.set([]);
+    this.eliminarHaciaElFuturo.set(false);
   }
 
   iniciarEliminar(): void {
@@ -246,8 +474,9 @@ export class ModalCargarItemComponent {
     this.successMessage.set('');
 
     const borrarSerie = this.borrarSerieCompleta();
+    const eliminarFuturo = this.eliminarHaciaElFuturo();
 
-    this.mensualService.deleteItem(id, borrarSerie).subscribe({
+    this.mensualService.deleteItem(id, borrarSerie, eliminarFuturo).subscribe({
       next: (res) => {
         this.isGuardando.set(false);
         this.successMessage.set(res.message || 'Ítem eliminado exitosamente');
@@ -271,6 +500,81 @@ export class ModalCargarItemComponent {
     this.errorMessage.set('');
     this.successMessage.set('');
 
+    // Caso 1: Crear una Nueva Entidad (con lista de múltiples ítems o sin ítems iniciales)
+    if (this.mostrarCrearEntidad()) {
+      const nombreNueva = this.nuevaEntidadNombre().trim();
+      if (!nombreNueva) {
+        this.errorMessage.set('Por favor ingresa un nombre para la nueva entidad o tarjeta.');
+        return;
+      }
+
+      // Si el usuario escribió un ítem en los inputs pero no presionó "Agregar a la lista", lo incorporamos automáticamente si es válido
+      const concPendiente = this.concepto().trim();
+      const montoPendiente = this.montoOFormula().trim();
+      const calcPendiente = this.calculoEnVivo();
+
+      let listaFinal = [...this.itemsNuevaEntidad()];
+
+      if (concPendiente && montoPendiente) {
+        if (calcPendiente?.error) {
+          this.errorMessage.set(`Error en la fórmula del ítem: ${calcPendiente.error}`);
+          return;
+        }
+        const cuota = this.infoCuota();
+        listaFinal.push({
+          idTemp: 'pending_' + Date.now(),
+          concepto: concPendiente,
+          montoOFormula: montoPendiente,
+          montoCalculado: calcPendiente?.monto || 0,
+          notas: this.notas().trim() || undefined,
+          autoPropagarCuotas: this.autoPropagarCuotas(),
+          esCuota: cuota?.esCuota,
+          cuotaActual: cuota?.cuotaActual,
+          totalCuotas: cuota?.totalCuotas,
+        });
+      } else if (concPendiente && !montoPendiente) {
+        this.errorMessage.set('Tienes un ítem sin monto ingresado. Completa el monto o borra el concepto antes de guardar.');
+        return;
+      }
+
+      this.isGuardando.set(true);
+
+      this.mensualService
+        .crearEntidad({
+          nombre: nombreNueva,
+          tipo: this.nuevaEntidadTipo(),
+          color: this.nuevaEntidadColor(),
+          logoUrl: this.nuevaEntidadLogo().trim() || undefined,
+          vigenteDesdeAnio: this.anio(),
+          vigenteDesdeMes: this.mesNumero(),
+          itemsIniciales: listaFinal.map((it) => ({
+            concepto: it.concepto,
+            montoOFormula: it.montoOFormula,
+            notas: it.notas,
+            autoPropagarCuotas: it.autoPropagarCuotas,
+          })),
+        })
+        .subscribe({
+          next: (res) => {
+            this.isGuardando.set(false);
+            this.successMessage.set(res.message);
+            this.itemCreado.emit(res);
+            this.cargarEntidadesVigentes();
+
+            setTimeout(() => {
+              this.limpiarFormulario();
+              this.cerrar();
+            }, 1000);
+          },
+          error: (err) => {
+            this.isGuardando.set(false);
+            const msg = err?.error?.message || err?.message || 'Error al crear la entidad';
+            this.errorMessage.set(msg);
+          },
+        });
+      return;
+    }
+
     const conc = this.concepto().trim();
     const montoRaw = this.montoOFormula().trim();
 
@@ -293,6 +597,7 @@ export class ModalCargarItemComponent {
     this.isGuardando.set(true);
 
     try {
+      // Caso 2: Modo Edición
       if (this.esModoEdicion() && this.itemId()) {
         const payload: UpdateMonthlyItemPayload = {
           concepto: conc,
@@ -319,6 +624,7 @@ export class ModalCargarItemComponent {
           },
         });
       } else {
+        // Caso 3: Alta normal de ítem en entidad existente
         const payload = {
           year: this.anio(),
           mes: this.mesNumero(),

@@ -1,4 +1,4 @@
-﻿<div
+<div
   *ngIf="visible"
   class="modal-backdrop"
   [class.es-dark]="themeService.isDarkMode()"
@@ -10,12 +10,14 @@
     <div class="modal-header">
       <div class="header-title-group">
         <div class="header-icon-badge" [class.badge-edit]="esModoEdicion()">
-          <mat-icon>{{ esModoEdicion() ? 'edit_note' : 'add_card' }}</mat-icon>
+          <mat-icon>{{ esModoEdicion() ? 'edit_note' : (mostrarCrearEntidad() ? 'add_business' : 'add_card') }}</mat-icon>
         </div>
         <div>
-          <h2 class="modal-title">{{ esModoEdicion() ? 'Editar Ítem o Cuota' : 'Cargar Ítem o Cuota Mensual' }}</h2>
+          <h2 class="modal-title">
+            {{ esModoEdicion() ? 'Editar Ítem o Cuota' : (mostrarCrearEntidad() ? 'Nueva Entidad Financiera' : 'Cargar Ítem o Cuota Mensual') }}
+          </h2>
           <p class="modal-subtitle">
-            {{ esModoEdicion() ? 'Modifica el concepto, monto/fórmula o notas de este registro' : 'Ingresa compras con cuotas, impuestos o fórmulas aritméticas (=x+y+z)' }}
+            {{ esModoEdicion() ? 'Modifica el concepto, monto/fórmula o notas de este registro' : (mostrarCrearEntidad() ? 'Configura la tarjeta o cuenta e ingresa todos sus ítems iniciales juntos' : 'Ingresa compras con cuotas, impuestos o fórmulas aritméticas (=x+y+z)') }}
           </p>
         </div>
       </div>
@@ -80,6 +82,38 @@
         </label>
       </div>
 
+      <!-- Opciones para servicios o ítems estándar -->
+      <div *ngIf="!esCuotaItem()" class="opciones-borrado-cuotas">
+        <span class="cuotas-label-pregunta">Alcance de la eliminación:</span>
+        <label class="opcion-radio-cuota" [class.selected]="!eliminarHaciaElFuturo()">
+          <input
+            type="radio"
+            name="alcanceOpcion"
+            [checked]="!eliminarHaciaElFuturo()"
+            (change)="eliminarHaciaElFuturo.set(false)"
+          />
+          <span class="radio-custom"></span>
+          <div class="radio-info">
+            <strong>Eliminar sólo en este mes ({{ mes() }} {{ anio() }})</strong>
+            <small>Conserva los registros pasados y futuros en otros meses.</small>
+          </div>
+        </label>
+
+        <label class="opcion-radio-cuota" [class.selected]="eliminarHaciaElFuturo()">
+          <input
+            type="radio"
+            name="alcanceOpcion"
+            [checked]="eliminarHaciaElFuturo()"
+            (change)="eliminarHaciaElFuturo.set(true)"
+          />
+          <span class="radio-custom"></span>
+          <div class="radio-info">
+            <strong>Dar de baja servicio (Eliminar de este mes en adelante)</strong>
+            <small>Preserva el historial anterior intacto y lo elimina de este mes y meses posteriores.</small>
+          </div>
+        </label>
+      </div>
+
       <div class="confirm-actions-row">
         <button type="button" class="btn btn-secondary" (click)="cancelarEliminar()" [disabled]="isGuardando()">
           Cancelar
@@ -103,15 +137,135 @@
         <div class="entidades-grid">
           <button
             type="button"
-            *ngFor="let ent of entidades"
+            *ngFor="let ent of entidades()"
             class="entidad-chip"
-            [class.selected]="entidad() === ent.id"
+            [class.selected]="!mostrarCrearEntidad() && entidad() === ent.id"
             (click)="seleccionarEntidad(ent.id)"
           >
             <img *ngIf="ent.logoUrl" [src]="ent.logoUrl" [alt]="ent.nombre" class="chip-logo" />
             <mat-icon *ngIf="!ent.logoUrl" class="chip-icon">category</mat-icon>
             <span class="chip-label">{{ ent.nombre }}</span>
           </button>
+
+          <!-- Botón para dar de alta una nueva entidad -->
+          <button
+            type="button"
+            *ngIf="!esModoEdicion()"
+            class="entidad-chip chip-nueva-entidad"
+            [class.selected]="mostrarCrearEntidad()"
+            (click)="toggleCrearEntidad()"
+            title="Dar de alta una nueva tarjeta o entidad financiera"
+          >
+            <mat-icon class="chip-icon">add_circle</mat-icon>
+            <span class="chip-label">+ Nueva Entidad</span>
+          </button>
+        </div>
+
+        <!-- Formulario Inline de Nueva Entidad -->
+        <div *ngIf="mostrarCrearEntidad()" class="nueva-entidad-panel">
+          <div class="panel-header">
+            <div class="panel-header-title">
+              <mat-icon>credit_card</mat-icon>
+              <strong>Configuración de Nueva Entidad</strong>
+            </div>
+            <button
+              type="button"
+              class="btn-cancelar-nueva-entidad"
+              (click)="cancelarCrearEntidad()"
+              title="Volver a seleccionar entidades existentes"
+            >
+              <mat-icon>arrow_back</mat-icon>
+              <span>Volver a entidades</span>
+            </button>
+          </div>
+          <div class="form-row">
+            <div class="form-group flex-2">
+              <label class="form-label-small">Nombre de la entidad o tarjeta</label>
+              <input
+                type="text"
+                class="form-control"
+                placeholder="Ej: BBVA Visa, American Express, Banco Macro..."
+                [ngModel]="nuevaEntidadNombre()"
+                (ngModelChange)="nuevaEntidadNombre.set($event)"
+              />
+            </div>
+            <div class="form-group flex-1">
+              <label class="form-label-small">Tipo</label>
+              <select class="form-control" [ngModel]="nuevaEntidadTipo()" (ngModelChange)="nuevaEntidadTipo.set($event)">
+                <option value="TARJETA">Tarjeta de Crédito</option>
+                <option value="BANCO">Cuenta Bancaria</option>
+                <option value="BILLETERA">Billetera Virtual</option>
+                <option value="SERVICIOS">Servicios / Otros</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label-small">Color identificador:</label>
+            <div class="colores-presets-row">
+              <button
+                type="button"
+                *ngFor="let col of coloresPresets"
+                class="btn-color-dot"
+                [style.background-color]="col"
+                [class.selected]="nuevaEntidadColor() === col"
+                (click)="seleccionarColorPreset(col)"
+              ></button>
+            </div>
+          </div>
+
+          <!-- Selector de Logotipo Opcional -->
+          <div class="form-group">
+            <label class="form-label-small">
+              <span>Logotipo o ícono (opcional)</span>
+              <span class="sub-tip"> - Optimizado en resolución compacta</span>
+            </label>
+
+            <div class="logo-uploader-row">
+              <input
+                #logoFileInput
+                type="file"
+                accept="image/png, image/jpeg, image/webp, image/svg+xml"
+                (change)="onLogoSeleccionado($event)"
+                style="display: none;"
+              />
+
+              <button
+                type="button"
+                class="btn-subir-logo"
+                (click)="logoFileInput.click()"
+                title="Seleccionar un archivo de imagen para el logo"
+              >
+                <mat-icon>{{ nuevaEntidadLogo() ? 'change_circle' : 'add_photo_alternate' }}</mat-icon>
+                <span>{{ nuevaEntidadLogo() ? 'Cambiar Logo' : 'Subir Logo' }}</span>
+              </button>
+
+              <!-- Previsualización si ya hay un logo cargado -->
+              <div *ngIf="nuevaEntidadLogo()" class="logo-preview-badge">
+                <div class="preview-img-container">
+                  <img [src]="nuevaEntidadLogo()" alt="Preview logo" class="img-preview" />
+                </div>
+                <span class="preview-size-tag" *ngIf="logoSizeKb()">{{ logoSizeKb() }} KB</span>
+                <button
+                  type="button"
+                  class="btn-quitar-logo"
+                  (click)="quitarLogo(logoFileInput)"
+                  title="Quitar logo"
+                >
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            </div>
+
+            <span *ngIf="logoError()" class="logo-error-text">{{ logoError() }}</span>
+          </div>
+
+          <div class="vigencia-aviso-box">
+            <mat-icon>info</mat-icon>
+            <span>
+              Esta entidad regirá a partir de <strong>{{ mes() }} {{ anio() }}</strong> y se replicará automáticamente en todos los meses posteriores.
+            </span>
+          </div>
         </div>
       </div>
 
@@ -154,11 +308,13 @@
           <span class="tip-badge">Soporta cuotas formato 1/x (ej: MPago 1/3)</span>
         </div>
         <input
+          #conceptoInput
           type="text"
           class="form-control input-lg"
           placeholder="Ej: MPago 1/3, Impuesto al sello, Expensas, Supermercado..."
           [ngModel]="concepto()"
           (ngModelChange)="concepto.set($event)"
+          (keydown.enter)="onEnterEnItem($event)"
           autofocus
         />
 
@@ -234,6 +390,7 @@
           placeholder="Ej: 98389.65 o =74996.63+23393.02 o =15000+500*2"
           [ngModel]="montoOFormula()"
           (ngModelChange)="montoOFormula.set($event)"
+          (keydown.enter)="onEnterEnItem($event)"
         />
 
         <!-- Feedback reactivo de la fórmula en vivo -->
@@ -267,7 +424,68 @@
           placeholder="Aclaración adicional, número de comprobante, etc."
           [ngModel]="notas()"
           (ngModelChange)="notas.set($event)"
+          (keydown.enter)="onEnterEnItem($event)"
         />
+      </div>
+
+      <!-- Botón para agregar ítem a la lista en modo Nueva Entidad -->
+      <div *ngIf="mostrarCrearEntidad()" class="agregar-item-row">
+        <button
+          type="button"
+          class="btn-agregar-a-lista"
+          (click)="agregarItemANuevaEntidad()"
+          [disabled]="!concepto().trim() || !montoOFormula().trim()"
+          title="Agregar este ítem a la lista de la nueva entidad"
+        >
+          <mat-icon>playlist_add</mat-icon>
+          <span>+ Agregar ítem a la lista</span>
+        </button>
+        <span class="enter-shortcut-hint">
+          <mat-icon class="hint-icon">keyboard_return</mat-icon>
+          O presiona <code>Enter</code> tras escribir el monto
+        </span>
+      </div>
+
+      <!-- Tabla / Lista de Ítems acumulados para la nueva entidad -->
+      <div *ngIf="mostrarCrearEntidad() && itemsNuevaEntidad().length > 0" class="items-borrador-panel">
+        <div class="borrador-header">
+          <div class="borrador-count">
+            <mat-icon>checklist</mat-icon>
+            <strong>Ítems en esta entidad ({{ itemsNuevaEntidad().length }})</strong>
+          </div>
+          <div class="borrador-total">
+            <span>Subtotal inicial:</span>
+            <strong>{{ totalItemsNuevaEntidad() | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>
+          </div>
+        </div>
+
+        <div class="borrador-list">
+          <div *ngFor="let it of itemsNuevaEntidad(); let i = index" class="borrador-row">
+            <span class="row-num">{{ i + 1 }}</span>
+            <div class="row-info">
+              <div class="row-concepto-line">
+                <span class="row-concepto">{{ it.concepto }}</span>
+                <span *ngIf="it.esCuota" class="badge-cuota-mini">
+                  {{ it.cuotaActual }}/{{ it.totalCuotas }}
+                  <span *ngIf="it.autoPropagarCuotas"> (propagando)</span>
+                </span>
+              </div>
+              <small *ngIf="it.notas" class="row-notas">{{ it.notas }}</small>
+            </div>
+            <div class="row-monto-col">
+              <span class="row-monto">{{ it.montoCalculado | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</span>
+              <small *ngIf="it.montoOFormula.startsWith('=')" class="row-formula">{{ it.montoOFormula }}</small>
+            </div>
+            <button
+              type="button"
+              class="btn-eliminar-item-borrador"
+              (click)="quitarItemDeNuevaEntidad(it.idTemp)"
+              title="Quitar este ítem de la lista"
+            >
+              <mat-icon>delete_outline</mat-icon>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -300,11 +518,20 @@
           type="button"
           class="btn btn-primary"
           (click)="guardar()"
-          [disabled]="isGuardando() || !concepto().trim() || !montoOFormula().trim()"
+          [disabled]="isGuardando() || (!mostrarCrearEntidad() && (!concepto().trim() || !montoOFormula().trim())) || (mostrarCrearEntidad() && !nuevaEntidadNombre().trim())"
         >
           <mat-spinner *ngIf="isGuardando()" diameter="20" class="btn-spinner"></mat-spinner>
           <mat-icon *ngIf="!isGuardando()">{{ esModoEdicion() ? 'check_circle' : 'save' }}</mat-icon>
-          <span>{{ isGuardando() ? (esModoEdicion() ? 'Actualizando...' : 'Guardando...') : (esModoEdicion() ? 'Actualizar Ítem' : 'Guardar Ítem') }}</span>
+          <span *ngIf="isGuardando()">
+            {{ esModoEdicion() ? 'Actualizando...' : (mostrarCrearEntidad() ? 'Creando Entidad...' : 'Guardando...') }}
+          </span>
+          <span *ngIf="!isGuardando()">
+            <ng-container *ngIf="esModoEdicion()">Actualizar Ítem</ng-container>
+            <ng-container *ngIf="!esModoEdicion() && !mostrarCrearEntidad()">Guardar Ítem</ng-container>
+            <ng-container *ngIf="!esModoEdicion() && mostrarCrearEntidad()">
+              {{ itemsNuevaEntidad().length > 0 ? 'Guardar Entidad (' + itemsNuevaEntidad().length + ' ítems)' : 'Guardar Entidad' }}
+            </ng-container>
+          </span>
         </button>
       </div>
     </div>

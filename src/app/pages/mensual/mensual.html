@@ -54,8 +54,8 @@
                 </button>
               </div>
               <mat-card-content *ngIf="!gastosMensualesCollapsed()">
-                <div class="contenedor-entidad">
-                  <app-visa [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="visaDatos()"
+                <div class="contenedor-entidad" *ngIf="estaEntidadVigente('Visa Galicia') || estaEntidadVigente('Visa')">
+                  <app-visa (eliminarEntidad)="abrirModalBajaEntidad($event)" [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="visaDatos()"
                     [entidad]="visaEntidad()" [isCargando]="isCargando()"
                     [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)"></app-visa>
                   <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
@@ -64,8 +64,8 @@
                   </div>
                 </div>
 
-                <div class="contenedor-entidad">
-                  <app-master-galicia [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="masterDatos()"
+                <div class="contenedor-entidad" *ngIf="estaEntidadVigente('Master Card Galicia') || estaEntidadVigente('Mastercard')">
+                  <app-master-galicia (eliminarEntidad)="abrirModalBajaEntidad($event)" [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="masterDatos()"
                     [entidad]="masterEntidad()" [isCargando]="isCargando()"
                     [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)"></app-master-galicia>
                   <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
@@ -74,8 +74,8 @@
                   </div>
                 </div>
 
-                <div class="contenedor-entidad">
-                  <app-naranja [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="naranjaDatos()"
+                <div class="contenedor-entidad" *ngIf="estaEntidadVigente('Naranja X') || estaEntidadVigente('Naranja')">
+                  <app-naranja (eliminarEntidad)="abrirModalBajaEntidad($event)" [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="naranjaDatos()"
                     [entidad]="naranjaEntidad()" [isCargando]="isCargando()"
                     [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)"></app-naranja>
                   <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
@@ -84,8 +84,8 @@
                   </div>
                 </div>
 
-                <div class="contenedor-entidad">
-                  <app-bancor [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="bancorDatos()"
+                <div class="contenedor-entidad" *ngIf="estaEntidadVigente('Bancor')">
+                  <app-bancor (eliminarEntidad)="abrirModalBajaEntidad($event)" [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="bancorDatos()"
                     [entidad]="bancorEntidad()" [isCargando]="isCargando()"
                     [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)"></app-bancor>
                   <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
@@ -94,8 +94,8 @@
                   </div>
                 </div>
 
-                <div class="contenedor-entidad">
-                  <app-mercado-libre [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="mLDatos()"
+                <div class="contenedor-entidad" *ngIf="estaEntidadVigente('Mercado Libre')">
+                  <app-mercado-libre (eliminarEntidad)="abrirModalBajaEntidad($event)" [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="mLDatos()"
                     [entidad]="mLEntidad()" [isCargando]="isCargando()"
                     [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)"></app-mercado-libre>
                   <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
@@ -104,8 +104,8 @@
                   </div>
                 </div>
 
-                <div class="contenedor-entidad">
-                  <app-otros [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="otrosDatos()"
+                <div class="contenedor-entidad" *ngIf="estaEntidadVigente('Otros')">
+                  <app-otros (eliminarEntidad)="abrirModalBajaEntidad($event)" [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="otrosDatos()"
                     [entidad]="otrosEntidad()" [isCargando]="isCargando()"
                     [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)"></app-otros>
                   <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
@@ -227,6 +227,66 @@
   <app-modal-cargar-item [visible]="mostrarModalCargar()" [anioSeleccionado]="anioSeleccionado()"
     [mesSeleccionado]="mesSeleccionado()" [itemAEditar]="itemParaEditar()" (cerrado)="cerrarModalCargar()"
     (itemCreado)="onItemCreado($event)"></app-modal-cargar-item>
+
+  <!-- Modal de Pago de Entidades a nivel raíz (supera cualquier stacking context) -->
+  <app-modal-pagar-entidad
+    *ngIf="entityPaymentService.entidadAPagarSeleccionada()"
+    [entidadInfo]="entityPaymentService.entidadAPagarSeleccionada()!"
+    (cerrar)="entityPaymentService.cerrarModalPago()"
+    (pagoConfirmado)="entityPaymentService.cerrarModalPago()"
+  ></app-modal-pagar-entidad>
+
+  <!-- Modal de Confirmación de Baja de Entidad con Integridad Histórica -->
+  <div *ngIf="mostrarModalBajaEntidad() && entidadADarDeBaja()" class="modal-backdrop" (click)="cerrarModalBajaEntidad()">
+    <div class="modal-card modal-baja-entidad" (click)="$event.stopPropagation()">
+      <div class="modal-baja-header">
+        <div class="icono-peligro-circulo">
+          <mat-icon>warning_amber</mat-icon>
+        </div>
+        <div>
+          <h3 class="modal-baja-title">Dar de baja {{ entidadADarDeBaja()?.nombre }}</h3>
+          <p class="subtitulo-baja">¿Confirmas que deseas eliminar esta entidad a partir de {{ mesSeleccionado() }} {{ anioSeleccionado() }}?</p>
+        </div>
+      </div>
+
+      <div class="reglas-integridad-box">
+        <div class="regla-item regla-verde">
+          <mat-icon>check_circle</mat-icon>
+          <div>
+            <strong>Meses anteriores:</strong> Se conservará intacto todo el historial de gastos, cuotas y balances de {{ entidadADarDeBaja()?.nombre }} sin ninguna modificación.
+          </div>
+        </div>
+        <div class="regla-item regla-roja">
+          <mat-icon>cancel</mat-icon>
+          <div>
+            <strong>A partir de {{ mesSeleccionado() }} {{ anioSeleccionado() }} en adelante:</strong> La entidad dejará de figurar en la vista mensual y se removerán los ítems futuros presupuestados.
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="bajaError()" class="alert-box error">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ bajaError() }}</span>
+      </div>
+
+      <div *ngIf="bajaSuccess()" class="alert-box success">
+        <mat-icon>check_circle</mat-icon>
+        <span>{{ bajaSuccess() }}</span>
+      </div>
+
+      <div class="modal-baja-actions">
+        <button type="button" class="btn btn-secondary" (click)="cerrarModalBajaEntidad()" [disabled]="isProcesandoBaja()">
+          Cancelar
+        </button>
+        <button type="button" class="btn btn-danger-solid" (click)="confirmarBajaEntidad()" [disabled]="isProcesandoBaja()">
+          <mat-spinner *ngIf="isProcesandoBaja()" diameter="18"></mat-spinner>
+          <mat-icon *ngIf="!isProcesandoBaja()">delete_forever</mat-icon>
+          <span>{{ isProcesandoBaja() ? 'Procesando baja...' : 'Confirmar baja desde este mes' }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
 </ng-container>
 
 

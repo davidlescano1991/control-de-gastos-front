@@ -11,6 +11,7 @@ import { SseService } from '../../../services/sse.service';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { Prestamo } from '../../../models/prestamo';
 import { LoansService, Loan } from '../../../services/loans.service';
+import { EntityPaymentService } from '../../../services/entity-payment.service';
 import { GraficoSaldoAnual } from '../grafico-saldo-anual/grafico-saldo-anual';
 import { GraficoDiasRestantesAnual } from '../grafico-dias-restantes-anual/grafico-dias-restantes-anual';
 import { RendimientosPositivosMensuales } from '../rendimientos-positivos-mensuales/rendimientos-positivos-mensuales';
@@ -111,6 +112,7 @@ export class Anual implements OnInit, OnDestroy {
   private cotizacionStore = inject(CotizacionStore);
   private sseService = inject(SseService);
   private loansService = inject(LoansService);
+  private entityPaymentService = inject(EntityPaymentService);
   private sseSub: Subscription | null = null;
   anios: number[] = [];
   readonly anioActual = new Date().getFullYear();
@@ -225,6 +227,16 @@ export class Anual implements OnInit, OnDestroy {
     this.sseSub = this.sseService.getEvents$().subscribe((msg) => {
       if (msg.event === 'DATA_UPDATED') {
         console.log('⚡ [Anual] Actualización en tiempo real recibida vía SSE. Recargando...', msg.data);
+        if (msg.data?.action === 'ENTITY_PAYMENT_UPDATED') {
+          this.cacheDeudaAnualPorAnio.delete(this.anioSeleccionado());
+          if (typeof localStorage !== 'undefined') {
+            try {
+              localStorage.removeItem(`deuda_total_meses_${this.anioSeleccionado()}`);
+            } catch (e) {
+              console.warn('Error clearing deuda_total_meses localStorage cache', e);
+            }
+          }
+        }
         void this.refrescarAutomaticamente();
       }
     });
@@ -451,6 +463,16 @@ export class Anual implements OnInit, OnDestroy {
         nombresMeses,
       );
 
+      let unpaidPorMes: Record<number, number> = {};
+      try {
+        const unpaidRes = await firstValueFrom(this.entityPaymentService.getUnpaid(anio));
+        if (unpaidRes?.success && unpaidRes.unpaid && typeof unpaidRes.unpaid === 'object') {
+          unpaidPorMes = unpaidRes.unpaid as Record<number, number>;
+        }
+      } catch (e) {
+        // En caso de no poder conectar a la API, continúa con las compensaciones del store
+      }
+
       const resultado = proyeccionFutura.map((item, mesIdx) => {
         const mesNorm = this.storeGoogle.normalizar(item.mes);
         const idxMesEnFilas = filasMeses.findIndex(
@@ -496,7 +518,11 @@ export class Anual implements OnInit, OnDestroy {
           }
         }
 
-        const compRaw = item.compensaciones ?? 0;
+        const numMes = MESES_BASE.indexOf(mesNorm) + 1;
+        let compRaw = item.compensaciones ?? 0;
+        if (numMes >= 1 && unpaidPorMes[numMes] !== undefined && unpaidPorMes[numMes] > 0) {
+          compRaw = -unpaidPorMes[numMes];
+        }
         // Si compRaw es negativo (ej. -$3.149.113,74), representa saldo impago de tarjetas y es deuda
         // Si es positivo, representa un pago por encima del saldo y reduce la deuda
         const deudaCompensacion = -compRaw;

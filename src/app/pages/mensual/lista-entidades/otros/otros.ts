@@ -5,16 +5,112 @@ import { CurrencyPipe, isPlatformBrowser, NgFor, NgIf } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
 import { ProyeccionOverlayService } from '../../../../services/proyeccion-overlay.service';
+import { computed } from '@angular/core';
+import { MatIconModule } from '@angular/material/icon';
+import { EntidadAPagarInfo } from '../../modal-pagar-entidad/modal-pagar-entidad.component';
+import { EntityPaymentService, EntityPayment } from '../../../../services/entity-payment.service';
 
 @Component({
   selector: 'app-otros',
-  imports: [NgFor, NgIf, CurrencyPipe, MatProgressSpinnerModule, MatCardModule],
+  imports: [NgFor, NgIf, CurrencyPipe, MatProgressSpinnerModule, MatCardModule, MatIconModule],
   templateUrl: './otros.html',
   styleUrl: './otros.scss',
   providers: [CurrencyPipe]
 })
 export class Otros {
+  private paymentService = inject(EntityPaymentService);
+  modalPagoAbierto = signal(false);
+  filaSeleccionadaParaPago = signal<any>(null);
+
+  private MESES_MAP: Record<string, number> = {
+    enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6,
+    julio: 7, agosto: 8, septiembre: 9, octubre: 10, noviembre: 11, diciembre: 12
+  };
+
+  getMesNumero(): number {
+    const normal = (this.mes || '').toLowerCase().trim();
+    return this.MESES_MAP[normal] || (new Date().getMonth() + 1);
+  }
+
+  getPagoFila(fila: any): EntityPayment | null {
+    const mesNum = this.getMesNumero();
+    const key = `${this.anio}::${mesNum}`;
+    const pagos = this.paymentService.pagosMesSignal().get(key) || [];
+    const idBuscar = String(fila.id || fila.descripcion || '');
+    return pagos.find(p => p.entidad.toLowerCase() === 'otros' && p.itemId === idBuscar) || null;
+  }
+
+  getEstadoPagoFila(fila: any): 'COMPLETO' | 'PARCIAL' | 'NO_PAGADO' {
+    const esHistorico = this.anio < 2026 || (this.anio === 2026 && this.getMesNumero() < 10);
+    const p = this.getPagoFila(fila);
+    if (p) return p.estado as any;
+    if (esHistorico) return 'COMPLETO';
+    const monto = typeof fila?.montoCrudo === 'number' ? fila.montoCrudo : this.parseMoneda(fila?.monto);
+    if (monto === 0) return 'COMPLETO';
+    return 'NO_PAGADO';
+  }
+
+  getIconoPagoFila(fila: any): string {
+    const estado = this.getEstadoPagoFila(fila);
+    if (estado === 'COMPLETO') return 'check_circle';
+    if (estado === 'PARCIAL') return 'pending';
+    return 'cancel';
+  }
+
+  parseMoneda(valor: any): number {
+    if (typeof valor === 'number') return valor;
+    if (typeof valor !== 'string') return 0;
+    const limpio = valor.replace(/\$/g, '').replace(/\s+/g, '').replace(/\./g, '').replace(',', '.');
+    const num = parseFloat(limpio);
+    return isNaN(num) ? 0 : num;
+  }
+
+  getTooltipPagoFila(fila: any): string {
+    const estado = this.getEstadoPagoFila(fila);
+    const p = this.getPagoFila(fila);
+    const monto = typeof fila?.montoCrudo === 'number' ? fila.montoCrudo : this.parseMoneda(fila?.monto);
+    if (monto === 0) {
+      return 'Sin saldo a pagar ($ 0,00) - Pagado';
+    }
+    if (estado === 'COMPLETO') {
+      return `Pagado completamente${p?.fechaPago ? ' el ' + new Date(p.fechaPago).toLocaleDateString('es-AR') : ''}`;
+    }
+    if (estado === 'PARCIAL' && p) {
+      return `Pago parcial: Abonado $ ${p.montoPagado.toLocaleString('es-AR', { minimumFractionDigits: 2 })} (Resta $ ${p.montoRestante.toLocaleString('es-AR', { minimumFractionDigits: 2 })})`;
+    }
+    return 'No pagado (Pendiente de pago)';
+  }
+
+  entidadAPagarInfo = computed<EntidadAPagarInfo>(() => {
+    const fila = this.filaSeleccionadaParaPago();
+    const monto = fila ? (typeof fila.montoCrudo === 'number' ? fila.montoCrudo : this.parseMoneda(fila.monto)) : 0;
+    const pagoExistente = fila ? this.getPagoFila(fila) : null;
+
+    return {
+      year: this.anio,
+      mes: this.getMesNumero(),
+      mesNombre: this.mes,
+      entidad: 'Otros',
+      itemId: fila ? String(fila.id || fila.descripcion || '') : '',
+      concepto: fila ? fila.descripcion : '',
+      totalOriginal: monto,
+      pagoExistente: pagoExistente || undefined,
+    };
+  });
+
+  abrirModalPagoFila(fila: any, event: MouseEvent): void {
+    event.stopPropagation();
+    this.filaSeleccionadaParaPago.set(fila);
+    this.paymentService.abrirModalPago(this.entidadAPagarInfo());
+  }
+
+  onPagoConfirmado(pago: EntityPayment): void {
+    this.modalPagoAbierto.set(false);
+    this.filaSeleccionadaParaPago.set(null);
+  }
+
   public authService = inject(AuthService);
+  @Output() eliminarEntidad = new EventEmitter<string>();
   @Output() editarFila = new EventEmitter<any>();
 
   onEditarFila(fila: any, event: MouseEvent): void {
@@ -188,4 +284,9 @@ export class Otros {
     return !!match;
   }
 
+
+  solicitarBajaEntidad(event: MouseEvent): void {
+    event.stopPropagation();
+    this.eliminarEntidad.emit(this.entidad);
+  }
 }
