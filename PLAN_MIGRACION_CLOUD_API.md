@@ -999,6 +999,7 @@ gantt
           4. Si todas las cuotas quedan canceladas, conmutar el estado del préstamo a `FINALIZADO`.
           5. Notificar en tiempo real vía SSE (`DATA_UPDATED` con acción `LOAN_INSTALLMENT_UPDATED`).
         - **Alineación Visual y Regla de Oro (`AGENTS.md`)**: Reestructuración del encabezado de la tarjeta a `.prestamos-header-bar` simétrico de 3 columnas (botón a la izquierda, título centrado, balance a la derecha) erradicando solapamientos con el título y preservando intacta la estructura `.movimientos-wrapper`. *(Completado)*
+        - **Compilación Limpia y CI/CD en API**: Ajuste estricto de tipos TypeScript (`id as string`) en `loan.controller.ts`, importación de middlewares oficiales de autenticación (`authenticateToken`, `requireAdmin`) en `loan.routes.ts`, e incorporación de campos requeridos (`year`, `mes`, `tipo: 'GASTO'`) en el registro de movimiento de `loan.service.ts`. Compilación verificada con `npm run build` (0 errores). *(Completado)*
       * **6.11.9**: Auditoría, conciliación matemática integral y pruebas de ciclo completo entre Anual y Estimativos.
 
   * **6.12**: Exportador Universal a Excel (.xlsx) Dual (Google Sheets en Vivo + PostgreSQL Recreado Fielmente):
