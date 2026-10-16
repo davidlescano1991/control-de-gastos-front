@@ -201,6 +201,52 @@
             </div>
           </div>
 
+          <!-- Selector de Logotipo Opcional -->
+          <div class="form-group">
+            <label class="form-label-small">
+              <span>Logotipo o ícono (opcional)</span>
+              <span class="sub-tip"> - Optimizado en resolución compacta</span>
+            </label>
+
+            <div class="logo-uploader-row">
+              <input
+                #logoFileInput
+                type="file"
+                accept="image/png, image/jpeg, image/webp, image/svg+xml"
+                (change)="onLogoSeleccionado($event)"
+                style="display: none;"
+              />
+
+              <button
+                type="button"
+                class="btn-subir-logo"
+                (click)="logoFileInput.click()"
+                title="Seleccionar un archivo de imagen para el logo"
+              >
+                <mat-icon>{{ nuevaEntidadLogo() ? 'change_circle' : 'add_photo_alternate' }}</mat-icon>
+                <span>{{ nuevaEntidadLogo() ? 'Cambiar Logo' : 'Subir Logo' }}</span>
+              </button>
+
+              <!-- Previsualización si ya hay un logo cargado -->
+              <div *ngIf="nuevaEntidadLogo()" class="logo-preview-badge">
+                <div class="preview-img-container">
+                  <img [src]="nuevaEntidadLogo()" alt="Preview logo" class="img-preview" />
+                </div>
+                <span class="preview-size-tag" *ngIf="logoSizeKb()">{{ logoSizeKb() }} KB</span>
+                <button
+                  type="button"
+                  class="btn-quitar-logo"
+                  (click)="quitarLogo(logoFileInput)"
+                  title="Quitar logo"
+                >
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            </div>
+
+            <span *ngIf="logoError()" class="logo-error-text">{{ logoError() }}</span>
+          </div>
+
           <div class="vigencia-aviso-box">
             <mat-icon>info</mat-icon>
             <span>

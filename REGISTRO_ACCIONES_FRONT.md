@@ -19,6 +19,32 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-16 15:35] - Carga, Optimización y Compresión en Cliente de Logos para Nuevas Entidades Financieras
+- **Requerimiento**:
+  - Dar la posibilidad de guardar un logo/ícono al crear una nueva entidad financiera desde el modal de carga.
+  - El logo debe guardarse en una resolución chica y liviana para que no ocupe espacio innecesario en la base de datos, considerando que su visualización en el sistema es compacta (chips y cabeceras de tarjeta).
+- **Causa / Desafío**:
+  - Subir imágenes crudas de alta resolución (PNG/JPEG de 2 a 5 MB) directamente a la base de datos o almacenamiento genera sobrecarga de red y almacenamiento innecesario.
+  - La visualización del logo en los chips y cabeceras requiere como máximo 100x36 px.
+- **Solución Técnica Aplicada**:
+  - **1. Compresión Automática en Cliente (`modal-cargar-item.ts`)**:
+    - Implementación de `onLogoSeleccionado(event)`: Lee el archivo de imagen mediante `FileReader` e `Image`.
+    - Redimensionamiento proporcional restrictivo en un `<canvas>` HTML5 a un tamaño máximo de `100 px` de ancho por `36 px` de alto.
+    - Exportación a formato `image/webp` con calidad 0.82 (o fallback `image/png`), reduciendo cualquier imagen de varios megabytes a un Data URL Base64 ultraliviano de entre 1.5 y 2.5 KB.
+    - Señales reactivas: `nuevaEntidadLogo`, `logoSizeKb` y `logoError`.
+    - Método `quitarLogo(fileInput)` para descartar y limpiar el logo antes de guardar.
+  - **2. Interfaz y Previsualización (`modal-cargar-item.html` & `modal-cargar-item.scss`)**:
+    - Botón de acción con input tipo file oculto para seleccionar imágenes (`PNG, JPG, WebP, SVG`).
+    - Recuadro de previsualización en vivo con miniatura del logo sobre fondo neutro, etiqueta indicadora del peso optimizado en KB y botón de eliminación rápido (`✕`).
+    - Estilos integrados tanto en tema oscuro como en tema claro.
+  - **3. Integración en Flujo de Guardado y Persistencia**:
+    - Al crear la entidad (`crearEntidad`), se envía `logoUrl` comprimido en el payload.
+    - Se refleja inmediatamente en la grilla de chips del modal y en el catálogo reactivo de entidades.
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.ts`
+  - `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.html`
+  - `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.scss`
+
 ### [2026-10-16 12:15] - Catálogo Dinámico de Entidades Financieras con Vigencia Temporal y Baja Histórica Inmutable
 - **Requerimiento**:
   - Permitir al usuario dar de alta nuevas entidades financieras (tarjetas de crédito, billeteras, cuentas bancarias o grupos de gasto) desde el modal de carga con sus cuotas/ítems iniciales, replicándose automáticamente en los meses subsiguientes.

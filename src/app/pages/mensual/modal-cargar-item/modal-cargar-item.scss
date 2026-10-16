@@ -356,6 +356,107 @@
     }
   }
 
+  .sub-tip {
+    font-weight: 400;
+    opacity: 0.7;
+    margin-left: 0.25rem;
+    font-size: 0.72rem;
+  }
+
+  .logo-uploader-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+
+    .btn-subir-logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 0.85rem;
+      border-radius: 0.5rem;
+      border: 1px dashed rgba(59, 130, 246, 0.4);
+      background: rgba(59, 130, 246, 0.08);
+      color: #60a5fa;
+      font-size: 0.825rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      mat-icon {
+        font-size: 1.15rem;
+        width: 1.15rem;
+        height: 1.15rem;
+      }
+
+      &:hover {
+        background: rgba(59, 130, 246, 0.16);
+        border-color: #3b82f6;
+        color: #93c5fd;
+      }
+    }
+
+    .logo-preview-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.6rem;
+      border-radius: 0.5rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+
+      .preview-img-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #ffffff;
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.35rem;
+        min-width: 32px;
+        height: 26px;
+
+        .img-preview {
+          max-height: 22px;
+          max-width: 60px;
+          object-fit: contain;
+        }
+      }
+
+      .preview-size-tag {
+        font-size: 0.75rem;
+        color: #10b981;
+        font-weight: 600;
+      }
+
+      .btn-quitar-logo {
+        background: none;
+        border: none;
+        color: #ef4444;
+        cursor: pointer;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        opacity: 0.8;
+        transition: opacity 0.15s ease;
+
+        mat-icon {
+          font-size: 1.1rem;
+          width: 1.1rem;
+          height: 1.1rem;
+        }
+
+        &:hover {
+          opacity: 1;
+        }
+      }
+    }
+  }
+
+  .logo-error-text {
+    font-size: 0.775rem;
+    color: #ef4444;
+  }
+
   .vigencia-aviso-box {
     display: flex;
     align-items: center;
@@ -378,6 +479,26 @@
 .es-light .nueva-entidad-panel {
   background: rgba(16, 185, 129, 0.04);
   border-color: rgba(16, 185, 129, 0.3);
+
+  .btn-subir-logo {
+    border-color: rgba(37, 99, 235, 0.4);
+    background: rgba(37, 99, 235, 0.06);
+    color: #1d4ed8;
+
+    &:hover {
+      background: rgba(37, 99, 235, 0.12);
+      border-color: #2563eb;
+    }
+  }
+
+  .logo-preview-badge {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+
+    .preview-size-tag {
+      color: #059669;
+    }
+  }
 
   .vigencia-aviso-box {
     background: rgba(59, 130, 246, 0.08);

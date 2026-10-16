@@ -142,6 +142,9 @@ export class ModalCargarItemComponent {
   nuevaEntidadNombre = signal<string>('');
   nuevaEntidadTipo = signal<string>('TARJETA');
   nuevaEntidadColor = signal<string>('#1A1F71');
+  nuevaEntidadLogo = signal<string>('');
+  logoSizeKb = signal<number | null>(null);
+  logoError = signal<string>('');
 
   readonly coloresPresets: string[] = [
     '#1A1F71', // Azul Galicia
@@ -278,6 +281,77 @@ export class ModalCargarItemComponent {
     this.nuevaEntidadColor.set(c);
   }
 
+  onLogoSeleccionado(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    this.logoError.set('');
+
+    if (!file.type.startsWith('image/')) {
+      this.logoError.set('El archivo seleccionado debe ser una imagen válida (PNG, JPG, WebP, SVG).');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e: ProgressEvent<FileReader>) => {
+      const result = e.target?.result as string;
+      if (!result) return;
+
+      const img = new Image();
+      img.onload = () => {
+        // Redimensionar a resolución pequeña y ligera (máx 100 x 36 px)
+        const maxW = 100;
+        const maxH = 36;
+        let w = img.width;
+        let h = img.height;
+
+        if (w > maxW || h > maxH) {
+          const ratio = Math.min(maxW / w, maxH / h);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(w, 1);
+        canvas.height = Math.max(h, 1);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          this.nuevaEntidadLogo.set(result);
+          return;
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        // Exportar a WebP de bajo peso (calidad 0.82) o PNG
+        let dataUrl = canvas.toDataURL('image/webp', 0.82);
+        if (!dataUrl.startsWith('data:image/webp')) {
+          dataUrl = canvas.toDataURL('image/png');
+        }
+
+        // Estimar peso en KB
+        const approxBytes = Math.round((dataUrl.length * 3) / 4);
+        this.logoSizeKb.set(Math.round((approxBytes / 1024) * 10) / 10);
+        this.nuevaEntidadLogo.set(dataUrl);
+      };
+      img.onerror = () => {
+        this.logoError.set('No se pudo procesar la imagen seleccionada.');
+      };
+      img.src = result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  quitarLogo(fileInput?: HTMLInputElement): void {
+    this.nuevaEntidadLogo.set('');
+    this.logoSizeKb.set(null);
+    this.logoError.set('');
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  }
+
   cerrar(): void {
     if (this.isGuardando()) return;
     this.errorMessage.set('');
@@ -295,6 +369,9 @@ export class ModalCargarItemComponent {
     this.confirmandoEliminar.set(false);
     this.mostrarCrearEntidad.set(false);
     this.nuevaEntidadNombre.set('');
+    this.nuevaEntidadLogo.set('');
+    this.logoSizeKb.set(null);
+    this.logoError.set('');
     this.eliminarHaciaElFuturo.set(false);
   }
 
@@ -371,6 +448,7 @@ export class ModalCargarItemComponent {
             nombre: nombreNueva,
             tipo: this.nuevaEntidadTipo(),
             color: this.nuevaEntidadColor(),
+            logoUrl: this.nuevaEntidadLogo().trim() || undefined,
             vigenteDesdeAnio: this.anio(),
             vigenteDesdeMes: this.mesNumero(),
             itemsIniciales: [
