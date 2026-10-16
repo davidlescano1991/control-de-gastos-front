@@ -19,6 +19,19 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-16 10:20] - Corrección de Superposición de Íconos y Logo en Cabecera de Entidades
+- **Problema Reportado**:
+  - En las cabeceras de las tarjetas de crédito (Visa, Mastercard, etc.) en la vista mensual, los elementos del extremo izquierdo (logo de la entidad, botón verde de pagar `$` y badge de estado circular) se mostraban superpuestos uno encima del otro en las mismas coordenadas.
+- **Causa Raíz**:
+  - En `src/styles.scss`, `.entidad-logo` mantenía una regla global heredada con `position: absolute; left: 14px; top: 50%; transform: translateY(-50%);`.
+  - Al estar `.entidad-logo` dentro del contenedor flex `.header-left-actions`, la regla absoluta lo sacaba del flujo horizontal normal y lo anclaba en la misma coordenada `left: 14px` donde iniciaban el botón `.btn-pagar-entidad` y el badge `.badge-estado-pago`, provocando una colisión visual y apilamiento directo.
+- **Solución Técnica Aplicada**:
+  - Se eliminó el `position: absolute` global de `.entidad-logo`, configurándolo como elemento de bloque estático en línea (`position: static !important; transform: none !important; height: 24px; max-width: 50px; object-fit: contain;`).
+  - Se blindó `.header-left-actions` como contenedor flex horizontal ordenado (`display: inline-flex !important; align-items: center !important; gap: 8px !important; z-index: 5 !important; position: relative !important; flex-shrink: 0 !important;`) donde sus tres elementos hijos (`.entidad-logo`, `.btn-pagar-entidad`, `.badge-estado-pago`) fluyen uno tras otro de izquierda a derecha sin solaparse.
+  - Se mantuvo el centrado simétrico absoluto del título de la entidad (`.mat-mdc-card-header-text` con `padding: 0 135px !important`), garantizando que el nombre quede exactamente centrado en la tarjeta sin colisionar con la izquierda ni con los controles de la derecha.
+- **Archivos Afectados**:
+  - `src/styles.scss`
+
 ### [2026-10-16 10:10] - Destacado Visual de Badges, Centrado Simétrico de Cabeceras y Estado "No Pagado" en Rojo
 - **Mejoras Visuales y Funcionales Aplicadas**:
   - **1. Mayor Destacado y Resplandor en Badges de Estado**:

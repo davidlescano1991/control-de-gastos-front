@@ -106,7 +106,7 @@ body {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   margin-left: 0;
-  margin-right: 2px;
+  margin-right: 0;
   flex-shrink: 0;
 
   &:hover {
@@ -123,9 +123,10 @@ body {
 .header-left-actions {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  z-index: 2;
+  gap: 8px;
+  z-index: 5;
   position: relative;
+  flex-shrink: 0;
 }
 
 .badge-estado-pago {
@@ -1493,26 +1494,79 @@ body.dark-mode .tabla-deuda-total {
   align-items: center !important;
   justify-content: space-between !important;
   width: 100% !important;
+  min-height: 48px !important;
   margin-bottom: 16px;
   box-sizing: border-box;
-  padding: 10px 16px !important;
+  padding: 8px 14px !important;
   background-color: #f1f5f9;
   border-radius: 8px;
   color: #1e293b;
 
   .header-left-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    z-index: 2;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    z-index: 5 !important;
+    position: relative !important;
+    flex-shrink: 0 !important;
+
+    .entidad-logo {
+      position: static !important;
+      transform: none !important;
+      top: auto !important;
+      left: auto !important;
+      height: 24px !important;
+      max-width: 50px !important;
+      object-fit: contain !important;
+      border-radius: 4px !important;
+      pointer-events: none !important;
+      margin: 0 !important;
+      flex-shrink: 0 !important;
+      display: block !important;
+    }
+
+    .btn-pagar-entidad {
+      position: static !important;
+      margin: 0 !important;
+      flex-shrink: 0 !important;
+    }
+
+    .badge-estado-pago {
+      position: static !important;
+      margin: 0 !important;
+      flex-shrink: 0 !important;
+    }
   }
 
   .header-right-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    z-index: 2;
-    margin-left: auto;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    z-index: 5 !important;
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
+
+    .btn-proyeccion-header {
+      position: static !important;
+      margin: 0 !important;
+      flex-shrink: 0 !important;
+    }
+
+    .btn-collapse-card {
+      position: static !important;
+      transform: none !important;
+      top: auto !important;
+      right: auto !important;
+      flex-shrink: 0 !important;
+
+      &:hover {
+        transform: scale(1.08) !important;
+      }
+
+      &:active {
+        transform: scale(1) !important;
+      }
+    }
   }
 
   .mat-mdc-card-header-text,
@@ -1524,14 +1578,14 @@ body.dark-mode .tabla-deuda-total {
     transform: translateY(-50%) !important;
     margin: 0 auto !important;
     width: 100% !important;
-    padding: 0 100px !important;
+    padding: 0 135px !important;
     box-sizing: border-box !important;
     display: flex !important;
     justify-content: center !important;
     align-items: center !important;
     text-align: center !important;
     pointer-events: none !important;
-    z-index: 1;
+    z-index: 1 !important;
   }
 
   h2,
@@ -1657,15 +1711,12 @@ body.dark-mode app-mercado-libre mat-card-header {
 
 /* 🏷️ LOGOS DE ENTIDADES EN HEADER */
 .entidad-logo {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  height: 26px;
-  max-width: 52px;
+  height: 24px;
+  max-width: 50px;
   object-fit: contain;
   border-radius: 4px;
   pointer-events: none;
+  display: block;
 }
 
 .movimientos-wrapper.is-collapsed,
