@@ -19,6 +19,24 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-16 20:05] - Actualización Integral y Sincronización de Documentación (`README.md`) de Todo el Ecosistema
+- **Motivo / Requerimiento**:
+  - Los archivos `README.md` de los distintos proyectos del ecosistema (`control-de-gastos-front`, `control-de-gastos-api` y `control-de-gastos-infra`) habían quedado desactualizados frente a la profunda evolución técnica ocurrida (arquitectura híbrida, persistencia PostgreSQL con Prisma, SSE, catálogo dinámico de entidades con vigencia temporal, carga por lotes, optimización de logos, pagos con badges y exportación nativa a Excel).
+- **Acciones Realizadas**:
+  - **1. Backend (`control-de-gastos-api/README.md`)**:
+    - Se creó un README completo y exhaustivo de nivel de producción que documenta el stack Node.js/Express/TypeScript, el modelo relacional de Prisma (`DailyMovement`, `MonthlyItem`, `FinancialEntity`, `EntityPayment`, `Loan`), lógica contable (parser de fórmulas, cuotas, liquidaciones), catálogo completo de endpoints RESTful, eventos en tiempo real (SSE), exportación ExcelJS, variables de entorno y guías de ejecución.
+  - **2. Frontend (`control-de-gastos-front/README.md`)**:
+    - Se rediseñó el README para reflejar la **Arquitectura Híbrida Cloud**, sincronización en caliente, catálogo dinámico de entidades financieras, flujo de carga por lotes con foco veloz, optimizador de logos WebP en cliente, modal de pagos con badges de estado, exportación a Excel `.xlsx`, corrección de enlaces y matriz de pruebas QA actualizada.
+  - **3. Infraestructura (`control-de-gastos-infra/README.md`)**:
+    - Se corrigieron problemas de encoding UTF-8 en caracteres especiales y emojis, y se verificó la precisión de los pasos de aprovisionamiento con Terraform, publicación de contenedores Docker en Google Artifact Registry y túnel TLS con Cloud SQL Auth Proxy.
+  - **Sincronización Git**:
+    - Se commitearon y pushearon los tres repositorios a sus respectivas ramas principales (`develop` y `main`).
+- **Archivos Afectados**:
+  - `control-de-gastos-front/README.md`
+  - `control-de-gastos-api/README.md`
+  - `control-de-gastos-infra/README.md`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-10-16 19:35] - Retorno a Entidades Existentes y Carga Masiva por Lotes de Ítems en Nueva Entidad
 - **Problemas Reportados por el Usuario**:
   1. Al presionar `+ Nueva Entidad`, no se permitía volver a las otras entidades existentes (los chips quedaban bloqueados o no cerraban el panel).
