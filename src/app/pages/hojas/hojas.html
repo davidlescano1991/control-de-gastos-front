@@ -82,9 +82,10 @@
 
           <!-- Sheet ID o URL -->
           <mat-form-field appearance="outline" class="field-item field-span-2">
-            <mat-label>ID de Google Sheets o URL Completa</mat-label>
-            <input matInput formControlName="sheetId" placeholder="Ej: 1IkaaIQVs24QXswoS3gR... o https://docs.google.com/..." />
-            <mat-hint>Puedes pegar la URL completa del navegador; el ID se extraerá automáticamente.</mat-hint>
+            <mat-label>{{ sheetForm.get('activo')?.value ? 'ID de Google Sheets o URL Completa' : 'ID de Google Sheets (Opcional en modo BD)' }}</mat-label>
+            <input matInput formControlName="sheetId" [placeholder]="sheetForm.get('activo')?.value ? 'Ej: 1IkaaIQVs24QXswoS3gR... o https://docs.google.com/...' : 'Opcional (se usará Base de Datos)'" />
+            <mat-hint *ngIf="sheetForm.get('activo')?.value">Puedes pegar la URL completa del navegador; el ID se extraerá automáticamente.</mat-hint>
+            <mat-hint *ngIf="!sheetForm.get('activo')?.value">En modo Base de Datos no es necesario vincular ninguna planilla de Google Sheets.</mat-hint>
             <mat-error *ngIf="sheetForm.get('sheetId')?.hasError('required')">El ID de la hoja es obligatorio</mat-error>
           </mat-form-field>
         </div>

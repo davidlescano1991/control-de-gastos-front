@@ -9,7 +9,19 @@
       <mat-icon>{{ isColIzquierdaContraida ? 'chevron_right' : 'chevron_left' }}</mat-icon>
     </button>
 
-    <h3>Estimativo {{ mesSeleccionado }}</h3>
+    <div class="header-titulo-container">
+      <h3>Estimativo {{ mesSeleccionado }}</h3>
+      <button
+        type="button"
+        class="btn-config-estimativo"
+        *ngIf="authService.isAdmin()"
+        (click)="abrirModalConfig()"
+        title="Configurar ciclo de cobro y presupuesto del estimativo"
+      >
+        <mat-icon>tune</mat-icon>
+        <span>Configurar</span>
+      </button>
+    </div>
 
     <button
       type="button"
@@ -22,6 +34,28 @@
     </button>
   </div>
   <ng-container *ngIf="!isCollapsed()">
+    <!-- Spinner de carga -->
+    <div class="spinner-centrado" *ngIf="isCargando">
+      <mat-spinner diameter="40"></mat-spinner>
+      <span class="spinner-texto">Cargando estimativo mensual...</span>
+    </div>
+
+    <!-- Estado vacío -->
+    <div class="sin-datos-msg" *ngIf="!isCargando && (!estimativoFilas || estimativoFilas.length === 0)">
+      <mat-icon class="sin-datos-icon">info</mat-icon>
+      <div class="sin-datos-textos">
+        <span>Sin datos de estimativo registrados para este período.</span>
+        <button
+          type="button"
+          class="btn-config-vacio"
+          *ngIf="authService.isAdmin()"
+          (click)="abrirModalConfig()"
+        >
+          <mat-icon>tune</mat-icon> Configurar ciclo ahora
+        </button>
+      </div>
+    </div>
+
     <mat-card
       class="example-card"
       appearance="outlined"
@@ -47,7 +81,18 @@
                 [attr.title]="obtenerTooltipFecha(fila.fecha) || null"
               >
                 <td class="col-fecha">
-                  <span>{{ fila.fecha }}</span>
+                  <div class="fecha-flex">
+                    <button
+                      *ngIf="authService.isAdmin()"
+                      type="button"
+                      class="btn-editar-fila"
+                      (click)="onEditarDia(fila)"
+                      [title]="'Modificar valores o sumar préstamo al día ' + fila.fecha"
+                    >
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    <span>{{ fila.fecha }}</span>
+                  </div>
                 </td>
                 <td class="texto-derecha columna-resaltada saldo">
                   {{ fila.saldoPesos | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}

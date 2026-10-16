@@ -1,5 +1,5 @@
 import { CurrencyPipe, DecimalPipe, NgClass, NgFor, NgIf, NgStyle } from '@angular/common';
-import { ChangeDetectorRef, Component, inject, Input, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, EventEmitter, inject, Input, OnInit, OnChanges, SimpleChanges, Output, signal } from '@angular/core';
 import { MatCardContent, MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -8,6 +8,9 @@ import { Prestamo } from '../../../models/prestamo';
 import { MovimientosStoreGoogle } from '../../../stores/movimiento.google';
 import { WakeLockService } from '../../../services/wake-lock.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { ModalCargarPrestamoComponent } from './modal-cargar-prestamo/modal-cargar-prestamo.component';
+import { ModalPagarCuotaPrestamoComponent, CuotaAPagarInfo } from './modal-pagar-cuota-prestamo/modal-pagar-cuota-prestamo.component';
+import { Loan, LoansService } from '../../../services/loans.service';
 
 @Component({
   selector: 'app-tabla-prestamos',
@@ -24,15 +27,142 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
     MatIconModule,
     DecimalPipe,
     MatProgressSpinnerModule,
+    ModalCargarPrestamoComponent,
+    ModalPagarCuotaPrestamoComponent,
   ],
   templateUrl: './tabla-prestamos.html',
   styleUrl: './tabla-prestamos.scss',
 })
-export class TablaPrestamos {
+export class TablaPrestamos implements OnInit, OnChanges {
   isCollapsed = signal(false);
+  mostrarModalCargar = signal(false);
+  mostrarModalPago = signal(false);
+  cuotaSeleccionada = signal<CuotaAPagarInfo | null>(null);
+  loansList = signal<Loan[]>([]);
+
+  @Output() prestamoAgregado = new EventEmitter<Loan | void>();
+
+  private loansService = inject(LoansService);
+  private storeGoogle = inject(MovimientosStoreGoogle);
+  private wakeLockService = inject(WakeLockService);
+  private cdr = inject(ChangeDetectorRef);
+
+  ngOnInit(): void {
+    this.cargarPrestamosBD();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['anioSeleccionado'] && !changes['anioSeleccionado'].firstChange) {
+      this.cargarPrestamosBD();
+    }
+  }
+
+  cargarPrestamosBD(): void {
+    this.loansService.getLoans(this.anioSeleccionado).subscribe({
+      next: (res) => {
+        if (res && res.data) {
+          this.loansList.set(res.data);
+        }
+      },
+      error: (err) => console.warn('Error al cargar préstamos en TablaPrestamos:', err),
+    });
+  }
 
   toggleCollapse() {
     this.isCollapsed.update((v) => !v);
+  }
+
+  abrirModalCargar() {
+    this.mostrarModalCargar.set(true);
+  }
+
+  cerrarModalCargar() {
+    this.mostrarModalCargar.set(false);
+  }
+
+  onPrestamoCreado(loan: Loan) {
+    this.cargarPrestamosBD();
+    this.prestamoAgregado.emit(loan);
+  }
+
+  /**
+   * Determina si para un préstamo dado (categoría), esta fila es la primera cuota que aún no está pagada.
+   */
+  esPrimeraCuotaNoPaga(cat: string, filaIndex: number): boolean {
+    if (filaIndex <= 0 || filaIndex >= this.filas.length - 1) return false;
+
+    for (let i = 1; i < this.filas.length - 1; i++) {
+      const fila = this.filas[i];
+      const valor = fila.valores?.[cat] ?? 0;
+      const color = (fila.colores?.[cat] ?? '').toLowerCase();
+
+      if (valor > 0) {
+        if (color !== '#0000ff') {
+          return i === filaIndex;
+        }
+      }
+    }
+    return false;
+  }
+
+  abrirModalPagoCuota(cat: string, filaIndex: number, valor: number): void {
+    if (!this.esPrimeraCuotaNoPaga(cat, filaIndex) || valor <= 0) return;
+
+    const mesFila = this.filas[filaIndex]?.nombreFila || '';
+    const mesNum = filaIndex; // 1 = Enero, ..., 12 = Diciembre
+
+    // Buscar el préstamo en la lista de BD
+    const loans = this.loansList();
+    const loanEncontrado = loans.find(
+      (l) =>
+        l.nombre.toLowerCase().trim() === cat.toLowerCase().trim() ||
+        cat.toLowerCase().trim().includes(l.nombre.toLowerCase().trim()) ||
+        l.nombre.toLowerCase().trim().includes(cat.toLowerCase().trim())
+    );
+
+    // Buscar cuota correspondiente a este mes y año
+    const installment = loanEncontrado?.installments?.find(
+      (ins) => ins.mes === mesNum && ins.year === this.anioSeleccionado
+    );
+
+    const cuotaInfo: CuotaAPagarInfo = {
+      loanId: loanEncontrado?.id || '',
+      nombrePrestamo: cat,
+      entidad: loanEncontrado?.entidad || 'Préstamo',
+      mesNombre: mesFila,
+      mesNumero: mesNum,
+      anio: this.anioSeleccionado,
+      numeroCuota: installment?.numeroCuota || 1,
+      totalCuotas: loanEncontrado?.totalCuotas,
+      monto: valor,
+    };
+
+    this.cuotaSeleccionada.set(cuotaInfo);
+    this.mostrarModalPago.set(true);
+  }
+
+  cerrarModalPago(): void {
+    this.mostrarModalPago.set(false);
+    this.cuotaSeleccionada.set(null);
+  }
+
+  onCuotaPagada(data: { loanId: string; numeroCuota: number; fechaPago: string }): void {
+    const cuotaInfo = this.cuotaSeleccionada();
+    if (cuotaInfo) {
+      const cat = cuotaInfo.nombrePrestamo;
+      const filaIndex = cuotaInfo.mesNumero;
+
+      // Actualizar visualmente la fila de inmediato en memoria (marcado en azul y tachado)
+      if (this.filas[filaIndex]) {
+        if (!this.filas[filaIndex].colores) {
+          this.filas[filaIndex].colores = {};
+        }
+        this.filas[filaIndex].colores[cat] = '#0000ff';
+      }
+    }
+
+    this.cargarPrestamosBD();
+    this.prestamoAgregado.emit(); // Emite para recarga general y actualización en estimativos y anual
   }
 
   filasx = signal<Prestamo[]>([]);
@@ -46,10 +176,6 @@ export class TablaPrestamos {
   @Input() categorias: string[] = [];
   @Input() resultado: Record<string, number> = {};
   @Input() isCargando = false;
-
-  private storeGoogle = inject(MovimientosStoreGoogle);
-  private wakeLockService = inject(WakeLockService);
-  private cdr = inject(ChangeDetectorRef);
 
   reemplazarPrestado(valor: number): string {
     const otorgado = this.valorOtorgado;

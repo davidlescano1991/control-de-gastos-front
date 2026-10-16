@@ -1,0 +1,138 @@
+<div class="modal-pago-backdrop" (click)="onCerrar()">
+  <div class="modal-pago-panel" (click)="$event.stopPropagation()">
+
+    <!-- Header del Modal -->
+    <div class="modal-header">
+      <div class="header-title-flex">
+        <div class="icon-pago-badge">
+          <mat-icon>payments</mat-icon>
+        </div>
+        <div>
+          <h3>Registrar Pago de Cuota</h3>
+          <p class="subtitle">Confirma la cancelación de la cuota y su fecha de pago</p>
+        </div>
+      </div>
+      <button class="btn-close" (click)="onCerrar()" [disabled]="isGuardando()" aria-label="Cerrar modal">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <!-- Cuerpo del Modal -->
+    <div class="modal-body">
+
+      <!-- Tarjeta Resumen de la Cuota -->
+      <div class="cuota-resumen-card">
+        <div class="cuota-header-info">
+          <div class="prestamo-meta">
+            <span class="prestamo-badge">{{ cuotaInfo.entidad }}</span>
+            <span class="prestamo-nombre">{{ cuotaInfo.nombrePrestamo }}</span>
+          </div>
+          <div class="cuota-num-badge">
+            Cuota #{{ cuotaInfo.numeroCuota }}
+            <span *ngIf="cuotaInfo.totalCuotas"> de {{ cuotaInfo.totalCuotas }}</span>
+          </div>
+        </div>
+
+        <div class="cuota-periodo-monto-row">
+          <div class="cuota-periodo-col">
+            <span class="label-periodo">Período de Cuota</span>
+            <span class="valor-periodo">{{ cuotaInfo.mesNombre }} {{ cuotaInfo.anio }}</span>
+          </div>
+
+          <div class="cuota-monto-col">
+            <span class="label-monto">Monto a Abonar</span>
+            <span class="valor-monto">
+              {{ cuotaInfo.monto | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Formulario de Fecha de Pago y Opciones -->
+      <div class="form-section">
+        <div class="form-group">
+          <label class="form-label" for="fechaPagoInput">
+            <mat-icon class="label-icon">event</mat-icon>
+            Fecha de Pago Realizada
+          </label>
+          <input
+            id="fechaPagoInput"
+            type="date"
+            class="form-control"
+            [ngModel]="fechaPago()"
+            (ngModelChange)="fechaPago.set($event)"
+            [disabled]="isGuardando()"
+          />
+          <span class="form-hint">
+            La fecha en que se debitó o transfirió el pago (impacta en la línea de tiempo de Estimativos).
+          </span>
+        </div>
+
+        <!-- Opciones de impacto contable -->
+        <div class="checkbox-options-grid">
+          <label class="checkbox-item">
+            <input
+              type="checkbox"
+              [ngModel]="registrarMovimiento()"
+              (ngModelChange)="registrarMovimiento.set($event)"
+              [disabled]="isGuardando()"
+            />
+            <div class="checkbox-text">
+              <strong>Registrar en Movimientos</strong>
+              <span>Crea el asiento contable de egreso en el listado de Movimientos.</span>
+            </div>
+          </label>
+
+          <label class="checkbox-item">
+            <input
+              type="checkbox"
+              [ngModel]="actualizarEstimativos()"
+              (ngModelChange)="actualizarEstimativos.set($event)"
+              [disabled]="isGuardando()"
+            />
+            <div class="checkbox-text">
+              <strong>Descontar de Deuda Real en Estimativos</strong>
+              <span>Resta automáticamente el importe de la deuda real a partir de la fecha de pago.</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Alertas de Estado -->
+      <div *ngIf="errorMensaje()" class="alert-banner alert-error">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ errorMensaje() }}</span>
+      </div>
+
+      <div *ngIf="exitoMensaje()" class="alert-banner alert-success">
+        <mat-icon>check_circle</mat-icon>
+        <span>{{ exitoMensaje() }}</span>
+      </div>
+
+    </div>
+
+    <!-- Footer con Botones -->
+    <div class="modal-footer">
+      <button
+        type="button"
+        class="btn-cancelar"
+        (click)="onCerrar()"
+        [disabled]="isGuardando()"
+      >
+        Cancelar
+      </button>
+
+      <button
+        type="button"
+        class="btn-confirmar-pago"
+        [disabled]="!fechaPago() || isGuardando()"
+        (click)="confirmarPago()"
+      >
+        <mat-spinner *ngIf="isGuardando()" diameter="18" strokeWidth="2.5" class="spinner-btn"></mat-spinner>
+        <mat-icon *ngIf="!isGuardando()">check_circle</mat-icon>
+        <span>{{ isGuardando() ? 'Asentando pago...' : 'Confirmar Pago' }}</span>
+      </button>
+    </div>
+
+  </div>
+</div>

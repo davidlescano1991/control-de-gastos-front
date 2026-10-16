@@ -2,6 +2,115 @@
   width: 100%;
 }
 
+.prestamos-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16px 20px 14px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 20px;
+  gap: 16px;
+
+  .header-col-left {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex: 0 0 auto;
+    min-width: 150px;
+  }
+
+  .header-col-title {
+    flex: 1 1 auto;
+    text-align: center;
+    margin: 0;
+
+    h3 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+    }
+  }
+
+  .header-col-right {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex: 0 0 auto;
+    min-width: 150px;
+  }
+}
+
+:host-context(body.dark-mode),
+:host-context(.dark-theme) {
+  .prestamos-header-bar {
+    border-bottom-color: #334155;
+
+    .header-col-title h3 {
+      color: #f8fafc;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .prestamos-header-bar {
+    flex-wrap: wrap;
+
+    .header-col-title {
+      order: 1;
+      width: 100%;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    .header-col-left {
+      order: 2;
+      min-width: auto;
+    }
+
+    .header-col-right {
+      order: 3;
+      min-width: auto;
+    }
+  }
+}
+
+.btn-cargar-prestamo-action {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  transition: all 0.2s ease;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.45);
+    background: linear-gradient(135deg, #059669, #047857);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
 /* Tarjetas KPI Superiores */
 .kpi-cards-grid {
   display: grid;
@@ -174,6 +283,45 @@
         color: #1e293b;
         vertical-align: middle;
         font-size: 11px;
+
+        &.celda-primera-cuota-no-paga {
+          cursor: pointer !important;
+          position: relative;
+          background-color: rgba(16, 185, 129, 0.08);
+          transition: all 0.2s ease;
+
+          &:hover {
+            background-color: rgba(16, 185, 129, 0.18) !important;
+            box-shadow: inset 0 0 0 1.5px #10b981;
+
+            .badge-pagar-cuota {
+              transform: scale(1.15);
+              color: #059669;
+            }
+          }
+
+          .celda-cuota-wrapper {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 4px;
+            width: 100%;
+          }
+
+          .badge-pagar-cuota {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #10b981;
+            transition: transform 0.2s ease, color 0.2s ease;
+
+            .icon-pagar-mini {
+              font-size: 14px;
+              width: 14px;
+              height: 14px;
+            }
+          }
+        }
       }
     }
   }

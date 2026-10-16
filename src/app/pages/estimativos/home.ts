@@ -3,7 +3,8 @@ import { MovimientosStoreGoogle } from '../../stores/movimiento.google';
 import { WakeLockService } from '../../services/wake-lock.service';
 import { AppConfigService } from '../../services/app-config.service';
 import { SseService } from '../../services/sse.service';
-import { Subscription } from 'rxjs';
+import { EstimatesService } from '../../services/estimates.service';
+import { Subscription, firstValueFrom } from 'rxjs';
 import { NgIf, NgFor } from '@angular/common';
 import { MatCardContent, MatCardModule } from '@angular/material/card';
 import { GraficoEstimativo } from './grafico-estimativo/grafico-estimativo';
@@ -28,6 +29,8 @@ interface EstimativoRow {
 }
 
 import { SelectorAnioDelorean } from '../../common/selector-anio-delorean/selector-anio-delorean';
+import { ModalConfigEstimativo } from './modal-config-estimativo/modal-config-estimativo';
+import { ModalEditarDiaComponent } from './modal-editar-dia/modal-editar-dia';
 
 @Component({
   selector: 'app-home-estimativo',
@@ -46,11 +49,51 @@ import { SelectorAnioDelorean } from '../../common/selector-anio-delorean/select
     GraficoHistorico,
     GraficoDiasRestantesAnual,
     SelectorAnioDelorean,
+    ModalConfigEstimativo,
+    ModalEditarDiaComponent,
   ],
   templateUrl: './home.html',
   styleUrl: './home.scss',
 })
 export class HomeEstimativo implements OnInit, OnDestroy {
+  modalConfigVisible = signal(false);
+  diaParaEditar = signal<any | null>(null);
+  modalEditarDiaVisible = signal(false);
+
+  abrirModalConfig(): void {
+    this.modalConfigVisible.set(true);
+  }
+
+  cerrarModalConfig(): void {
+    this.modalConfigVisible.set(false);
+  }
+
+  abrirEditarDia(fila: any): void {
+    this.diaParaEditar.set(fila);
+    this.modalEditarDiaVisible.set(true);
+  }
+
+  cerrarEditarDia(): void {
+    this.modalEditarDiaVisible.set(false);
+    this.diaParaEditar.set(null);
+  }
+
+  onDiaGuardado(): void {
+    this.cerrarEditarDia();
+    void this.seleccionarMesMensual(this.mesSeleccionado(), true);
+  }
+
+  onEstimativoConfigurado(): void {
+    void this.seleccionarMesMensual(this.mesSeleccionado(), true);
+  }
+
+  mesNumero(): number {
+    const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const limpio = (this.mesSeleccionado() || '').split('_')[0];
+    const idx = meses.indexOf(limpio);
+    return idx >= 0 ? idx + 1 : 1;
+  }
+
   isMobile = false;
   sidebarCollapsed = signal(false);
 
@@ -100,6 +143,7 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   private storeGoogle = inject(MovimientosStoreGoogle);
   private wakeLockService = inject(WakeLockService);
   private sseService = inject(SseService);
+  private estimatesService = inject(EstimatesService);
   private sseSub: Subscription | null = null;
 
   async ngOnInit(): Promise<void> {
@@ -149,6 +193,25 @@ export class HomeEstimativo implements OnInit, OnDestroy {
     try {
       for (const anio of this.anios) {
         if (!this.appConfig.isSheetsActivo(anio)) {
+          // Si el año está en modo Base de Datos (ej. 2022), cargar meses disponibles de la BD
+          for (let m = 1; m <= 12; m++) {
+            try {
+              const res = await firstValueFrom(this.estimatesService.getMonthly(anio, m));
+              if (res && res.filas && res.filas.length > 0) {
+                const mapped = res.filas.map((f: any) => ({
+                  fecha: f.fecha,
+                  saldoPesos: Number(f.saldoPesos),
+                  saldoUSD: f.saldoUSD !== null && f.saldoUSD !== undefined ? Number(f.saldoUSD) : 0,
+                  deuda: Number(f.deuda),
+                  real: f.real !== null && f.real !== undefined ? Number(f.real) : null,
+                  deudaReal: f.deudaReal !== null && f.deudaReal !== undefined ? Number(f.deudaReal) : Number(f.deuda),
+                }));
+                filas.push(...mapped);
+              }
+            } catch {
+              // mes sin configuración en BD, continuar
+            }
+          }
           continue;
         }
         try {
@@ -212,7 +275,32 @@ export class HomeEstimativo implements OnInit, OnDestroy {
     const anio = this.anioSeleccionado();
 
     if (!this.appConfig.isSheetsActivo(anio)) {
-      this.setSignalIfChanged(this.estimativoFilas, []);
+      const mesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+      const mesBase = mes.split('_')[0];
+      let mesNumero = mesNombres.indexOf(mesBase) + 1;
+      if (mesNumero <= 0) mesNumero = 1;
+
+      try {
+        const res = await firstValueFrom(this.estimatesService.getMonthly(anio, mesNumero));
+        if (res && res.filas && res.filas.length > 0) {
+          const filas = res.filas.map((f: any) => ({
+            id: f.id,
+            dia: f.dia,
+            fecha: f.fecha,
+            saldoPesos: Number(f.saldoPesos),
+            saldoUSD: f.saldoUSD !== null && f.saldoUSD !== undefined ? Number(f.saldoUSD) : 0,
+            deuda: Number(f.deuda),
+            real: f.real !== null && f.real !== undefined ? Number(f.real) : null,
+            deudaReal: f.deudaReal !== null && f.deudaReal !== undefined ? Number(f.deudaReal) : Number(f.deuda),
+          }));
+          this.setSignalIfChanged(this.estimativoFilas, filas);
+        } else {
+          this.setSignalIfChanged(this.estimativoFilas, []);
+        }
+      } catch (err) {
+        console.warn(`[HomeEstimativo] Sin datos de estimativo en BD para ${anio}-${mesNumero}:`, err);
+        this.setSignalIfChanged(this.estimativoFilas, []);
+      }
       return;
     }
 

@@ -212,11 +212,17 @@ mat-card-title {
     vertical-align: middle;
   }
 }
+.col-monto {
+  text-align: right;
+  vertical-align: middle;
+}
+
 .col-monto-wrapper {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
+  width: 100%;
 }
 
 .btn-accion-editar {

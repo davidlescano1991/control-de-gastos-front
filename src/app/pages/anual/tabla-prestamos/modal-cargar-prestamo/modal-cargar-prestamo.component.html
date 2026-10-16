@@ -1,0 +1,363 @@
+<div class="modal-prestamo-backdrop" (click)="onCerrar()">
+  <div class="modal-prestamo-panel" (click)="$event.stopPropagation()">
+
+    <!-- Header del Modal -->
+    <div class="modal-header">
+      <div class="header-title-flex">
+        <div class="icon-prestamo-badge">
+          <mat-icon>account_balance</mat-icon>
+        </div>
+        <div>
+          <h3>Registrar Nuevo Préstamo</h3>
+          <p class="subtitle">Registra el crédito tomado y su cronograma de cuotas mensual</p>
+        </div>
+      </div>
+      <button class="btn-close" (click)="onCerrar()" [disabled]="isGuardando()" aria-label="Cerrar modal">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <!-- Cuerpo del Modal: 2 Columnas -->
+    <div class="modal-body">
+      <div class="modal-layout-grid">
+
+        <!-- Columna 1: Formulario de Parámetros -->
+        <div class="form-column">
+
+          <!-- Entidad Financiera -->
+          <div class="form-group">
+            <label class="form-label">
+              <mat-icon class="label-icon">storefront</mat-icon>
+              Entidad Financiera / Banco
+            </label>
+            <div class="entidades-chips-scroll">
+              <button
+                type="button"
+                *ngFor="let ent of entidadesHabituales"
+                class="btn-chip-entidad"
+                [class.active]="entidad() === ent"
+                (click)="onEntidadChange(ent)"
+                [disabled]="isGuardando()"
+              >
+                {{ ent }}
+              </button>
+            </div>
+            <div *ngIf="entidad() === 'Otra'" class="mt-2">
+              <input
+                type="text"
+                class="form-control"
+                placeholder="Nombre de la entidad o persona..."
+                [(ngModel)]="entidadOtra"
+                (ngModelChange)="onEntidadChange('Otra')"
+                [disabled]="isGuardando()"
+              />
+            </div>
+          </div>
+
+          <!-- Nombre / Concepto -->
+          <div class="form-group">
+            <label class="form-label" for="nombrePrestamo">
+              <mat-icon class="label-icon">label</mat-icon>
+              Identificador / Concepto
+            </label>
+            <input
+              id="nombrePrestamo"
+              type="text"
+              class="form-control"
+              placeholder="Ej: NX 300k, ML 500K..."
+              [ngModel]="nombre()"
+              (ngModelChange)="nombre.set($event)"
+              [disabled]="isGuardando()"
+            />
+          </div>
+
+          <!-- Capital Recibido ($) -->
+          <div class="form-group">
+            <label class="form-label" for="capitalTomado">
+              <mat-icon class="label-icon">payments</mat-icon>
+              Capital Recibido ($)
+              <span class="label-badge-info" matTooltip="Este monto se acredita en cuenta y se añade a la Deuda Real en Estimativos a partir de la fecha de toma">Impacta Deuda Real</span>
+            </label>
+            <div class="input-money-wrapper">
+              <span class="currency-symbol">$</span>
+              <input
+                id="capitalTomado"
+                type="number"
+                min="0"
+                step="1000"
+                class="form-control form-control-money"
+                placeholder="0.00"
+                [ngModel]="capitalTomado()"
+                (ngModelChange)="onCapitalChange($event)"
+                [disabled]="isGuardando()"
+              />
+            </div>
+          </div>
+
+          <!-- Fechas: Toma y Primera Cuota -->
+          <div class="dates-row">
+            <div class="form-group flex-1">
+              <label class="form-label" for="fechaToma">
+                <mat-icon class="label-icon">event</mat-icon>
+                Fecha de Toma
+              </label>
+              <input
+                id="fechaToma"
+                type="date"
+                class="form-control"
+                [ngModel]="fechaToma()"
+                (ngModelChange)="fechaToma.set($event)"
+                [disabled]="isGuardando()"
+              />
+            </div>
+            <div class="form-group flex-1">
+              <label class="form-label" for="fechaPrimeraCuota">
+                <mat-icon class="label-icon">event_available</mat-icon>
+                1ª Cuota (Vencimiento)
+              </label>
+              <input
+                id="fechaPrimeraCuota"
+                type="date"
+                class="form-control"
+                [ngModel]="fechaPrimeraCuota()"
+                (ngModelChange)="onFechaPrimeraCuotaChange($event)"
+                [disabled]="isGuardando()"
+              />
+            </div>
+          </div>
+
+          <!-- Cantidad de Cuotas -->
+          <div class="form-group">
+            <div class="flex-between">
+              <label class="form-label" for="totalCuotas">
+                <mat-icon class="label-icon">repeat</mat-icon>
+                Cantidad de Cuotas
+              </label>
+              <span class="text-cuotas-num">{{ totalCuotas() }} cuotas</span>
+            </div>
+            <div class="cuotas-chips-row">
+              <button
+                type="button"
+                *ngFor="let cant of [3, 6, 9, 12, 18, 24]"
+                class="btn-chip-cuota"
+                [class.active]="totalCuotas() === cant"
+                (click)="onTotalCuotasChange(cant)"
+                [disabled]="isGuardando()"
+              >
+                {{ cant }}x
+              </button>
+              <div class="custom-cuotas-input">
+                <input
+                  id="totalCuotas"
+                  type="number"
+                  min="1"
+                  max="60"
+                  class="form-control form-control-sm text-center"
+                  [ngModel]="totalCuotas()"
+                  (ngModelChange)="onTotalCuotasChange($event)"
+                  [disabled]="isGuardando()"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Modo de Cuotas: Fijas vs Variables -->
+          <div class="form-group">
+            <label class="form-label">
+              <mat-icon class="label-icon">tune</mat-icon>
+              Modalidad de Cuotas
+            </label>
+            <div class="tabs-modo-cuotas">
+              <button
+                type="button"
+                class="tab-btn"
+                [class.active]="tipoCuotas() === 'fijas'"
+                (click)="setTipoCuotas('fijas')"
+                [disabled]="isGuardando()"
+              >
+                <mat-icon class="tab-icon">equalizer</mat-icon>
+                Monto Uniforme (Fijo)
+              </button>
+              <button
+                type="button"
+                class="tab-btn"
+                [class.active]="tipoCuotas() === 'variables'"
+                (click)="setTipoCuotas('variables')"
+                [disabled]="isGuardando()"
+              >
+                <mat-icon class="tab-icon">format_list_numbered</mat-icon>
+                Personalizar por Cuota
+              </button>
+            </div>
+          </div>
+
+          <!-- Monto Cuota Fija (si aplica) -->
+          <div *ngIf="tipoCuotas() === 'fijas'" class="form-group">
+            <label class="form-label" for="montoDefault">
+              <mat-icon class="label-icon">attach_money</mat-icon>
+              Monto por Cuota ($)
+            </label>
+            <div class="input-money-wrapper">
+              <span class="currency-symbol">$</span>
+              <input
+                id="montoDefault"
+                type="number"
+                min="0"
+                step="100"
+                class="form-control form-control-money"
+                placeholder="0.00"
+                [ngModel]="montoCuotaDefault()"
+                (ngModelChange)="onMontoDefaultChange($event)"
+                [disabled]="isGuardando()"
+              />
+            </div>
+          </div>
+
+          <!-- Notas opcionales -->
+          <div class="form-group">
+            <label class="form-label" for="notasPrestamo">
+              <mat-icon class="label-icon">notes</mat-icon>
+              Notas u Observaciones (Opcional)
+            </label>
+            <textarea
+              id="notasPrestamo"
+              rows="2"
+              class="form-control"
+              placeholder="Detalles sobre acreditación, tasa o destino del préstamo..."
+              [ngModel]="notas()"
+              (ngModelChange)="notas.set($event)"
+              [disabled]="isGuardando()"
+            ></textarea>
+          </div>
+
+        </div>
+
+        <!-- Columna 2: Resumen Financiero y Cronograma de Cuotas -->
+        <div class="preview-column">
+
+          <!-- Cards de Métricas Financieras -->
+          <div class="kpi-summary-grid">
+            <div class="kpi-mini-card kpi-capital">
+              <span class="kpi-mini-title">Capital Tomado</span>
+              <span class="kpi-mini-val">
+                {{ (capitalTomado() || 0) | currency: 'ARS' : 'symbol' : '1.0-0' : 'es-AR' }}
+              </span>
+            </div>
+            <div class="kpi-mini-card kpi-devolver">
+              <span class="kpi-mini-title">Total a Devolver</span>
+              <span class="kpi-mini-val text-devolver">
+                {{ totalDevolver() | currency: 'ARS' : 'symbol' : '1.0-0' : 'es-AR' }}
+              </span>
+            </div>
+            <div class="kpi-mini-card kpi-intereses">
+              <span class="kpi-mini-title">Costo Financiero</span>
+              <span class="kpi-mini-val text-interes">
+                +{{ interesesTotales() | currency: 'ARS' : 'symbol' : '1.0-0' : 'es-AR' }}
+                <small class="recargo-badge">({{ recargoPorcentaje() | number: '1.1-1' }}%)</small>
+              </span>
+            </div>
+          </div>
+
+          <!-- Cronograma de Cuotas Detallado -->
+          <div class="cronograma-container">
+            <div class="cronograma-header">
+              <span class="cronograma-title">
+                <mat-icon class="icon-cronograma">calendar_month</mat-icon>
+                Cronograma de Pagos ({{ cuotasDetalle().length }} cuotas)
+              </span>
+              <span *ngIf="tipoCuotas() === 'variables'" class="badge-edicion-activa">
+                Modo manual editable
+              </span>
+            </div>
+
+            <div class="cuotas-list-scroll">
+              <div
+                *ngFor="let cuota of cuotasDetalle(); let idx = index"
+                class="cuota-item-row"
+                [class.cuota-otro-anio]="cuota.year !== anioInicial"
+              >
+                <div class="cuota-badge-num">#{{ cuota.numeroCuota }}</div>
+                <div class="cuota-mes-info">
+                  <span class="cuota-mes-nombre">{{ cuota.nombreMes }}</span>
+                  <span *ngIf="cuota.year !== anioInicial" class="badge-next-year">
+                    Año {{ cuota.year }}
+                  </span>
+                </div>
+
+                <div class="cuota-monto-container">
+                  <ng-container *ngIf="tipoCuotas() === 'fijas'">
+                    <span class="cuota-monto-fijo">
+                      {{ (cuota.monto || 0) | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                    </span>
+                  </ng-container>
+                  <ng-container *ngIf="tipoCuotas() === 'variables'">
+                    <div class="input-money-mini">
+                      <span class="mini-curr">$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="100"
+                        class="form-control-cuota"
+                        [ngModel]="cuota.monto"
+                        (ngModelChange)="actualizarMontoCuotaIndividual(idx, $event)"
+                        [disabled]="isGuardando()"
+                      />
+                    </div>
+                  </ng-container>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Nota de Sincronización Automática con Estimativos -->
+          <div class="info-sync-card">
+            <mat-icon class="info-icon text-indigo">sync_alt</mat-icon>
+            <div class="info-text">
+              <strong>Sincronización Automática:</strong> Al guardar, este préstamo impactará de forma inmediata
+              en la Deuda Real de la pantalla <em>Estimativos</em> a partir del {{ fechaToma() }} y cada cuota
+              se descontará mes a mes en su fecha de pago (día 8 de cada mes).
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Alertas de Estado -->
+      <div *ngIf="errorMensaje()" class="alert-banner alert-error">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ errorMensaje() }}</span>
+      </div>
+
+      <div *ngIf="exitoMensaje()" class="alert-banner alert-success">
+        <mat-icon>check_circle</mat-icon>
+        <span>{{ exitoMensaje() }}</span>
+      </div>
+
+    </div>
+
+    <!-- Footer con Botones -->
+    <div class="modal-footer">
+      <button
+        type="button"
+        class="btn-cancelar"
+        (click)="onCerrar()"
+        [disabled]="isGuardando()"
+      >
+        Cancelar
+      </button>
+
+      <button
+        type="button"
+        class="btn-guardar"
+        [disabled]="!esFormularioValido() || isGuardando()"
+        (click)="guardarPrestamo()"
+      >
+        <mat-spinner *ngIf="isGuardando()" diameter="18" strokeWidth="2.5" class="spinner-btn"></mat-spinner>
+        <mat-icon *ngIf="!isGuardando()">save</mat-icon>
+        <span>{{ isGuardando() ? 'Guardando préstamo...' : 'Guardar Préstamo' }}</span>
+      </button>
+    </div>
+
+  </div>
+</div>

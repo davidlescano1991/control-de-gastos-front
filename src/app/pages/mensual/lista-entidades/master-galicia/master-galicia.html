@@ -153,20 +153,22 @@
                               <span *ngIf="esNuevo(fila.descripcion)" class="tag-notificacion nuevo">¡nuevo!</span>
                               <span *ngIf="esUltima(fila.descripcion)" class="tag-notificacion ultimo">¡última!</span>
                           </td>
-                          <td class="col-monto-wrapper">
-                <span class="monto-texto">{{ fila['monto'] }}</span>
-                <button
-                  *ngIf="fila['id'] && authService.isAdmin()"
-                  type="button"
-                  class="btn-accion-editar"
-                  (click)="onEditarFila(fila, $event)"
-                  title="Editar o eliminar este ítem"
-                >
-                  <svg viewBox="0 0 24 24" width="14" height="14">
-                    <path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                  </svg>
-                </button>
-              </td>
+                          <td class="col-monto">
+                            <div class="col-monto-wrapper">
+                              <span class="monto-texto">{{ fila['monto'] }}</span>
+                              <button
+                                *ngIf="fila['id'] && authService.isAdmin()"
+                                type="button"
+                                class="btn-accion-editar"
+                                (click)="onEditarFila(fila, $event)"
+                                title="Editar o eliminar este ítem"
+                              >
+                                <svg viewBox="0 0 24 24" width="14" height="14">
+                                  <path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
                       </tr>
                   </tbody>
               </table>

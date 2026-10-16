@@ -1,0 +1,138 @@
+<div *ngIf="visible && fila" class="modal-dia-wrapper">
+  <div class="modal-dia-backdrop" (click)="onCerrar()"></div>
+  <div class="modal-dia-panel sub-card">
+    <div class="modal-dia-header">
+      <div class="titulo-dia">
+        <mat-icon class="icon-violet">edit_calendar</mat-icon>
+        <h4>Modificar Día: {{ fila?.fecha }}</h4>
+      </div>
+      <button type="button" class="btn-cerrar-dia" (click)="onCerrar()" title="Cerrar">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <div class="modal-dia-body">
+      <!-- Saldo Real -->
+      <div class="form-dia-group">
+        <label for="editSaldoReal">
+          Saldo Real ($) <small>(en cuenta bancaria - acepta fórmulas con = o +/-)</small>
+        </label>
+        <input
+          type="text"
+          id="editSaldoReal"
+          [(ngModel)]="editSaldoRealStr"
+          placeholder="Ej: 816116.38 o =816116.38 - 50000"
+          class="input-dia-control"
+        />
+        <!-- Live Preview de Fórmula -->
+        <div class="formula-preview" *ngIf="evalSaldoReal.esFormula">
+          <span class="badge-formula-ok" *ngIf="evalSaldoReal.valido">
+            <mat-icon>functions</mat-icon>
+            Resultado: <strong>{{ evalSaldoReal.valor | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong>
+          </span>
+          <span class="badge-formula-err" *ngIf="!evalSaldoReal.valido">
+            <mat-icon>warning_amber</mat-icon> {{ evalSaldoReal.error }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Deuda Real -->
+      <div class="form-dia-group">
+        <div class="label-con-accion">
+          <label for="editDeudaReal">Deuda Real ($)</label>
+          <button type="button" class="btn-toggle-prestamo" (click)="toggleInputPrestamo()">
+            <mat-icon>add_circle_outline</mat-icon> {{ mostrarInputPrestamo ? 'Ocultar' : '+ Sumar Préstamo' }}
+          </button>
+        </div>
+        <input
+          type="text"
+          id="editDeudaReal"
+          [(ngModel)]="editDeudaRealStr"
+          placeholder="Ej: 781839.33 o =781839.33 + 416723.34"
+          class="input-dia-control input-destacado-deuda"
+        />
+        <!-- Live Preview de Fórmula -->
+        <div class="formula-preview" *ngIf="evalDeudaReal.esFormula">
+          <span class="badge-formula-ok deuda" *ngIf="evalDeudaReal.valido">
+            <mat-icon>functions</mat-icon>
+            Resultado: <strong>{{ evalDeudaReal.valor | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong>
+          </span>
+          <span class="badge-formula-err" *ngIf="!evalDeudaReal.valido">
+            <mat-icon>warning_amber</mat-icon> {{ evalDeudaReal.error }}
+          </span>
+        </div>
+
+        <!-- Input expandible para sumar préstamo a la deuda -->
+        <div class="box-sumar-prestamo" *ngIf="mostrarInputPrestamo">
+          <span class="prestamo-desc">Ingresa el importe o fórmula del préstamo para sumarlo a la deuda:</span>
+          <div class="input-prestamo-row">
+            <input
+              type="text"
+              [(ngModel)]="montoPrestamoStr"
+              placeholder="Ej: 416723.34 o 200000 + 216723.34"
+              class="input-dia-control"
+            />
+            <button
+              type="button"
+              class="btn-aplicar-prestamo"
+              (click)="aplicarPrestamo()"
+              [disabled]="!evalPrestamo.valido || evalPrestamo.valor <= 0"
+            >
+              Sumar
+            </button>
+          </div>
+          <div class="formula-preview" *ngIf="evalPrestamo.esFormula">
+            <span class="badge-formula-ok deuda" *ngIf="evalPrestamo.valido">
+              <mat-icon>functions</mat-icon>
+              A sumar: <strong>{{ evalPrestamo.valor | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Saldo Presupuestado -->
+      <div class="form-dia-group">
+        <label for="editSaldoPesos">
+          Saldo Presupuestado ($) <small>(fórmula o ajuste extraordinario)</small>
+        </label>
+        <input
+          type="text"
+          id="editSaldoPesos"
+          [(ngModel)]="editSaldoPesosStr"
+          placeholder="Ej: 762902.07 o =sum(500000; 262902.07)"
+          class="input-dia-control"
+        />
+        <!-- Live Preview de Fórmula -->
+        <div class="formula-preview" *ngIf="evalSaldoPesos.esFormula">
+          <span class="badge-formula-ok" *ngIf="evalSaldoPesos.valido">
+            <mat-icon>functions</mat-icon>
+            Resultado: <strong>{{ evalSaldoPesos.valor | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong>
+          </span>
+          <span class="badge-formula-err" *ngIf="!evalSaldoPesos.valido">
+            <mat-icon>warning_amber</mat-icon> {{ evalSaldoPesos.error }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Casilla de propagación -->
+      <div class="propagar-check">
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="editPropagarDeuda" />
+          <span>Propagar Deuda Real a los días siguientes del ciclo</span>
+        </label>
+        <small class="propagar-hint">Al igual que en el Excel (=F2), replica la nueva deuda en los días posteriores del ciclo.</small>
+      </div>
+    </div>
+
+    <div class="modal-dia-footer">
+      <button type="button" class="btn-cancelar-dia" (click)="onCerrar()" [disabled]="guardando()">
+        Cancelar
+      </button>
+      <button type="button" class="btn-guardar-dia" (click)="onGuardar()" [disabled]="guardando()">
+        <mat-spinner diameter="16" *ngIf="guardando()"></mat-spinner>
+        <mat-icon *ngIf="!guardando()">save</mat-icon>
+        <span>Guardar Día</span>
+      </button>
+    </div>
+  </div>
+</div>

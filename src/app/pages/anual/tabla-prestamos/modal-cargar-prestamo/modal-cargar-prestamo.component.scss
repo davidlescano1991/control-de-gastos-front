@@ -1,0 +1,908 @@
+.modal-prestamo-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-prestamo-panel {
+  background: #ffffff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 880px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(226, 232, 240, 0.8);
+  overflow: hidden;
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Header */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #fafafc;
+
+  .header-title-flex {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+
+    .icon-prestamo-badge {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #10b981, #059669);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+
+      mat-icon {
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+      }
+    }
+
+    h3 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      margin: 2px 0 0 0;
+      font-size: 0.825rem;
+      color: #64748b;
+    }
+  }
+
+  .btn-close {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+
+    &:hover:not(:disabled) {
+      background: #f1f5f9;
+      color: #334155;
+    }
+  }
+}
+
+/* Body */
+.modal-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-layout-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 24px;
+  align-items: start;
+}
+
+/* Form Column */
+.form-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  &.flex-1 {
+    flex: 1;
+  }
+}
+
+.form-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #334155;
+
+  .label-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: #64748b;
+  }
+
+  .label-badge-info {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #0284c7;
+    background: #e0f2fe;
+    padding: 2px 6px;
+    border-radius: 6px;
+    margin-left: auto;
+    cursor: help;
+  }
+}
+
+.form-control {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  color: #1e293b;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  }
+
+  &::placeholder {
+    color: #94a3b8;
+  }
+
+  &.text-center {
+    text-align: center;
+  }
+}
+
+.input-money-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  .currency-symbol {
+    position: absolute;
+    left: 12px;
+    font-weight: 700;
+    color: #059669;
+    font-size: 0.95rem;
+  }
+
+  .form-control-money {
+    padding-left: 28px;
+    font-weight: 700;
+    font-size: 1rem;
+    color: #047857;
+  }
+}
+
+.dates-row {
+  display: flex;
+  gap: 12px;
+}
+
+/* Entidades Chips */
+.entidades-chips-scroll {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.btn-chip-entidad {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: #f1f5f9;
+    color: #1e293b;
+  }
+
+  &.active {
+    background: #3b82f6;
+    border-color: #2563eb;
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+  }
+}
+
+/* Cantidad de Cuotas Chips */
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.text-cuotas-num {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.cuotas-chips-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+
+  .btn-chip-cuota {
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    color: #334155;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover:not(:disabled) {
+      background: #e2e8f0;
+    }
+
+    &.active {
+      background: #10b981;
+      border-color: #059669;
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
+    }
+  }
+
+  .custom-cuotas-input {
+    width: 60px;
+  }
+}
+
+/* Tabs Modo Cuotas */
+.tabs-modo-cuotas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+
+  .tab-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: none;
+    background: transparent;
+    padding: 7px 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #64748b;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    .tab-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    &.active {
+      background: #ffffff;
+      color: #1e293b;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    }
+  }
+}
+
+/* Preview Column */
+.preview-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+/* KPI Summary Cards */
+.kpi-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+
+  .kpi-mini-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
+
+    .kpi-mini-title {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #64748b;
+      letter-spacing: 0.3px;
+    }
+
+    .kpi-mini-val {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .text-devolver {
+      color: #800000;
+    }
+
+    .text-interes {
+      color: #d97706;
+      font-size: 0.85rem;
+    }
+
+    .recargo-badge {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #b45309;
+    }
+  }
+}
+
+/* Cronograma */
+.cronograma-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  .cronograma-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .cronograma-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.825rem;
+      font-weight: 700;
+      color: #334155;
+
+      .icon-cronograma {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        color: #475569;
+      }
+    }
+
+    .badge-edicion-activa {
+      font-size: 0.7rem;
+      font-weight: 600;
+      background: #fef3c7;
+      color: #b45309;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+  }
+}
+
+.cuotas-list-scroll {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+}
+
+.cuota-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.82rem;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &.cuota-otro-anio {
+    background: #faf5ff;
+  }
+
+  .cuota-badge-num {
+    background: #e2e8f0;
+    color: #334155;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 6px;
+    min-width: 26px;
+    text-align: center;
+  }
+
+  .cuota-mes-info {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    .cuota-mes-nombre {
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .badge-next-year {
+      font-size: 0.68rem;
+      font-weight: 700;
+      background: #f3e8ff;
+      color: #7e22ce;
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+  }
+
+  .cuota-monto-container {
+    .cuota-monto-fijo {
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .input-money-mini {
+      position: relative;
+      display: flex;
+      align-items: center;
+
+      .mini-curr {
+        position: absolute;
+        left: 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #64748b;
+      }
+
+      .form-control-cuota {
+        width: 100px;
+        padding: 4px 6px 4px 16px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-align: right;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+
+        &:focus {
+          outline: none;
+          border-color: #3b82f6;
+        }
+      }
+    }
+  }
+}
+
+/* Info Sync Box */
+.info-sync-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.78rem;
+  color: #1e40af;
+  line-height: 1.4;
+
+  .info-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    color: #2563eb;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+}
+
+/* Alertas */
+.alert-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-top: 14px;
+  font-size: 0.82rem;
+  font-weight: 500;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  &.alert-error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #b91c1c;
+  }
+
+  &.alert-success {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #15803d;
+  }
+}
+
+/* Footer */
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  background: #fafafc;
+  border-top: 1px solid #f1f5f9;
+
+  .btn-cancelar {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover:not(:disabled) {
+      background: #f8fafc;
+      color: #1e293b;
+    }
+  }
+
+  .btn-guardar {
+    background: linear-gradient(135deg, #10b981, #059669);
+    border: none;
+    color: #ffffff;
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+    transition: all 0.2s ease;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    &:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(16, 185, 129, 0.45);
+    }
+
+    &:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+  }
+}
+
+.spinner-btn {
+  display: inline-block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 768px) {
+  .modal-layout-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kpi-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 🌙 MODO OSCURO */
+:host-context(body.dark-mode),
+:host-context(.dark-theme),
+:host-context([data-theme='dark']) {
+  .modal-prestamo-panel {
+    background: #1e293b;
+    border-color: #334155;
+    box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(51, 65, 85, 0.8);
+  }
+
+  .modal-header {
+    background: #0f172a;
+    border-bottom-color: #334155;
+
+    .header-title-flex {
+      h3 {
+        color: #f8fafc;
+      }
+      .subtitle {
+        color: #94a3b8;
+      }
+    }
+
+    .btn-close {
+      color: #94a3b8;
+      &:hover:not(:disabled) {
+        background: #334155;
+        color: #f8fafc;
+      }
+    }
+  }
+
+  .form-label {
+    color: #e2e8f0;
+
+    .label-icon {
+      color: #94a3b8;
+    }
+
+    .label-badge-info {
+      background: rgba(2, 132, 199, 0.25);
+      color: #38bdf8;
+    }
+  }
+
+  .form-control {
+    background: #0f172a;
+    border-color: #334155;
+    color: #f8fafc;
+
+    &:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+    }
+
+    &::placeholder {
+      color: #64748b;
+    }
+  }
+
+  .input-money-wrapper {
+    .currency-symbol {
+      color: #10b981;
+    }
+    .form-control-money {
+      color: #34d399;
+    }
+  }
+
+  .btn-chip-entidad {
+    background: #0f172a;
+    border-color: #334155;
+    color: #cbd5e1;
+
+    &:hover:not(:disabled) {
+      background: #1e293b;
+      color: #f8fafc;
+    }
+
+    &.active {
+      background: #3b82f6;
+      border-color: #2563eb;
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+    }
+  }
+
+  .text-cuotas-num {
+    color: #60a5fa;
+  }
+
+  .cuotas-chips-row {
+    .btn-chip-cuota {
+      background: #0f172a;
+      border-color: #334155;
+      color: #cbd5e1;
+
+      &:hover:not(:disabled) {
+        background: #1e293b;
+      }
+
+      &.active {
+        background: #10b981;
+        border-color: #059669;
+        color: #ffffff;
+        box-shadow: 0 2px 6px rgba(16, 185, 129, 0.4);
+      }
+    }
+  }
+
+  .tabs-modo-cuotas {
+    background: #0f172a;
+    border: 1px solid #334155;
+
+    .tab-btn {
+      color: #94a3b8;
+
+      &.active {
+        background: #1e293b;
+        color: #f8fafc;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      }
+    }
+  }
+
+  .preview-column {
+    background: #0f172a;
+    border-color: #334155;
+  }
+
+  .kpi-summary-grid {
+    .kpi-mini-card {
+      background: #1e293b;
+      border-color: #334155;
+
+      .kpi-mini-title {
+        color: #94a3b8;
+      }
+
+      .kpi-mini-val {
+        color: #f8fafc;
+      }
+
+      .text-devolver {
+        color: #f87171;
+      }
+
+      .text-interes {
+        color: #fbbf24;
+      }
+
+      .recargo-badge {
+        color: #f59e0b;
+      }
+    }
+  }
+
+  .cronograma-container {
+    .cronograma-header {
+      .cronograma-title {
+        color: #e2e8f0;
+        .icon-cronograma {
+          color: #94a3b8;
+        }
+      }
+
+      .badge-edicion-activa {
+        background: rgba(245, 158, 11, 0.2);
+        color: #fbbf24;
+      }
+    }
+  }
+
+  .cuotas-list-scroll {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  .cuota-item-row {
+    border-bottom-color: #334155;
+
+    &.cuota-otro-anio {
+      background: rgba(168, 85, 247, 0.12);
+    }
+
+    .cuota-badge-num {
+      background: #334155;
+      color: #cbd5e1;
+    }
+
+    .cuota-mes-info {
+      .cuota-mes-nombre {
+        color: #f8fafc;
+      }
+      .badge-next-year {
+        background: rgba(168, 85, 247, 0.25);
+        color: #d8b4fe;
+      }
+    }
+
+    .cuota-monto-container {
+      .cuota-monto-fijo {
+        color: #f8fafc;
+      }
+
+      .input-money-mini {
+        .mini-curr {
+          color: #94a3b8;
+        }
+
+        .form-control-cuota {
+          background: #0f172a;
+          border-color: #334155;
+          color: #f8fafc;
+
+          &:focus {
+            border-color: #3b82f6;
+          }
+        }
+      }
+    }
+  }
+
+  .info-sync-card {
+    background: rgba(37, 99, 235, 0.15);
+    border-color: rgba(59, 130, 246, 0.35);
+    color: #bfdbfe;
+
+    .info-icon {
+      color: #60a5fa;
+    }
+  }
+
+  .modal-footer {
+    background: #0f172a;
+    border-top-color: #334155;
+
+    .btn-cancelar {
+      background: #1e293b;
+      border-color: #334155;
+      color: #cbd5e1;
+
+      &:hover:not(:disabled) {
+        background: #334155;
+        color: #f8fafc;
+      }
+    }
+  }
+}
+

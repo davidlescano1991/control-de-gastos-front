@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Inject, Input, Output, PLATFORM_ID, signal, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, inject, Inject, Input, Output, PLATFORM_ID, signal, SimpleChanges } from '@angular/core';
 import { MovimientosStoreGoogle } from '../../../stores/movimiento.google';
 import { WakeLockService } from '../../../services/wake-lock.service';
 import { NgIf, NgFor, CurrencyPipe, NgClass, isPlatformBrowser } from '@angular/common';
@@ -8,26 +8,47 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { esDiaNoLaborable, esFinDeSemana, esFeriadoNacional, obtenerInfoDia } from '../../../utils/feriados.utils';
 import { OrigenDatosComponent } from '../../../common/origen-datos/origen-datos.component';
+import { AuthService } from '../../../services/auth.service';
+import { FormsModule } from '@angular/forms';
+import { EstimatesService } from '../../../services/estimates.service';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-estimativo-mensual',
   standalone: true,
   imports: [
     NgIf, NgFor, NgClass,
+    FormsModule,
     MatCardContent, MatCardModule,
     CurrencyPipe,
     MatFormFieldModule,
     MatInputModule, MatIconModule,
+    MatProgressSpinnerModule,
     OrigenDatosComponent,
   ],
   templateUrl: './mensual.html',
   styleUrl: './mensual.scss'
 })
 export class EstimativoMensual {
+  public authService = inject(AuthService);
+  private estimatesService = inject(EstimatesService);
+
   @Input() isColIzquierdaContraida = false;
   @Output() toggleHorizontalCollapse = new EventEmitter<void>();
+  @Output() estimativoActualizado = new EventEmitter<void>();
+  @Output() abrirConfig = new EventEmitter<void>();
+  @Output() editarDia = new EventEmitter<any>();
+
+  onEditarDia(fila: any): void {
+    this.editarDia.emit(fila);
+  }
+
+  abrirModalConfig(): void {
+    this.abrirConfig.emit();
+  }
 
   onToggleHorizontalCollapse() {
     this.toggleHorizontalCollapse.emit();
@@ -50,20 +71,13 @@ export class EstimativoMensual {
   @Input() anioSeleccionado = new Date().getFullYear();
   @Input() set estimativoFilas(values: EstimativoRow[]) {
     this._estimativoFilas.set(values ?? []);
-    
-    if (values && values.length > 0 && this.anioSeleccionado > 0) {
-      
-      //this.seleccionarMes(this.mesSeleccionado);
-    }
-
   }
+
   constructor(
     private storeGoogle: MovimientosStoreGoogle,
     @Inject(PLATFORM_ID) private platformId: Object,
     private snackbar: MatSnackBar
   ) {
-    console.log('Grafico de estimativo constructor()');
-
     this.isBrowser = isPlatformBrowser(this.platformId);
   }
 
