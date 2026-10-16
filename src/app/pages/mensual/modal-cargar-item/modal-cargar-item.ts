@@ -7,6 +7,8 @@ import {
   signal,
   computed,
   HostListener,
+  ViewChild,
+  ElementRef,
 } from '@angular/core';
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -50,6 +52,8 @@ export interface ItemBorradorNuevaEntidad {
 export class ModalCargarItemComponent {
   private mensualService = inject(MensualItemsService);
   public themeService = inject(ThemeService);
+
+  @ViewChild('conceptoInput') conceptoInputRef?: ElementRef<HTMLInputElement>;
 
   @Input() visible = false;
   @Input() set anioSeleccionado(val: number) {
@@ -412,6 +416,10 @@ export class ModalCargarItemComponent {
     this.montoOFormula.set('');
     this.notas.set('');
     this.errorMessage.set('');
+
+    setTimeout(() => {
+      this.conceptoInputRef?.nativeElement?.focus();
+    }, 0);
   }
 
   quitarItemDeNuevaEntidad(idTemp: string): void {

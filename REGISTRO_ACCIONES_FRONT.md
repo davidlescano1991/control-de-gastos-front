@@ -33,6 +33,7 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
   - **2. Carga Masiva y Acumulación por Lotes (`itemsNuevaEntidad`)**:
     - Nuevo signal reactivo `itemsNuevaEntidad = signal<ItemBorradorNuevaEntidad[]>([])` y cálculo en vivo del subtotal inicial `totalItemsNuevaEntidad`.
     - Formulario interactivo con botón destacado **"+ Agregar ítem a la lista"** y atajo de teclado: presionar `Enter` en el monto o concepto agrega el ítem inmediatamente y resetea los campos para ingresar el siguiente ítem con fluidez.
+    - **Foco automático veloz**: Al agregar cada ítem (por botón o `Enter`), el foco del cursor se traslada de inmediato al campo de Concepto (`conceptoInputRef.focus()`) mediante `@ViewChild('conceptoInput')`, permitiendo una carga ultraveloz y continua sin tocar el mouse.
     - Panel visual de ítems acumulados con contador `(N)`, badges de cuota (ej: `1/12 (propagando)`), notas, monto formateado en ARS, y botón `🗑️` para quitar ítems antes de guardar.
   - **3. Guardado Atómico en Backend**:
     - El botón principal adapta su texto a **"Guardar Entidad (N ítems)"**.
