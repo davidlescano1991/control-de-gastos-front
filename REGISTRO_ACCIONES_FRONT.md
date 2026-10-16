@@ -19,6 +19,29 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-16 10:10] - Destacado Visual de Badges, Centrado Simétrico de Cabeceras y Estado "No Pagado" en Rojo
+- **Mejoras Visuales y Funcionales Aplicadas**:
+  - **1. Mayor Destacado y Resplandor en Badges de Estado**:
+    - Se transformaron los badges `.badge-estado-pago` y `.badge-estado-fila` en elementos circulares (`26px` en cabeceras y `20px` en filas) con fondos translúcidos, bordes sutiles y resplandor suave (`box-shadow` tipo glow).
+    - 🟢 **`COMPLETO`**: Verde esmeralda vivo (`#22c55e`) con resplandor `rgba(34, 197, 94, 0.45)`.
+    - 🟡 **`PARCIAL`**: Ámbar dorado (`#fbbf24`) con resplandor `rgba(251, 191, 36, 0.45)` y animación de pulso suave.
+    - 🔴 **`NO_PAGADO`**: Rojo vibrante (`#ef4444`) con resplandor `rgba(239, 68, 68, 0.45)`.
+  - **2. Centrado Absoluto y Simétrico del Nombre de la Entidad**:
+    - Se agrupó el logo, el botón `$` y el badge de estado en el contenedor `.header-left-actions`.
+    - En `src/styles.scss`, el título de la tarjeta (`.titulo-entidad-interactivo` / `mat-card-title`) se posicionó mediante centrado absoluto simétrico (`top: 50%; transform: translateY(-50%); left: 0; right: 0; margin: 0 auto; padding: 0 100px; text-align: center;`), garantizando que el nombre quede exactamente centrado en el medio de la tarjeta sin verse desplazado por los botones o logos de la izquierda.
+  - **3. Estado Rojo "No Pagado" para Ciclos y Conceptos Futuros (Noviembre en adelante)**:
+    - En todas las tarjetas de crédito (`Visa`, `Mastercard`, `Naranja`, `Bancor`, `Mercado Libre`) y en las filas de `Otros`, si la entidad/concepto tiene saldo > $0 y no posee registro de pago en base de datos (por ejemplo, desde Noviembre en adelante), se muestra automáticamente el ícono rojo 🔴 `cancel` con tooltip `"No pagado (Pendiente de pago)"`.
+    - Si el monto es `$ 0,00` o si corresponde a un mes histórico ya abonado, conserva el estado 🟢 `COMPLETO`.
+- **Archivos Afectados**:
+  - `src/styles.scss`
+  - `src/app/pages/mensual/lista-entidades/visa/visa.ts`, `visa.html`
+  - `src/app/pages/mensual/lista-entidades/master-galicia/master-galicia.ts`, `master-galicia.html`
+  - `src/app/pages/mensual/lista-entidades/naranja/naranja.ts`, `naranja.html`
+  - `src/app/pages/mensual/lista-entidades/bancor/bancor.ts`, `bancor.html`
+  - `src/app/pages/mensual/lista-entidades/mercado-libre/mercado-libre.ts`, `mercado-libre.html`
+  - `src/app/pages/mensual/lista-entidades/otros/otros.ts`, `otros.html`
+
+
 ### [2026-10-16 09:25] - Reubicación de Modal de Pago al Nivel Raíz (Fix Stacking Context) y Registro Directo en BD de Pagos de Octubre 2026
 - **Problema 1 (Modal Oculto tras Contenedor de Gráficos de la Derecha)**:
   - Al presionar el botón de pagar (`$`) en las cabeceras o filas de entidades en la vista mensual (`/mensual`), la columna izquierda se oscurecía con el backdrop pero el diálogo modal quedaba tapado detrás del panel de la derecha ("Resumen gráfico").

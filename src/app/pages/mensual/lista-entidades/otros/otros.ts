@@ -40,14 +40,21 @@ export class Otros {
     return pagos.find(p => p.entidad.toLowerCase() === 'otros' && p.itemId === idBuscar) || null;
   }
 
-  getEstadoPagoFila(fila: any): 'COMPLETO' | 'PARCIAL' | 'PENDIENTE' | null {
+  getEstadoPagoFila(fila: any): 'COMPLETO' | 'PARCIAL' | 'NO_PAGADO' {
     const esHistorico = this.anio < 2026 || (this.anio === 2026 && this.getMesNumero() < 10);
     const p = this.getPagoFila(fila);
-    if (p) return p.estado;
+    if (p) return p.estado as any;
     if (esHistorico) return 'COMPLETO';
     const monto = typeof fila?.montoCrudo === 'number' ? fila.montoCrudo : this.parseMoneda(fila?.monto);
     if (monto === 0) return 'COMPLETO';
-    return null;
+    return 'NO_PAGADO';
+  }
+
+  getIconoPagoFila(fila: any): string {
+    const estado = this.getEstadoPagoFila(fila);
+    if (estado === 'COMPLETO') return 'check_circle';
+    if (estado === 'PARCIAL') return 'pending';
+    return 'cancel';
   }
 
   parseMoneda(valor: any): number {
@@ -59,19 +66,19 @@ export class Otros {
   }
 
   getTooltipPagoFila(fila: any): string {
+    const estado = this.getEstadoPagoFila(fila);
     const p = this.getPagoFila(fila);
     const monto = typeof fila?.montoCrudo === 'number' ? fila.montoCrudo : this.parseMoneda(fila?.monto);
     if (monto === 0) {
       return 'Sin saldo a pagar ($ 0,00) - Pagado';
     }
-    if (!p) {
-      const esHistorico = this.anio < 2026 || (this.anio === 2026 && this.getMesNumero() < 10);
-      return esHistorico ? 'Pagado completamente' : '';
+    if (estado === 'COMPLETO') {
+      return `Pagado completamente${p?.fechaPago ? ' el ' + new Date(p.fechaPago).toLocaleDateString('es-AR') : ''}`;
     }
-    if (p.estado === 'COMPLETO') {
-      return `Pagado completamente${p.fechaPago ? ' el ' + new Date(p.fechaPago).toLocaleDateString('es-AR') : ''}`;
+    if (estado === 'PARCIAL' && p) {
+      return `Pago parcial: Abonado $ ${p.montoPagado.toLocaleString('es-AR', { minimumFractionDigits: 2 })} (Resta $ ${p.montoRestante.toLocaleString('es-AR', { minimumFractionDigits: 2 })})`;
     }
-    return `Pago parcial: Abonado $ ${p.montoPagado.toLocaleString('es-AR', { minimumFractionDigits: 2 })} (Resta $ ${p.montoRestante.toLocaleString('es-AR', { minimumFractionDigits: 2 })})`;
+    return 'No pagado (Pendiente de pago)';
   }
 
   entidadAPagarInfo = computed<EntidadAPagarInfo>(() => {

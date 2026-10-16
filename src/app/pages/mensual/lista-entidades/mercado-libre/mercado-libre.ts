@@ -42,17 +42,39 @@ export class MercadoLibre {
     return pagos.find(p => p.entidad.toLowerCase().includes('mercado') && (!p.itemId || p.itemId === '')) || null;
   });
 
-  estadoPago = computed(() => {
-    return this.pagoInfo()?.estado || null;
+  estadoPago = computed<'COMPLETO' | 'PARCIAL' | 'NO_PAGADO'>(() => {
+    const p = this.pagoInfo();
+    if (p) {
+      if (p.estado === 'COMPLETO') return 'COMPLETO';
+      if (p.estado === 'PARCIAL') return 'PARCIAL';
+      return 'NO_PAGADO';
+    }
+    const esHistorico = this.anio < 2026 || (this.anio === 2026 && this.getMesNumero() < 10);
+    if (esHistorico) return 'COMPLETO';
+    if (this.totalMes() === 0) return 'COMPLETO';
+    return 'NO_PAGADO';
+  });
+
+  iconoEstadoPago = computed(() => {
+    const estado = this.estadoPago();
+    if (estado === 'COMPLETO') return 'check_circle';
+    if (estado === 'PARCIAL') return 'pending';
+    return 'cancel';
   });
 
   tooltipEstadoPago = computed(() => {
+    const estado = this.estadoPago();
     const p = this.pagoInfo();
-    if (!p) return '';
-    if (p.estado === 'COMPLETO') {
-      return `Pagado en su totalidad${p.fechaPago ? ' el ' + new Date(p.fechaPago).toLocaleDateString('es-AR') : ''}`;
+    if (estado === 'COMPLETO') {
+      if (p?.fechaPago) {
+        return `Pagado en su totalidad el ${new Date(p.fechaPago).toLocaleDateString('es-AR')}`;
+      }
+      return 'Pagado en su totalidad';
     }
-    return `Pago parcial: Abonado $ ${p.montoPagado.toLocaleString('es-AR', { minimumFractionDigits: 2 })} (Resta $ ${p.montoRestante.toLocaleString('es-AR', { minimumFractionDigits: 2 })})`;
+    if (estado === 'PARCIAL' && p) {
+      return `Pago parcial: Abonado $ ${p.montoPagado.toLocaleString('es-AR', { minimumFractionDigits: 2 })} (Resta $ ${p.montoRestante.toLocaleString('es-AR', { minimumFractionDigits: 2 })})`;
+    }
+    return 'No pagado (Pendiente de pago)';
   });
 
   entidadAPagarInfo = computed<EntidadAPagarInfo>(() => {
