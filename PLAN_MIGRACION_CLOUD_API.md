@@ -1067,4 +1067,27 @@ gantt
       * **6.13.6**: Frontend & Backend: Vinculación reactiva con la columna Compensaciones en la vista Anual (`anual.ts`) para computar la sumatoria de saldos impagos como deuda (`deudaCompensacion = -compRaw`) y sincronización de Deuda Real en Estimativos (`estimativo.component.ts`). *(Completado)*
       * **6.13.7**: Verificación de compilación limpia de frontend y backend (`npm run build`), validación de paridad y actualización de bitácoras. *(Completado)*
 
+  * **6.14**: Catálogo Dinámico de Entidades Financieras y Servicios con Vigencia Temporal, Replicación y Baja Histórica Inmutable:
+    * **¿Qué es y por qué se hace de esta manera?**:
+      * Permite al usuario dar de alta nuevas entidades financieras (tarjetas de crédito, cuentas, billeteras virtuales o grupos de gasto) y servicios recurrentes directamente desde la interfaz web, sin depender de estructuras estáticas heredadas de Google Sheets:
+        1. **Alta Dinámica y Replicación Futura**: Al crear una nueva entidad (ej. *BBVA Visa*, *American Express*, etc.) en el mes $M$ del año $A$, la entidad se establece con `vigenteDesde = { year: A, mes: M }` y se replica automáticamente en la vista mensual para todos los meses posteriores.
+        2. **Baja con Inmutabilidad Histórica (Regla de Oro Temporal)**: Al eliminar una entidad en un mes determinado $M$ del año $A$:
+           - **En el pasado ($< M$)**: La entidad **SE MANTIENE INTACTA** en todos los meses previos con sus movimientos, cuotas, pagos y subtotales históricos para garantizar inmutabilidad contable y auditoría fidedigna.
+           - **En el presente y futuro ($\ge M$)**: La entidad **DEJA DE FIGURAR** en la vista mensual, estableciendo `vigenteHasta = { year: A, mes: M - 1 }` y eliminando los ítems futuros presupuestados de dicha entidad.
+        3. **Baja de Servicios Recurrentes en "Otros"**: Al dar de baja un servicio desde el lápiz de edición ✏️ de la fila, se ofrece la opción de *"Eliminar solo este mes"* o *"Dar de baja servicio (Eliminar de este mes en adelante)"*, conservando los meses previos intactos.
+        4. **Renderizado Dinámico Homogéneo**: La vista mensual (`mensual.html`) renderiza dinámicamente todas las tarjetas vigentes para el período consultado, garantizando cumplimiento de la Regla de Oro (`AGENTS.md`) con `.movimientos-wrapper`, 100% de ancho, botón de pago `$`, badges de estado y diseño colapsable.
+    * **Subpasos de Ejecución**:
+      * **6.14.1**: Backend: Modelo relacional `FinancialEntity` en `schema.prisma` (`financial_entities`) o tabla de configuración con atributos de personalización (`name`, `tipo`, `color`, `logo_url`, `orden`, `active`) y vigencia temporal (`valid_from_year`, `valid_from_month`, `valid_to_year`, `valid_to_month`). Inicialización automática (seed) con el catálogo base (`Visa Galicia`, `Master Card Galicia`, `Naranja X`, `Bancor`, `Mercado Libre`, `Otros`) con vigencia universal.
+      * **6.14.2**: Backend: Endpoints en `MensualController` / `EntidadesController`:
+        - `GET /api/mensual/entidades?year=:year&mes=:mes`: Retorna las entidades vigentes para el período.
+        - `POST /api/mensual/entidades`: Crea una nueva entidad con fecha de inicio y soporte para ítems iniciales.
+        - `DELETE /api/mensual/entidades/:id?year=:year&mes=:mes`: Cierra la vigencia de la entidad en el mes anterior y purga ítems desde ese mes en adelante.
+        - `DELETE /api/mensual/items/:id?eliminarHaciaElFuturo=true`: Elimina el ítem y sus réplicas futuras para el mismo concepto y entidad.
+      * **6.14.3**: Frontend: Actualización de `MensualItemsService` con métodos de entidades dinámicas (`getEntidadesVigentes`, `crearEntidad`, `darDeBajaEntidad`).
+      * **6.14.4**: Frontend: Actualización de `ModalCargarItemComponent` con botón `+ Nueva Entidad`, selector dinámico de entidades activas en el mes, y formulario de alta rápida de entidad (nombre, color, ícono).
+      * **6.14.5**: Frontend: Integración en `mensual.ts` y `mensual.html` para renderizar dinámicamente las tarjetas de entidades vigentes, sumando en la cabecera el botón de baja con confirmación de alcance temporal.
+      * **6.14.6**: Frontend: Incorporación de la opción de *"Dar de baja servicio (Eliminar de este mes en adelante)"* en las filas de "Otros".
+      * **6.14.7**: Verificación integral, pruebas de ciclo completo y actualización de bitácoras.
+
+
 

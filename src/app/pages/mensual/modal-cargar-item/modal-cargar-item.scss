@@ -1,4 +1,4 @@
-﻿.modal-backdrop {
+.modal-backdrop {
   position: fixed;
   inset: 0;
   z-index: 1050;
@@ -255,6 +255,24 @@
     font-weight: 600;
     box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
   }
+
+  &.chip-nueva-entidad {
+    border: 1px dashed rgba(16, 185, 129, 0.4);
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.05);
+
+    &:hover {
+      background: rgba(16, 185, 129, 0.12);
+      border-color: #10b981;
+    }
+
+    &.selected {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: #10b981;
+      color: #34d399;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+    }
+  }
 }
 
 .es-light .entidad-chip {
@@ -268,6 +286,101 @@
   &.selected {
     background: rgba(59, 130, 246, 0.12);
     border-color: #2563eb;
+    color: #1d4ed8;
+  }
+
+  &.chip-nueva-entidad {
+    border: 1px dashed #10b981;
+    color: #059669;
+    background: rgba(16, 185, 129, 0.08);
+
+    &.selected {
+      background: rgba(16, 185, 129, 0.18);
+      border-color: #059669;
+      color: #047857;
+    }
+  }
+}
+
+/* Panel de Creación de Nueva Entidad */
+.nueva-entidad-panel {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  border-radius: 0.85rem;
+  background: rgba(16, 185, 129, 0.05);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #10b981;
+    font-size: 0.9rem;
+  }
+
+  .form-label-small {
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    display: block;
+    opacity: 0.85;
+  }
+
+  .colores-presets-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+
+    .btn-color-dot {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      outline: none;
+
+      &:hover {
+        transform: scale(1.15);
+      }
+
+      &.selected {
+        border-color: #ffffff;
+        box-shadow: 0 0 0 2px #3b82f6, 0 0 8px rgba(59, 130, 246, 0.5);
+        transform: scale(1.18);
+      }
+    }
+  }
+
+  .vigencia-aviso-box {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    background: rgba(59, 130, 246, 0.1);
+    color: #60a5fa;
+    font-size: 0.775rem;
+
+    mat-icon {
+      font-size: 1.1rem;
+      width: 1.1rem;
+      height: 1.1rem;
+      flex-shrink: 0;
+    }
+  }
+}
+
+.es-light .nueva-entidad-panel {
+  background: rgba(16, 185, 129, 0.04);
+  border-color: rgba(16, 185, 129, 0.3);
+
+  .vigencia-aviso-box {
+    background: rgba(59, 130, 246, 0.08);
     color: #1d4ed8;
   }
 }

@@ -1,4 +1,4 @@
-﻿<div
+<div
   *ngIf="visible"
   class="modal-backdrop"
   [class.es-dark]="themeService.isDarkMode()"
@@ -80,6 +80,38 @@
         </label>
       </div>
 
+      <!-- Opciones para servicios o ítems estándar -->
+      <div *ngIf="!esCuotaItem()" class="opciones-borrado-cuotas">
+        <span class="cuotas-label-pregunta">Alcance de la eliminación:</span>
+        <label class="opcion-radio-cuota" [class.selected]="!eliminarHaciaElFuturo()">
+          <input
+            type="radio"
+            name="alcanceOpcion"
+            [checked]="!eliminarHaciaElFuturo()"
+            (change)="eliminarHaciaElFuturo.set(false)"
+          />
+          <span class="radio-custom"></span>
+          <div class="radio-info">
+            <strong>Eliminar sólo en este mes ({{ mes() }} {{ anio() }})</strong>
+            <small>Conserva los registros pasados y futuros en otros meses.</small>
+          </div>
+        </label>
+
+        <label class="opcion-radio-cuota" [class.selected]="eliminarHaciaElFuturo()">
+          <input
+            type="radio"
+            name="alcanceOpcion"
+            [checked]="eliminarHaciaElFuturo()"
+            (change)="eliminarHaciaElFuturo.set(true)"
+          />
+          <span class="radio-custom"></span>
+          <div class="radio-info">
+            <strong>Dar de baja servicio (Eliminar de este mes en adelante)</strong>
+            <small>Preserva el historial anterior intacto y lo elimina de este mes y meses posteriores.</small>
+          </div>
+        </label>
+      </div>
+
       <div class="confirm-actions-row">
         <button type="button" class="btn btn-secondary" (click)="cancelarEliminar()" [disabled]="isGuardando()">
           Cancelar
@@ -103,15 +135,78 @@
         <div class="entidades-grid">
           <button
             type="button"
-            *ngFor="let ent of entidades"
+            *ngFor="let ent of entidades()"
             class="entidad-chip"
-            [class.selected]="entidad() === ent.id"
+            [class.selected]="!mostrarCrearEntidad() && entidad() === ent.id"
             (click)="seleccionarEntidad(ent.id)"
           >
             <img *ngIf="ent.logoUrl" [src]="ent.logoUrl" [alt]="ent.nombre" class="chip-logo" />
             <mat-icon *ngIf="!ent.logoUrl" class="chip-icon">category</mat-icon>
             <span class="chip-label">{{ ent.nombre }}</span>
           </button>
+
+          <!-- Botón para dar de alta una nueva entidad -->
+          <button
+            type="button"
+            *ngIf="!esModoEdicion()"
+            class="entidad-chip chip-nueva-entidad"
+            [class.selected]="mostrarCrearEntidad()"
+            (click)="toggleCrearEntidad()"
+            title="Dar de alta una nueva tarjeta o entidad financiera"
+          >
+            <mat-icon class="chip-icon">add_circle</mat-icon>
+            <span class="chip-label">+ Nueva Entidad</span>
+          </button>
+        </div>
+
+        <!-- Formulario Inline de Nueva Entidad -->
+        <div *ngIf="mostrarCrearEntidad()" class="nueva-entidad-panel">
+          <div class="panel-header">
+            <mat-icon>credit_card</mat-icon>
+            <strong>Configuración de Nueva Entidad</strong>
+          </div>
+          <div class="form-row">
+            <div class="form-group flex-2">
+              <label class="form-label-small">Nombre de la entidad o tarjeta</label>
+              <input
+                type="text"
+                class="form-control"
+                placeholder="Ej: BBVA Visa, American Express, Banco Macro..."
+                [ngModel]="nuevaEntidadNombre()"
+                (ngModelChange)="nuevaEntidadNombre.set($event)"
+              />
+            </div>
+            <div class="form-group flex-1">
+              <label class="form-label-small">Tipo</label>
+              <select class="form-control" [ngModel]="nuevaEntidadTipo()" (ngModelChange)="nuevaEntidadTipo.set($event)">
+                <option value="TARJETA">Tarjeta de Crédito</option>
+                <option value="BANCO">Cuenta Bancaria</option>
+                <option value="BILLETERA">Billetera Virtual</option>
+                <option value="SERVICIOS">Servicios / Otros</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label-small">Color identificador:</label>
+            <div class="colores-presets-row">
+              <button
+                type="button"
+                *ngFor="let col of coloresPresets"
+                class="btn-color-dot"
+                [style.background-color]="col"
+                [class.selected]="nuevaEntidadColor() === col"
+                (click)="seleccionarColorPreset(col)"
+              ></button>
+            </div>
+          </div>
+
+          <div class="vigencia-aviso-box">
+            <mat-icon>info</mat-icon>
+            <span>
+              Esta entidad regirá a partir de <strong>{{ mes() }} {{ anio() }}</strong> y se replicará automáticamente en todos los meses posteriores.
+            </span>
+          </div>
         </div>
       </div>
 

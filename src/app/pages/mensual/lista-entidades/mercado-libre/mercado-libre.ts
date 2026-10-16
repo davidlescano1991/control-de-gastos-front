@@ -97,6 +97,7 @@ export class MercadoLibre {
   }
 
   public authService = inject(AuthService);
+  @Output() eliminarEntidad = new EventEmitter<string>();
   @Output() editarFila = new EventEmitter<any>();
 
   onEditarFila(fila: any, event: MouseEvent): void {
@@ -204,5 +205,10 @@ export class MercadoLibre {
     const limpio = valor.trim().toLowerCase();
     const match = limpio.match(/\b(\d+|x)\/\1\b/);
     return !!match;
+  }
+
+  solicitarBajaEntidad(event: MouseEvent): void {
+    event.stopPropagation();
+    this.eliminarEntidad.emit(this.entidad);
   }
 }

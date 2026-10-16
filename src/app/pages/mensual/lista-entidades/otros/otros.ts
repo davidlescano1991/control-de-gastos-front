@@ -110,6 +110,7 @@ export class Otros {
   }
 
   public authService = inject(AuthService);
+  @Output() eliminarEntidad = new EventEmitter<string>();
   @Output() editarFila = new EventEmitter<any>();
 
   onEditarFila(fila: any, event: MouseEvent): void {
@@ -283,4 +284,9 @@ export class Otros {
     return !!match;
   }
 
+
+  solicitarBajaEntidad(event: MouseEvent): void {
+    event.stopPropagation();
+    this.eliminarEntidad.emit(this.entidad);
+  }
 }

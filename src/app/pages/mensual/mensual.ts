@@ -6,12 +6,12 @@ import { SseService } from '../../services/sse.service';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { EntityPaymentService } from '../../services/entity-payment.service';
-import { MensualItemsService } from '../../services/mensual-items.service';
+import { MensualItemsService, FinancialEntityFront } from '../../services/mensual-items.service';
 import { SyncMensualSheetsDbService } from '../../services/sync-mensual-sheets-db.service';
 import { ModalCargarItemComponent } from './modal-cargar-item/modal-cargar-item';
 import { ModalPagarEntidadComponent } from './modal-pagar-entidad/modal-pagar-entidad.component';
 import { VisaComponent } from './lista-entidades/visa/visa';
-import { NgFor, NgIf } from '@angular/common';
+import { NgFor, NgIf, CurrencyPipe } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCard, MatCardContent, MatCardHeader, MatCardTitle } from '@angular/material/card';
@@ -82,6 +82,7 @@ import { ProyeccionOverlayService } from '../../services/proyeccion-overlay.serv
     ModalProyeccionEntidad,
     ModalCargarItemComponent,
     ModalPagarEntidadComponent,
+    CurrencyPipe,
   ],
 })
 export class Mensual implements OnInit, OnDestroy {
@@ -102,6 +103,135 @@ export class Mensual implements OnInit, OnDestroy {
   });
   mostrarModalCargar = signal(false);
   itemParaEditar = signal<any>(null);
+
+  // 🏛️ Gestión Dinámica de Entidades con Vigencia Temporal
+  entidadesVigentes = signal<FinancialEntityFront[]>([]);
+  entidadADarDeBaja = signal<FinancialEntityFront | null>(null);
+  mostrarModalBajaEntidad = signal<boolean>(false);
+  isProcesandoBaja = signal<boolean>(false);
+  bajaError = signal<string>('');
+  bajaSuccess = signal<string>('');
+  datosItemsPorEntidad = signal<Record<string, any>>({});
+
+  async cargarEntidadesVigentes(anio: number, mesNombre: string): Promise<void> {
+    const mesNum = this.meses.indexOf(mesNombre) + 1;
+    if (mesNum < 1 || mesNum > 12) return;
+    try {
+      const list = await firstValueFrom(this.mensualItemsService.getEntidadesVigentes(anio, mesNum));
+      this.entidadesVigentes.set(list || []);
+    } catch (e) {
+      console.warn('No se pudieron obtener entidades vigentes:', e);
+    }
+  }
+
+  estaEntidadVigente(nombre: string): boolean {
+    const list = this.entidadesVigentes();
+    if (!list || list.length === 0) return true;
+    const norm = nombre.toLowerCase().trim();
+    return list.some((e) => {
+      const eNorm = e.nombre.toLowerCase().trim();
+      return (eNorm === norm || eNorm.includes(norm) || norm.includes(eNorm)) && e.activo;
+    });
+  }
+
+  entidadesPersonalizadasVigentes = computed(() => {
+    const list = this.entidadesVigentes();
+    const baseNames = [
+      'visa galicia', 'visa',
+      'master card galicia', 'mastercard',
+      'naranja x', 'naranja',
+      'bancor',
+      'mercado libre', 'mercado pago',
+      'otros',
+    ];
+    return list.filter((e) => !baseNames.some((b) => e.nombre.toLowerCase().includes(b)));
+  });
+
+  getDatosEntidadPersonalizada(nombre: string): any[] {
+    const map = this.datosItemsPorEntidad();
+    const items = map[nombre]?.items || [];
+    return items.map((it: any) => ({
+      id: it.id,
+      descripcion: it.concepto,
+      monto:
+        typeof it.monto === 'number'
+          ? '$ ' + it.monto.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          : '$ ' + parseFloat(String(it.monto)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      montoCrudo: it.monto,
+      formula: it.formula,
+      esCuota: it.esCuota,
+      cuotaActual: it.cuotaActual,
+      totalCuotas: it.totalCuotas,
+      grupoCuotaId: it.grupoCuotaId,
+      entidad: it.entidad,
+      notas: it.notas,
+      anio: it.year,
+      mes: it.mes,
+    }));
+  }
+
+  getTotalEntidadPersonalizada(nombre: string): number {
+    const map = this.datosItemsPorEntidad();
+    return map[nombre]?.subtotal || 0;
+  }
+
+  abrirModalBajaEntidad(entidadOString: FinancialEntityFront | string): void {
+    let entObj: FinancialEntityFront | undefined;
+    if (typeof entidadOString === 'string') {
+      const norm = entidadOString.toLowerCase().trim();
+      entObj = this.entidadesVigentes().find((e) => e.nombre.toLowerCase().trim() === norm);
+      if (!entObj) {
+        entObj = {
+          id: entidadOString,
+          nombre: entidadOString,
+          tipo: 'TARJETA',
+          color: '#768699',
+          orden: 99,
+          activo: true,
+          vigenteDesdeAnio: 2020,
+          vigenteDesdeMes: 1,
+        };
+      }
+    } else {
+      entObj = entidadOString;
+    }
+    this.entidadADarDeBaja.set(entObj);
+    this.bajaError.set('');
+    this.bajaSuccess.set('');
+    this.mostrarModalBajaEntidad.set(true);
+  }
+
+  cerrarModalBajaEntidad(): void {
+    if (this.isProcesandoBaja()) return;
+    this.mostrarModalBajaEntidad.set(false);
+    this.entidadADarDeBaja.set(null);
+  }
+
+  async confirmarBajaEntidad(): Promise<void> {
+    const ent = this.entidadADarDeBaja();
+    if (!ent || this.isProcesandoBaja()) return;
+
+    this.isProcesandoBaja.set(true);
+    this.bajaError.set('');
+    this.bajaSuccess.set('');
+
+    const mesNum = this.meses.indexOf(this.mesSeleccionado()) + 1;
+    const anio = this.anioSeleccionado();
+
+    try {
+      const res = await firstValueFrom(this.mensualItemsService.darDeBajaEntidad(ent.id, anio, mesNum));
+      this.isProcesandoBaja.set(false);
+      this.bajaSuccess.set(res.message);
+
+      setTimeout(async () => {
+        this.cerrarModalBajaEntidad();
+        await this.seleccionarMes(this.mesSeleccionado(), true);
+      }, 1200);
+    } catch (err: any) {
+      this.isProcesandoBaja.set(false);
+      this.bajaError.set(err?.error?.message || err?.message || 'Error al dar de baja la entidad');
+    }
+  }
 
   abrirModalCarga(): void {
     this.itemParaEditar.set(null);
@@ -131,6 +261,7 @@ export class Mensual implements OnInit, OnDestroy {
     try {
       const res = await firstValueFrom(this.mensualItemsService.getItems(anio, mesNum));
       if (!res?.porEntidad) return false;
+      this.datosItemsPorEntidad.set(res.porEntidad || {});
 
       const formatItems = (items: any[]) =>
         (items || []).map((it) => ({
@@ -389,6 +520,7 @@ export class Mensual implements OnInit, OnDestroy {
 
     try {
       this.mesSeleccionado.set(mes);
+      await this.cargarEntidadesVigentes(this.anioSeleccionado(), mes);
       const mesIndex = this.meses.indexOf(mes) + 1;
       if (mesIndex >= 1 && mesIndex <= 12) {
         this.entityPaymentService.getPayments(this.anioSeleccionado(), mesIndex).subscribe({

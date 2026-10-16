@@ -1,4 +1,4 @@
-﻿import { Injectable, inject } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../config/environment';
@@ -44,6 +44,35 @@ export interface CreateMonthlyItemPayload {
   autoPropagarCuotas?: boolean;
 }
 
+export interface FinancialEntityFront {
+  id: string;
+  nombre: string;
+  tipo: string;
+  color: string;
+  logoUrl?: string;
+  orden: number;
+  activo: boolean;
+  vigenteDesdeAnio: number;
+  vigenteDesdeMes: number;
+  vigenteHastaAnio?: number | null;
+  vigenteHastaMes?: number | null;
+}
+
+export interface CreateFinancialEntityPayload {
+  nombre: string;
+  tipo?: string;
+  color?: string;
+  logoUrl?: string;
+  vigenteDesdeAnio: number;
+  vigenteDesdeMes: number;
+  itemsIniciales?: Array<{
+    concepto: string;
+    montoOFormula: string | number;
+    notas?: string;
+    autoPropagarCuotas?: boolean;
+  }>;
+}
+
 export interface UpdateMonthlyItemPayload {
   concepto?: string;
   montoOFormula?: string | number;
@@ -58,6 +87,34 @@ export interface UpdateMonthlyItemPayload {
 export class MensualItemsService {
   private http = inject(HttpClient);
   private apiUrl = `${environment.apiUrl}/mensual`;
+
+  /**
+   * Obtiene las entidades financieras vigentes para un año y mes determinados.
+   */
+  getEntidadesVigentes(year: number, mes: number): Observable<FinancialEntityFront[]> {
+    const params = new HttpParams()
+      .set('year', year.toString())
+      .set('mes', mes.toString());
+    return this.http.get<FinancialEntityFront[]>(`${this.apiUrl}/entidades`, { params });
+  }
+
+  /**
+   * Crea una nueva entidad financiera que rige a partir de un mes y año dados.
+   */
+  crearEntidad(payload: CreateFinancialEntityPayload): Observable<{ message: string; entidad: FinancialEntityFront; itemsCreadosCount: number }> {
+    return this.http.post<{ message: string; entidad: FinancialEntityFront; itemsCreadosCount: number }>(`${this.apiUrl}/entidades`, payload);
+  }
+
+  /**
+   * Da de baja una entidad financiera a partir de un mes y año específicos.
+   * Regla de Oro: Se preserva intacta en los meses anteriores y se elimina hacia el futuro.
+   */
+  darDeBajaEntidad(id: string, year: number, mes: number): Observable<{ message: string; itemsBorradosCount: number }> {
+    const params = new HttpParams()
+      .set('year', year.toString())
+      .set('mes', mes.toString());
+    return this.http.delete<{ message: string; itemsBorradosCount: number }>(`${this.apiUrl}/entidades/${id}`, { params });
+  }
 
   /**
    * Obtiene todos los ítems mensuales para un año y mes determinados.
@@ -88,10 +145,12 @@ export class MensualItemsService {
   }
 
   /**
-   * Elimina un ítem mensual o la serie completa de cuotas si se desea.
+   * Elimina un ítem mensual o la serie completa de cuotas, con opción de dar de baja hacia el futuro.
    */
-  deleteItem(id: string, borrarSerieCompleta = false): Observable<{ message: string; borradosCount: number }> {
-    const params = new HttpParams().set('borrarSerieCompleta', borrarSerieCompleta.toString());
+  deleteItem(id: string, borrarSerieCompleta = false, eliminarHaciaElFuturo = false): Observable<{ message: string; borradosCount: number }> {
+    const params = new HttpParams()
+      .set('borrarSerieCompleta', borrarSerieCompleta.toString())
+      .set('eliminarHaciaElFuturo', eliminarHaciaElFuturo.toString());
     return this.http.delete<{ message: string; borradosCount: number }>(`${this.apiUrl}/items/${id}`, { params });
   }
 

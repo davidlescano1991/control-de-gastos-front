@@ -19,6 +19,31 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-16 12:15] - Catálogo Dinámico de Entidades Financieras con Vigencia Temporal y Baja Histórica Inmutable
+- **Requerimiento**:
+  - Permitir al usuario dar de alta nuevas entidades financieras (tarjetas de crédito, billeteras, cuentas bancarias o grupos de gasto) desde el modal de carga con sus cuotas/ítems iniciales, replicándose automáticamente en los meses subsiguientes.
+  - Al eliminar una entidad en un mes determinado, debe dejar de figurar en ese mes y en los posteriores, pero **debe mantenerse 100% intacta en los meses anteriores** (inmutabilidad histórica contable).
+  - En "Otros" (o servicios recurrentes), permitir dar de baja un servicio desde ese mes en adelante sin tocar el pasado.
+- **Implementación Técnica Realizada**:
+  - **1. Backend (PostgreSQL & Prisma)**:
+    - Nuevo modelo `FinancialEntity` (`financial_entities`) con vigencia temporal: `valid_from_year`, `valid_from_month`, `valid_to_year`, `valid_to_month`, `tipo`, `color`, `logo_url`, `orden` y `activo`.
+    - Inicialización (seed) de las 6 entidades base (`Visa Galicia`, `Master Card Galicia`, `Naranja X`, `Bancor`, `Mercado Libre`, `Otros`).
+    - Endpoints `GET /api/mensual/entidades`, `POST /api/mensual/entidades` y `DELETE /api/mensual/entidades/:id?year=&mes=` con ajuste automático de corte en `mes - 1` y purga de ítems futuros.
+    - Soporte en `DELETE /api/mensual/items/:id?eliminarHaciaElFuturo=true` para dar de baja servicios recurrentes hacia el futuro.
+  - **2. Frontend (Angular 18+)**:
+    - **Modal de Carga (`modal-cargar-item`)**:
+      - Grilla dinámica de entidades vigentes en el mes y año consultados.
+      - Botón destacado **`+ Nueva Entidad`** con formulario desplegable inline (nombre, tipo, paleta de colores y aviso de vigencia).
+      - En confirmación de eliminación de servicios: selector entre *"Eliminar sólo en este mes"* y *"Dar de baja servicio (Eliminar de este mes en adelante)"*.
+    - **Vista Mensual (`mensual.html` & `mensual.ts`)**:
+      - Consulta reactiva de entidades vigentes según año y mes.
+      - Renderizado condicional de las tarjetas base con `estaEntidadVigente(...)`.
+      - Renderizado dinámico de cualquier nueva entidad creada (`entidadesPersonalizadasVigentes()`) manteniendo la Regla de Oro (`.movimientos-wrapper`, bordes, sombras y 100% de ancho).
+      - Botón de baja 🗑️ en cabeceras de tarjetas con diálogo de confirmación seguro que explica la preservación del pasado y la baja hacia el futuro.
+- **Archivos Afectados**:
+  - Backend: `prisma/schema.prisma`, `src/services/financial-entity.service.ts`, `src/controllers/financial-entity.controller.ts`, `src/routes/monthly-item.routes.ts`, `src/services/monthly-item.service.ts`, `src/controllers/monthly-item.controller.ts`.
+  - Frontend: `src/app/services/mensual-items.service.ts`, `src/app/pages/mensual/mensual.ts`, `src/app/pages/mensual/mensual.html`, `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.ts`, `modal-cargar-item.html`, `modal-cargar-item.scss`, `src/styles.scss`, y componentes de tarjetas en `src/app/pages/mensual/lista-entidades/`.
+
 ### [2026-10-16 10:20] - Corrección de Superposición de Íconos y Logo en Cabecera de Entidades
 - **Problema Reportado**:
   - En las cabeceras de las tarjetas de crédito (Visa, Mastercard, etc.) en la vista mensual, los elementos del extremo izquierdo (logo de la entidad, botón verde de pagar `$` y badge de estado circular) se mostraban superpuestos uno encima del otro en las mismas coordenadas.
