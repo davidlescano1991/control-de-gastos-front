@@ -35,7 +35,10 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
     - **Master Card Galicia**: `$470.000` abonados (Total: `$3.062.848,43`, Restante: `$2.592.848,43`, Estado: `PARCIAL`).
     - **Naranja X**: Totalmente abonada `$367.180,10` (Restante: `$0`, Estado: `COMPLETO`).
     - **Bancor**: `$430.000` abonados (Total: `$1.385.544,91`, Restante: `$955.544,91`, Estado: `PARCIAL`).
+    - **Mercado Libre**: Totalmente abonado `$99.054,16` (Restante: `$0`, Estado: `COMPLETO`).
     - **Otros**: Totalmente abonado `$1.020.605,63` a nivel global y en cada uno de sus ítems individuales (`internet`: $23.300, `Nafta`: $7.000, `Cuota Alimentaria`: $684.048,60, `Claro`: $40.873,95, `Prestamo`: $265.383,08) con Restante: `$0` y Estado: `COMPLETO`.
+  - **Regla Reactiva para Registros en Cero ($0) en "Otros"**:
+    - Cualquier fila o concepto de la entidad "Otros" cuyo monto sea `$ 0,00` se categoriza automáticamente como **pagado** (`COMPLETO`), mostrando el badge verde (`check_circle`) con el tooltip `"Sin saldo a pagar ($ 0,00) - Pagado"`, en lugar de figurar como pendiente.
 - **Archivos Afectados**:
   - `src/app/services/entity-payment.service.ts`
   - `src/app/pages/mensual/mensual.ts`, `mensual.html`

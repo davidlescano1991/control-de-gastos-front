@@ -45,6 +45,8 @@ export class Otros {
     const p = this.getPagoFila(fila);
     if (p) return p.estado;
     if (esHistorico) return 'COMPLETO';
+    const monto = typeof fila?.montoCrudo === 'number' ? fila.montoCrudo : this.parseMoneda(fila?.monto);
+    if (monto === 0) return 'COMPLETO';
     return null;
   }
 
@@ -58,6 +60,10 @@ export class Otros {
 
   getTooltipPagoFila(fila: any): string {
     const p = this.getPagoFila(fila);
+    const monto = typeof fila?.montoCrudo === 'number' ? fila.montoCrudo : this.parseMoneda(fila?.monto);
+    if (monto === 0) {
+      return 'Sin saldo a pagar ($ 0,00) - Pagado';
+    }
     if (!p) {
       const esHistorico = this.anio < 2026 || (this.anio === 2026 && this.getMesNumero() < 10);
       return esHistorico ? 'Pagado completamente' : '';
