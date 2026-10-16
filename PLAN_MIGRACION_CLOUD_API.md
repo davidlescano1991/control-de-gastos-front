@@ -1087,7 +1087,22 @@ gantt
       * **6.14.4**: Frontend: Actualización de `ModalCargarItemComponent` con botón `+ Nueva Entidad`, selector dinámico de entidades activas en el mes, y formulario de alta rápida de entidad (nombre, color, ícono).
       * **6.14.5**: Frontend: Integración en `mensual.ts` y `mensual.html` para renderizar dinámicamente las tarjetas de entidades vigentes, sumando en la cabecera el botón de baja con confirmación de alcance temporal.
       * **6.14.6**: Frontend: Incorporación de la opción de *"Dar de baja servicio (Eliminar de este mes en adelante)"* en las filas de "Otros".
-      * **6.14.7**: Verificación integral, pruebas de ciclo completo y actualización de bitácoras.
+      * **6.14.7**: Frontend: Foco ultra veloz con tecla `Enter` y botón de adición masiva de ítems/cuotas antes de persistir, evitando tener que guardar uno por uno.
+      * **6.14.8**: Frontend: Selector de logotipo interactivo con compresión automática a formato WebP y Base64 ultraligero (< 2.5 KB), eliminando iconos desalineados o superpuestos.
+      * **6.14.9**: Frontend: Botón para regresar a las entidades existentes y selector rápido de entidades activas.
+      * **6.14.10**: Verificación integral, pruebas de ciclo completo y actualización de bitácoras. *(Completado)*
 
-
-
+  * **6.15**: Exportación y Sincronización Integral de Datos Actualizados a Producción (Google Cloud SQL) *(Completado)*:
+    * **¿Qué es y por qué se hace de esta manera?**:
+      * Garantiza que la base de datos de producción (Google Cloud SQL PostgreSQL 16) reciba la totalidad de las nuevas estructuras, catálogos, configuraciones y datos contables creados y validados en el entorno de desarrollo local, manteniendo los estándares de seguridad, costo mínimo y trazabilidad:
+        1. **Respaldo Preventivo en Google Cloud Storage**: Previo a cualquier manipulación de datos, se ejecutó `backup.ps1` generando el snapshot cifrado `gs://control-gastos-backups-0d0b8487/backup_20261016_202843.sql.gz` y su copia local en `control-de-gastos-infra/backups/`.
+        2. **Túnel Seguro mTLS con Cloud SQL Proxy**: Habilitación temporal de IP pública (`--assign-ip`) para establecer el túnel cifrado local en el puerto 5433 mediante `cloud-sql-proxy.exe`.
+        3. **Sincronización de Esquema DDL en Producción**: Ejecución de `prisma db push` sobre Cloud SQL, creando las tablas `financial_entities`, `entity_payments`, `loans`, `loan_installments` y sus índices únicos.
+        4. **Exportación e Idempotencia con Mapeo de Claves**:
+           - **Catálogo de Entidades Financieras (`FinancialEntity`)**: 6 entidades sincronizadas con sus logos comprimidos en WebP/Base64, colores corporativos hexadecimales y vigencia temporal (desde 2020).
+           - **Pagos de Entidades (`EntityPayment`)**: 17 registros de pagos (4 pagos parciales de tarjetas para Octubre 2026 y cancelaciones de servicios individuales con remanentes y cuentas de origen).
+           - **Préstamos Personales (`Loan` y `LoanInstallment`)**: 13 préstamos activos/históricos con sus 116 cuotas asociadas.
+           - **Ítems Mensuales (`MonthlyItem`)**: 1.083 ítems consolidados (641 ítems de 2026 con fórmulas preservadas y 442 de 2022).
+           - **Movimientos y Estimativos**: 1.423 movimientos y 14 ciclos estimativos vinculados con resolución de mapping de usuarios (`userIdMap`).
+        5. **Auditoría de Paridad 100%**: Verificación de recuentos cruzados confirmando concordancia exacta entre el entorno local y Cloud SQL.
+        6. **Restablecimiento Inmediato del Aislamiento Privado (VPC)**: Cierre de `cloud-sql-proxy.exe` y revocación inmediata de la IP pública (`--no-assign-ip`), devolviendo la base de datos a su estado privado en `control-gastos-vpc` con costo de IP en $0.

@@ -19,7 +19,28 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
-### [2026-10-16 20:05] - Actualización Integral y Sincronización de Documentación (`README.md`) de Todo el Ecosistema
+### [2026-10-16 20:45] - Exportación y Sincronización Integral de Datos Actualizados a Producción (Google Cloud SQL)
+- **Motivo / Requerimiento**:
+  - Exportar y sincronizar la totalidad de los datos y estructuras actualizadas en el entorno local hacia la base de datos PostgreSQL de producción en Google Cloud SQL (`control-gastos-pg-0d0b84`), asegurando paridad contable absoluta y cumpliendo con las políticas de seguridad y costos.
+- **Acciones Realizadas**:
+  - **1. Respaldo Preventivo en Cloud Storage**:
+    - Ejecutado `backup.ps1` generando el snapshot cifrado `gs://control-gastos-backups-0d0b8487/backup_20261016_202843.sql.gz` y su copia local en `control-de-gastos-infra/backups/`.
+  - **2. Túnel Seguro con Cloud SQL Auth Proxy**:
+    - Asignación temporal de IP pública (`--assign-ip`) y apertura de túnel TLS en `127.0.0.1:5433` con `cloud-sql-proxy.exe`.
+  - **3. Sincronización DDL de Tablas en Producción**:
+    - Aplicación de `prisma db push` creando en Cloud SQL las tablas `financial_entities`, `entity_payments`, `loans` y `loan_installments`.
+  - **4. Exportación e Inserción Idempotente de Datos**:
+    - **6 Entidades Financieras (`FinancialEntity`)**: Catálogo completo sincronizado con vigencia temporal, colores y logotipos optimizados en Base64/WebP.
+    - **17 Pagos de Entidades (`EntityPayment`)**: Estados de liquidación para Octubre 2026 (pagos parciales en tarjetas, pagos completos de servicios, remanentes y cuentas de origen).
+    - **13 Préstamos Personales (`Loan`) y 116 Cuotas (`LoanInstallment`)**: Importes, vencimientos y estados contables.
+    - **1.083 Ítems Mensuales (`MonthlyItem`)**: Colección limpia y completa de 2026 (641 ítems) y 2022 (442 ítems).
+    - **1.423 Movimientos y 14 Estimativos**: Mapeo transparente de identificadores de usuario (`userIdMap`).
+  - **5. Aislamiento y Seguridad Post-Migración**:
+    - Cierre del proxy y revocación inmediata de la IP pública (`--no-assign-ip`), devolviendo Cloud SQL a su red privada 100% aislada en la VPC con costo de IP en $0.
+- **Archivos Afectados**:
+  - `PLAN_MIGRACION_CLOUD_API.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 - **Motivo / Requerimiento**:
   - Los archivos `README.md` de los distintos proyectos del ecosistema (`control-de-gastos-front`, `control-de-gastos-api` y `control-de-gastos-infra`) habían quedado desactualizados frente a la profunda evolución técnica ocurrida (arquitectura híbrida, persistencia PostgreSQL con Prisma, SSE, catálogo dinámico de entidades con vigencia temporal, carga por lotes, optimización de logos, pagos con badges y exportación nativa a Excel).
 - **Acciones Realizadas**:
