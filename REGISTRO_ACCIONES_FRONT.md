@@ -19,7 +19,42 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
-### [2026-10-16 20:45] - Exportación y Sincronización Integral de Datos Actualizados a Producción (Google Cloud SQL)
+### [2026-10-16 21:20] - Eliminación de Estimativos, Saldo/Deuda Base del Último Ciclo e Intención de Pago en Mensual
+- **Motivo / Requerimiento**:
+  - El usuario cargó por error un estimativo en Octubre en lugar de Enero y el sistema no permitía eliminarlo.
+  - Al dar de alta un estimativo nuevo (ej. para Enero), el sistema debe tomar como base los datos del último registro cronológico cargado (saldo estimado y deuda estimada acumulada).
+  - En el Día 1 del ciclo (día de cobro, ej. día 8), al sueldo neto se le debe restar: las tarjetas (restando compensaciones, es decir solo lo que efectivamente se va a pagar), los préstamos del mes y los servicios ("Otros").
+  - En la vista Mensual (`/mensual`), para meses futuros, debe permitir definir la intención de pago por entidad para proyectar con precisión cuánto serán las compensaciones (deuda) y lo que efectivamente se pagará.
+- **Acciones Realizadas**:
+  - **1. Backend (`control-de-gastos-api`)**:
+    - **Endpoint de Eliminación**: `DELETE /api/estimaciones/config?year=...&mes=...` con emisión reactiva SSE `DATA_UPDATED` (acción `ESTIMATE_DELETED`) y borrado en cascada de `monthly_estimate_configs` y `daily_estimates`.
+    - **Último Registro como Base en `getPreviewExpenses`**: Búsqueda cronológica del ciclo configurado más reciente anterior (`year < targetYear || (year == targetYear && mes < targetMes)`), heredando el saldo final (`lastDay.real ?? lastDay.saldoPesos`) y la deuda final (`lastDay.deudaReal ?? lastDay.deuda`).
+    - **Desglose Contable y Compensaciones**: Mapeo de `EntityPayment` para calcular la intención a pagar por tarjeta vs compensación no cubierta. Sumatoria exacta de tarjetas a pagar, préstamos del mes (`loan_installments`) y servicios ("Otros"). Asignación de deuda inicial sugerida = deuda base anterior + compensaciones del mes.
+  - **2. Frontend (`control-de-gastos-front`)**:
+    - **Modal de Configuración de Estimativo (`ModalConfigEstimativo`)**:
+      - Desglose contable visual completo: `+ Sueldo`, `- Tarjetas (efectivo a pagar con compensaciones)`, `- Préstamos del mes`, `- Servicios`, `+ Remanente anterior (base del ciclo previo)`, `- Gasto diario I1`, `+ Interés diario J1`.
+      - Botón rojo destacado **"🗑️ Eliminar Estimativo"** (disponible cuando ya existe configuración para el mes) con panel de confirmación de seguridad para evitar eliminaciones accidentales.
+    - **Intención de Pago para Meses Futuros (`ModalPagarEntidadComponent`)**:
+      - Detección automática de meses futuros (`esMesFuturo()`), adaptando títulos e instrucciones a "Intención de Pago / Proyección".
+      - Cálculo reactivo de compensación projected y desglose didáctico de lo que pasará a deuda y lo que se descontará del sueldo.
+      - Desmarcado por defecto del checkbox de movimiento bancario para no afectar saldos de hoy en meses proyectados.
+  - **3. Verificación y Pruebas**:
+    - Eliminado exitosamente el estimativo de Octubre 2026 cargado por error (status 200).
+    - Verificado `preview-gastos` de Enero 2027 heredando correctamente los $103.137,70 de saldo base y $1.047.222,41 de deuda del último ciclo previo registrado.
+    - Compilación completa verificada con `ng build` (0 errores).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/estimate.service.ts`
+  - `control-de-gastos-api/src/controllers/estimate.controller.ts`
+  - `control-de-gastos-api/src/routes/estimate.routes.ts`
+  - `control-de-gastos-front/src/app/services/estimates.service.ts`
+  - `control-de-gastos-front/src/app/pages/estimativos/modal-config-estimativo/modal-config-estimativo.ts`
+  - `control-de-gastos-front/src/app/pages/estimativos/modal-config-estimativo/modal-config-estimativo.html`
+  - `control-de-gastos-front/src/app/pages/estimativos/modal-config-estimativo/modal-config-estimativo.scss`
+  - `control-de-gastos-front/src/app/pages/mensual/modal-pagar-entidad/modal-pagar-entidad.component.ts`
+  - `control-de-gastos-front/src/app/pages/mensual/modal-pagar-entidad/modal-pagar-entidad.component.html`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 - **Motivo / Requerimiento**:
   - Exportar y sincronizar la totalidad de los datos y estructuras actualizadas en el entorno local hacia la base de datos PostgreSQL de producción en Google Cloud SQL (`control-gastos-pg-0d0b84`), asegurando paridad contable absoluta y cumpliendo con las políticas de seguridad y costos.
 - **Acciones Realizadas**:

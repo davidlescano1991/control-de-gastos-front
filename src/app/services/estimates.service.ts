@@ -56,14 +56,25 @@ export interface PreviewExpensesResponse {
   year: number;
   mes: number;
   totalGastosMes: number;
+  totalGastosOriginalBruto?: number;
   totalTarjetas?: number;
-  totalPrestamos?: number;
+  totalTarjetasEfectivoAPagar?: number;
   totalCompensaciones?: number;
+  totalPrestamos?: number;
+  totalServicios?: number;
+  desgloseTarjetas?: Array<{
+    entidad: string;
+    totalOriginal: number;
+    intencionAPagar: number;
+    compensacion: number;
+    estado: string;
+  }>;
   deudaTotalAnual?: number;
   deudaSugerida?: number;
   remanenteSaldoAnterior: number;
   deudaMesAnterior: number;
   itemsCount: number;
+  cuotasPrestamosCount?: number;
 }
 
 export interface UpsertEstimateConfigDTO {
@@ -110,6 +121,15 @@ export class EstimatesService {
    */
   upsertConfig(dto: UpsertEstimateConfigDTO): Observable<{ message: string; data: MonthlyEstimateResponse }> {
     return this.http.post<{ message: string; data: MonthlyEstimateResponse }>(`${this.apiUrl}/config`, dto);
+  }
+
+  /**
+   * Elimina la configuración de un ciclo de estimativo mensual
+   */
+  deleteConfig(year: number, mes: number): Observable<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(`${this.apiUrl}/config`, {
+      params: { year: year.toString(), mes: mes.toString() },
+    });
   }
 
   /**

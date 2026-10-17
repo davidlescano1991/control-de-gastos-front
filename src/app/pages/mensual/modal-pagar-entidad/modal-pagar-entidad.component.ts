@@ -49,6 +49,16 @@ export class ModalPagarEntidadComponent implements OnInit {
   isGuardando = signal<boolean>(false);
   errorMensaje = signal<string | null>(null);
 
+  esMesFuturo = computed(() => {
+    const hoy = new Date();
+    const hoyYear = hoy.getFullYear();
+    const hoyMes = hoy.getMonth() + 1;
+    return (
+      this.entidadInfo.year > hoyYear ||
+      (this.entidadInfo.year === hoyYear && this.entidadInfo.mes > hoyMes)
+    );
+  });
+
   montoAPagar = computed(() => {
     return this.tipoPago() === 'TOTAL'
       ? this.entidadInfo.totalOriginal
@@ -79,6 +89,10 @@ export class ModalPagarEntidadComponent implements OnInit {
       // Por defecto pago total
       this.tipoPago.set('TOTAL');
       this.montoParcial.set(Math.round(this.entidadInfo.totalOriginal / 2));
+    }
+
+    if (this.esMesFuturo()) {
+      this.registrarMovimiento.set(false);
     }
   }
 

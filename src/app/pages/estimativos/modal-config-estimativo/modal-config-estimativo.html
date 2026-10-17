@@ -202,15 +202,30 @@
 
         <div class="formula-breakdown">
           <div class="item-formula positivo">
-            <span class="label">+ Sueldo Neto:</span>
+            <span class="label">+ Sueldo / Ingreso Neto:</span>
             <span class="monto">{{ sueldoNeto | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
           </div>
-          <div class="item-formula negativo">
+          <div class="item-formula negativo" *ngIf="totalTarjetasEfectivo > 0">
+            <span class="label">- Tarjetas (efectivo a pagar):</span>
+            <span class="monto">
+              {{ totalTarjetasEfectivo | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+              <small *ngIf="totalCompensaciones > 0" class="sub-compensacion">(Compensación a deuda: {{ totalCompensaciones | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }})</small>
+            </span>
+          </div>
+          <div class="item-formula negativo" *ngIf="totalPrestamos > 0">
+            <span class="label">- Préstamos del mes:</span>
+            <span class="monto">{{ totalPrestamos | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+          </div>
+          <div class="item-formula negativo" *ngIf="totalServicios > 0">
+            <span class="label">- Servicios / Impuestos ("Otros"):</span>
+            <span class="monto">{{ totalServicios | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+          </div>
+          <div class="item-formula negativo" *ngIf="totalTarjetasEfectivo === 0 && totalPrestamos === 0 && totalServicios === 0">
             <span class="label">- Gastos Totales del Mes:</span>
             <span class="monto">{{ gastosPresupuestados | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
           </div>
           <div class="item-formula positivo" *ngIf="remanenteAnterior !== 0">
-            <span class="label">+ Remanente Anterior:</span>
+            <span class="label">+ Remanente Anterior (saldo base):</span>
             <span class="monto">{{ remanenteAnterior | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
           </div>
           <div class="item-formula negativo">
@@ -243,22 +258,58 @@
       </div>
     </div>
 
-    <!-- Footer -->
-    <div class="modal-footer">
-      <button type="button" class="btn-cancelar" (click)="cerrarModal()" [disabled]="guardando()">
-        Cancelar
-      </button>
+    <!-- Banner de confirmación para eliminar estimativo -->
+    <div *ngIf="confirmandoEliminar()" class="confirm-delete-panel">
+      <div class="confirm-delete-header">
+        <mat-icon class="icon-warn">warning</mat-icon>
+        <div>
+          <h4>¿Eliminar Estimativo de {{ mesNombre }} {{ year }}?</h4>
+          <p>Esta acción eliminará de forma irreversible el ciclo de estimativo y todas las filas diarias configuradas para este mes.</p>
+        </div>
+      </div>
+      <div class="confirm-delete-actions">
+        <button type="button" class="btn-cancelar-eliminar" (click)="cancelarEliminar()" [disabled]="eliminando()">
+          Cancelar
+        </button>
+        <button type="button" class="btn-ejecutar-eliminar" (click)="confirmarEliminacion()" [disabled]="eliminando()">
+          <mat-spinner diameter="16" *ngIf="eliminando()"></mat-spinner>
+          <span *ngIf="!eliminando()">Sí, Eliminar Estimativo</span>
+        </button>
+      </div>
+    </div>
 
-      <button
-        type="button"
-        class="btn-guardar"
-        (click)="guardar()"
-        [disabled]="guardando() || cargando() || totalDiasCalculados <= 0"
-      >
-        <mat-spinner diameter="18" *ngIf="guardando()"></mat-spinner>
-        <mat-icon *ngIf="!guardando()">save</mat-icon>
-        <span>{{ guardando() ? 'Generando ciclo...' : 'Guardar y Generar Ciclo' }}</span>
-      </button>
+    <!-- Footer -->
+    <div class="modal-footer" *ngIf="!confirmandoEliminar()">
+      <div class="footer-left">
+        <button
+          type="button"
+          class="btn-eliminar-estimativo"
+          *ngIf="existeConfigPrevia()"
+          (click)="solicitarEliminar()"
+          [disabled]="guardando() || eliminando()"
+          title="Eliminar este ciclo de estimativo"
+        >
+          <mat-icon>delete_forever</mat-icon>
+          <span>Eliminar Estimativo</span>
+        </button>
+      </div>
+
+      <div class="footer-right">
+        <button type="button" class="btn-cancelar" (click)="cerrarModal()" [disabled]="guardando()">
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          class="btn-guardar"
+          (click)="guardar()"
+          [disabled]="guardando() || cargando() || totalDiasCalculados <= 0"
+        >
+          <mat-spinner diameter="18" *ngIf="guardando()"></mat-spinner>
+          <mat-icon *ngIf="!guardando()">save</mat-icon>
+          <span>{{ guardando() ? 'Generando ciclo...' : (existeConfigPrevia() ? 'Actualizar Ciclo' : 'Guardar y Generar Ciclo') }}</span>
+        </button>
+      </div>
     </div>
   </div>
 </div>

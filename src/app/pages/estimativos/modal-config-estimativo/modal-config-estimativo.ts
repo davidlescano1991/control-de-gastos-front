@@ -53,6 +53,9 @@ export class ModalConfigEstimativo implements OnChanges {
 
   cargando = signal<boolean>(false);
   guardando = signal<boolean>(false);
+  eliminando = signal<boolean>(false);
+  confirmandoEliminar = signal<boolean>(false);
+  existeConfigPrevia = signal<boolean>(false);
 
   // Form Model
   fechaInicio = ''; // YYYY-MM-DD para input date
@@ -69,8 +72,23 @@ export class ModalConfigEstimativo implements OnChanges {
   totalDiasCalculados = 0;
   itemsPresupuestadosCount = 0;
 
+  // Desglose contable
+  totalTarjetasOriginal = 0;
+  totalTarjetasEfectivo = 0;
+  totalCompensaciones = 0;
+  totalPrestamos = 0;
+  totalServicios = 0;
+  desgloseTarjetas: Array<{
+    entidad: string;
+    totalOriginal: number;
+    intencionAPagar: number;
+    compensacion: number;
+    estado: string;
+  }> = [];
+
   async ngOnChanges(changes: SimpleChanges): Promise<void> {
     if (this.visible && (changes['visible'] || changes['year'] || changes['mesNumero'])) {
+      this.confirmandoEliminar.set(false);
       await this.inicializarFormulario();
     }
   }
@@ -78,12 +96,19 @@ export class ModalConfigEstimativo implements OnChanges {
   async inicializarFormulario(): Promise<void> {
     this.cargando.set(true);
     try {
-      // 1. Obtener preview de gastos del mes y remanentes anteriores
+      // 1. Obtener preview de gastos del mes, desglose y remanentes base del último registro
       const preview = await firstValueFrom(
         this.estimatesService.getPreviewGastos(this.year, this.mesNumero),
       );
 
       this.gastosPresupuestados = preview.totalGastosMes || 0;
+      this.totalTarjetasOriginal = preview.totalTarjetas || 0;
+      this.totalTarjetasEfectivo = preview.totalTarjetasEfectivoAPagar || 0;
+      this.totalCompensaciones = preview.totalCompensaciones || 0;
+      this.totalPrestamos = preview.totalPrestamos || 0;
+      this.totalServicios = preview.totalServicios || 0;
+      this.desgloseTarjetas = preview.desgloseTarjetas || [];
+
       this.remanenteAnterior = preview.remanenteSaldoAnterior || 0;
       this.deudaInicial = preview.deudaSugerida !== undefined ? preview.deudaSugerida : (preview.deudaMesAnterior || 0);
       this.itemsPresupuestadosCount = preview.itemsCount || 0;
@@ -93,7 +118,8 @@ export class ModalConfigEstimativo implements OnChanges {
         const existente = await firstValueFrom(
           this.estimatesService.getMonthly(this.year, this.mesNumero),
         );
-        if (existente && existente.config) {
+        if (existente && existente.config && (existente.config.id || (existente.filas && existente.filas.length > 0))) {
+          this.existeConfigPrevia.set(true);
           const cfg = existente.config;
           if (cfg.fechaInicio) {
             this.fechaInicio = this.convertirADateInput(cfg.fechaInicio);
@@ -107,15 +133,18 @@ export class ModalConfigEstimativo implements OnChanges {
           this.saldoInicialManual = cfg.saldoInicial;
           this.usarCalculoAutomatico = false;
         } else {
+          this.existeConfigPrevia.set(false);
           this.establecerFechasPorDefecto();
         }
       } catch {
+        this.existeConfigPrevia.set(false);
         this.establecerFechasPorDefecto();
       }
 
       this.recalcularTotales();
     } catch (err) {
       console.warn('⚠️ Error al inicializar formulario de estimativo:', err);
+      this.existeConfigPrevia.set(false);
       this.establecerFechasPorDefecto();
       this.recalcularTotales();
     } finally {
@@ -218,6 +247,32 @@ export class ModalConfigEstimativo implements OnChanges {
       console.error('Error guardando estimativo:', err);
     } finally {
       this.guardando.set(false);
+      this.cdr.detectChanges();
+    }
+  }
+
+  solicitarEliminar(): void {
+    this.confirmandoEliminar.set(true);
+  }
+
+  cancelarEliminar(): void {
+    this.confirmandoEliminar.set(false);
+  }
+
+  async confirmarEliminacion(): Promise<void> {
+    this.eliminando.set(true);
+    try {
+      await firstValueFrom(this.estimatesService.deleteConfig(Number(this.year), Number(this.mesNumero)));
+      this.snackbar.open(`🗑️ Estimativo de ${this.mesNombre} ${this.year} eliminado correctamente`, 'Cerrar', { duration: 4000 });
+      this.configurado.emit();
+      this.cerrarModal();
+    } catch (err: any) {
+      const msg = err?.error?.message || 'Error al eliminar configuración del estimativo';
+      this.snackbar.open(`❌ ${msg}`, 'Cerrar', { duration: 5000 });
+      console.error('Error eliminando estimativo:', err);
+    } finally {
+      this.eliminando.set(false);
+      this.confirmandoEliminar.set(false);
       this.cdr.detectChanges();
     }
   }
