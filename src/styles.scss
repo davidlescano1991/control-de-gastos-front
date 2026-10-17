@@ -2164,26 +2164,37 @@ body.dark-mode .modal-baja-entidad {
   }
 }
 
-
 /* ===== INTENCIÓN DE PAGO EN AMARILLO (VISTA MENSUAL) ===== */
 .acciones-total {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+
   .totales-container {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    width: 100%;
-    gap: 4px;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    width: 100% !important;
+    gap: 4px !important;
+  }
+
+  .total-row {
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    width: 100% !important;
+    gap: 16px !important;
   }
 
   .intencion-pago-row {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding-top: 5px;
-    margin-top: 3px;
-    border-top: 1px dashed rgba(250, 204, 21, 0.45);
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    gap: 10px !important;
+    width: 100% !important;
+    padding-top: 5px !important;
+    margin-top: 3px !important;
+    border-top: 1px dashed rgba(250, 204, 21, 0.45) !important;
 
     .intencion-label {
       font-size: 0.88rem;

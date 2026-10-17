@@ -19,6 +19,33 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-16 22:15] - Corrección: Ocultar Intención de Pago en Pagos Completos (100%) y Alineación Vertical Debajo del Total
+- **Motivo / Requerimiento**:
+  - En la tarjeta de Naranja X (y extensible a las demás entidades), la intención de pago se mostraba a pesar de haberse pagado el total ($ 367.180,10 de $ 367.180,10, con estado `COMPLETO`).
+  - Además, se mostraba horizontalmente al costado del Total en lugar de posicionarse estrictamente debajo.
+- **Causa Raíz**:
+  - Comparación numérica estricta sin contemplar `p.estado === 'COMPLETO'`, `p.montoRestante <= 0` ni pequeñas discrepancias de punto flotante de JavaScript en los decimales de la suma de ítems vs el monto pagado.
+  - En el template HTML, el contenedor `.intencion-pago-row` se encontraba anidado dentro de `<div class="total-row total-interactivo">`, provocando que heredara `display: flex; gap: 16px;` y se posicionara al lado del Total.
+- **Solución Técnica**:
+  - **Lógica de Señal (`mostrarIntencionPago`)**: Incorporada validación explícita para retornar `false` inmediatamente si `p.estado === 'COMPLETO'` o `p.montoRestante <= 0`, y comparación robusta con redondeo a centavos (`Math.round(monto * 100)`).
+  - **Estructura HTML**: Reubicado `.intencion-pago-row` fuera de `.total-row`, directamente como hijo inferior de `.totales-container` dentro de `mat-card-actions`.
+  - **Estilos SCSS**: Forzada la dirección de columna (`flex-direction: column !important; align-items: stretch !important;`) asegurando que la barra del Total quede arriba y la intención de pago (cuando corresponda mostrarse) quede debajo en una línea punteada amarilla.
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/lista-entidades/visa/visa.ts`
+  - `src/app/pages/mensual/lista-entidades/visa/visa.html`
+  - `src/app/pages/mensual/lista-entidades/master-galicia/master-galicia.ts`
+  - `src/app/pages/mensual/lista-entidades/master-galicia/master-galicia.html`
+  - `src/app/pages/mensual/lista-entidades/naranja/naranja.ts`
+  - `src/app/pages/mensual/lista-entidades/naranja/naranja.html`
+  - `src/app/pages/mensual/lista-entidades/bancor/bancor.ts`
+  - `src/app/pages/mensual/lista-entidades/bancor/bancor.html`
+  - `src/app/pages/mensual/lista-entidades/mercado-libre/mercado-libre.ts`
+  - `src/app/pages/mensual/lista-entidades/mercado-libre/mercado-libre.html`
+  - `src/app/pages/mensual/lista-entidades/otros/otros.ts`
+  - `src/app/pages/mensual/lista-entidades/otros/otros.html`
+  - `src/styles.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-10-16 21:55] - Depuración en Producción (Cloud SQL), Búsqueda de Diciembre 2026 para Enero 2027 y Visualización de Intención de Pago en Amarillo
 - **Motivo / Requerimiento**:
   - En la base de datos de producción (Google Cloud SQL), se había cargado por error un estimativo en Octubre de 2027 (`year: 2027, mes: 10`) que debía ser eliminado.

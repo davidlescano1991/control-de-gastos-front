@@ -155,18 +155,19 @@
 
       <mat-card-actions *ngIf="totalMes() > 0" class="acciones-total">
         <div class="totales-container">
-        <div
-          class="total-row total-interactivo"
-          (mouseenter)="onHoverTotal($event)"
-          (mouseleave)="onLeaveTotal()"
-          (click)="abrirModalCompleto()"
-          title="Pasar el mouse o hacer clic para ver la tabla completa estilo Google Sheets"
-        >
-          <div class="total-label">
-            <strong>Total</strong>
-          </div>
-          <div class="total-value">
-            <strong>{{ totalMes() | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>
+          <div
+            class="total-row total-interactivo"
+            (mouseenter)="onHoverTotal($event)"
+            (mouseleave)="onLeaveTotal()"
+            (click)="abrirModalCompleto()"
+            title="Pasar el mouse o hacer clic para ver la tabla completa estilo Google Sheets"
+          >
+            <div class="total-label">
+              <strong>Total</strong>
+            </div>
+            <div class="total-value">
+              <strong>{{ totalMes() | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>
+            </div>
           </div>
 
           <div class="intencion-pago-row" *ngIf="mostrarIntencionPago()">
@@ -178,7 +179,6 @@
               <strong>{{ pagoInfo()?.montoPagado | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>
             </div>
           </div>
-        </div>
         </div>
       </mat-card-actions>
     </ng-container>

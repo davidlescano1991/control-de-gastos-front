@@ -77,7 +77,11 @@ export class Otros {
     const pagos = this.paymentService.pagosMesSignal().get(key) || [];
     const pagosOtros = pagos.filter(p => p.entidad.toLowerCase() === 'otros');
     if (pagosOtros.length === 0) return false;
-    return this.totalIntencionPago() < total;
+    const hayIncompletos = pagosOtros.some(p => p.estado !== 'COMPLETO' && (p.montoRestante === undefined || p.montoRestante > 0));
+    if (!hayIncompletos) return false;
+    const centavosIntencion = Math.round(Number(this.totalIntencionPago()) * 100);
+    const centavosTotal = Math.round(Number(total) * 100);
+    return centavosIntencion < centavosTotal;
   });
 
   parseMoneda(valor: any): number {
