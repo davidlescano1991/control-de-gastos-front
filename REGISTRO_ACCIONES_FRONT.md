@@ -19,6 +19,20 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-16 22:50] - Despliegue en Producción (Cloud Run) y Corrección de Mapeo de Filas en Diciembre 2026
+- **Motivo / Requerimiento**:
+  - Al abrir el modal de configuración de Enero 2027 en producción (`control-gastos-dml.web.app`), el campo "Remanente Mes Anterior" mostraba $ 0 en lugar del saldo estimativo de cierre de Diciembre 2026 ($ 2.604.356,87).
+- **Causa Raíz**:
+  - En `estimate.service.ts` (`getPreviewExpenses`), la propiedad de las filas devuelta por `getMonthlyEstimate` es `filas` (no `rows`). Al verificar `prevEstimate.rows`, la condición daba `undefined` y caía a un fallback impreciso.
+  - Además, los cambios previos estaban en la rama `develop` y no habían sido fusionados a `main`, por lo que el servicio de Cloud Run en producción (`control-gastos-api`) continuaba ejecutando una versión previa donde `real: 0` sobreescribía el saldo proyectado.
+- **Solución Técnica**:
+  - **Mapeo de Filas**: Se ajustó la consulta para leer directamente `prevEstimate?.filas || prevEstimate?.rows`, extrayendo la última fila del ciclo de Diciembre 2026 (día 30, `07/01/2027`): `saldoPesos: 2604356.87` y `deuda: 743800.86`.
+  - **Despliegue a Producción en Cloud Run**: Se fusionó el código a la rama `main` y se compiló la nueva revisión activa `control-gastos-api-00011-pmt` en Google Cloud Run.
+  - **Verificación en Vivo**: Se probó el endpoint de producción `https://control-gastos-api-io57eybm3q-tl.a.run.app/api/estimaciones/preview-gastos?year=2027&mes=1`, confirmando que retorna `remanenteSaldoAnterior: 2604356.87` y `deudaSugerida: 743800.86`.
+- **Archivos Afectados**:
+  - `../control-de-gastos-api/src/services/estimate.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-10-16 22:15] - Corrección: Ocultar Intención de Pago en Pagos Completos (100%) y Alineación Vertical Debajo del Total
 - **Motivo / Requerimiento**:
   - En la tarjeta de Naranja X (y extensible a las demás entidades), la intención de pago se mostraba a pesar de haberse pagado el total ($ 367.180,10 de $ 367.180,10, con estado `COMPLETO`).
