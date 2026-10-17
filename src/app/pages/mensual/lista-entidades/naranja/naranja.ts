@@ -37,6 +37,19 @@ export class Naranja {
     return pagos.find(p => p.entidad.toLowerCase().includes('naranja') && (!p.itemId || p.itemId === '')) || null;
   });
 
+  mostrarIntencionPago = computed(() => {
+    const p = this.pagoInfo();
+    if (!p) return false;
+    if (p.estado === 'COMPLETO' || (p.montoRestante !== undefined && p.montoRestante <= 0)) {
+      return false;
+    }
+    const total = this.totalMes();
+    if (total <= 0) return false;
+    const centavosPagados = Math.round(Number(p.montoPagado) * 100);
+    const centavosTotal = Math.round(Number(total) * 100);
+    return centavosPagados < centavosTotal;
+  });
+
   estadoPago = computed<'COMPLETO' | 'PARCIAL' | 'NO_PAGADO'>(() => {
     const p = this.pagoInfo();
     if (p) {

@@ -57,6 +57,33 @@ export class Otros {
     return 'cancel';
   }
 
+  
+
+  totalIntencionPago = computed(() => {
+    let sum = 0;
+    for (const fila of this.datosMes()) {
+      const p = this.getPagoFila(fila);
+      const monto = typeof fila?.montoCrudo === 'number' ? fila.montoCrudo : this.parseMoneda(fila?.monto);
+      sum += p ? p.montoPagado : monto;
+    }
+    return sum;
+  });
+
+  mostrarIntencionPago = computed(() => {
+    const total = this.totalMes();
+    if (total <= 0) return false;
+    const mesNum = this.getMesNumero();
+    const key = `${this.anio}::${mesNum}`;
+    const pagos = this.paymentService.pagosMesSignal().get(key) || [];
+    const pagosOtros = pagos.filter(p => p.entidad.toLowerCase() === 'otros');
+    if (pagosOtros.length === 0) return false;
+    const hayIncompletos = pagosOtros.some(p => p.estado !== 'COMPLETO' && (p.montoRestante === undefined || p.montoRestante > 0));
+    if (!hayIncompletos) return false;
+    const centavosIntencion = Math.round(Number(this.totalIntencionPago()) * 100);
+    const centavosTotal = Math.round(Number(total) * 100);
+    return centavosIntencion < centavosTotal;
+  });
+
   parseMoneda(valor: any): number {
     if (typeof valor === 'number') return valor;
     if (typeof valor !== 'string') return 0;

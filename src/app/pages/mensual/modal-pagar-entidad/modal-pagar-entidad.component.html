@@ -3,10 +3,13 @@
     <!-- Header -->
     <div class="modal-header">
       <div class="header-title-container">
-        <mat-icon class="header-icon">payments</mat-icon>
+        <mat-icon class="header-icon">{{ esMesFuturo() ? 'trending_up' : 'payments' }}</mat-icon>
         <div>
-          <h3>Pagar {{ entidadInfo.entidad }}</h3>
-          <p class="subtitulo">{{ entidadInfo.mesNombre }} {{ entidadInfo.year }}<span *ngIf="entidadInfo.concepto"> • {{ entidadInfo.concepto }}</span></p>
+          <h3>{{ esMesFuturo() ? 'Intención de Pago — ' : 'Pagar ' }}{{ entidadInfo.entidad }}</h3>
+          <p class="subtitulo">
+            {{ entidadInfo.mesNombre }} {{ entidadInfo.year }}<span *ngIf="entidadInfo.concepto"> • {{ entidadInfo.concepto }}</span>
+            <span *ngIf="esMesFuturo()"> • Proyección y cálculo de compensación</span>
+          </p>
         </div>
       </div>
       <button type="button" class="btn-cerrar" (click)="cerrar.emit()" [disabled]="isGuardando()">
@@ -71,15 +74,18 @@
         />
         <div class="detalle-compensacion-box">
           <div class="fila-detalle">
-            <span>Abonas hoy:</span>
+            <span>{{ esMesFuturo() ? 'Intención a pagar en ' + entidadInfo.mesNombre + ':' : 'Abonas hoy:' }}</span>
             <strong>{{ montoAPagar() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong>
           </div>
           <div class="fila-detalle restante">
-            <span>Saldo restante impago:</span>
+            <span>{{ esMesFuturo() ? 'Compensación proyectada:' : 'Saldo restante impago:' }}</span>
             <strong class="texto-remanente">{{ montoRestante() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong>
           </div>
-          <p class="hint-compensacion">
+          <p class="hint-compensacion" *ngIf="!esMesFuturo()">
             ⚠️ El saldo impago de <strong>{{ montoRestante() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong> se sumará a la columna <strong>Compensaciones</strong> de la vista Anual y aumentará la Deuda Real en Estimativos.
+          </p>
+          <p class="hint-compensacion" *ngIf="esMesFuturo()">
+            💡 El remanente de <strong>{{ montoRestante() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong> pasará a <strong>Compensaciones</strong> (deuda acumulada). Del sueldo de {{ entidadInfo.mesNombre }} solo se descontarán <strong>{{ montoAPagar() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong>.
           </p>
         </div>
       </div>
@@ -150,7 +156,7 @@
         [disabled]="isGuardando()"
       >
         <mat-spinner *ngIf="isGuardando()" diameter="18" class="spinner-btn"></mat-spinner>
-        <span>Confirmar Pago de {{ montoAPagar() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+        <span>{{ esMesFuturo() ? 'Guardar Intención de Pago de ' : 'Confirmar Pago de ' }}{{ montoAPagar() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
       </button>
     </div>
   </div>

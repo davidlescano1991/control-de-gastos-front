@@ -2163,3 +2163,67 @@ body.dark-mode .modal-baja-entidad {
     }
   }
 }
+
+/* ===== INTENCIÓN DE PAGO EN AMARILLO (VISTA MENSUAL) ===== */
+.acciones-total {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+
+  .totales-container {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    width: 100% !important;
+    gap: 4px !important;
+  }
+
+  .total-row {
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    width: 100% !important;
+    gap: 16px !important;
+  }
+
+  .intencion-pago-row {
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    gap: 10px !important;
+    width: 100% !important;
+    padding-top: 5px !important;
+    margin-top: 3px !important;
+    border-top: 1px dashed rgba(250, 204, 21, 0.45) !important;
+
+    .intencion-label {
+      font-size: 0.88rem;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: #facc15 !important;
+
+      .icon-intencion {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        line-height: 16px;
+        color: #facc15 !important;
+      }
+    }
+
+    .intencion-value {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #facc15 !important;
+    }
+
+    strong,
+    span {
+      color: #facc15 !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45) !important;
+    }
+  }
+}

@@ -19,7 +19,126 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
-### [2026-10-16 20:05] - Actualización Integral y Sincronización de Documentación (`README.md`) de Todo el Ecosistema
+### [2026-10-16 22:15] - Corrección: Ocultar Intención de Pago en Pagos Completos (100%) y Alineación Vertical Debajo del Total
+- **Motivo / Requerimiento**:
+  - En la tarjeta de Naranja X (y extensible a las demás entidades), la intención de pago se mostraba a pesar de haberse pagado el total ($ 367.180,10 de $ 367.180,10, con estado `COMPLETO`).
+  - Además, se mostraba horizontalmente al costado del Total en lugar de posicionarse estrictamente debajo.
+- **Causa Raíz**:
+  - Comparación numérica estricta sin contemplar `p.estado === 'COMPLETO'`, `p.montoRestante <= 0` ni pequeñas discrepancias de punto flotante de JavaScript en los decimales de la suma de ítems vs el monto pagado.
+  - En el template HTML, el contenedor `.intencion-pago-row` se encontraba anidado dentro de `<div class="total-row total-interactivo">`, provocando que heredara `display: flex; gap: 16px;` y se posicionara al lado del Total.
+- **Solución Técnica**:
+  - **Lógica de Señal (`mostrarIntencionPago`)**: Incorporada validación explícita para retornar `false` inmediatamente si `p.estado === 'COMPLETO'` o `p.montoRestante <= 0`, y comparación robusta con redondeo a centavos (`Math.round(monto * 100)`).
+  - **Estructura HTML**: Reubicado `.intencion-pago-row` fuera de `.total-row`, directamente como hijo inferior de `.totales-container` dentro de `mat-card-actions`.
+  - **Estilos SCSS**: Forzada la dirección de columna (`flex-direction: column !important; align-items: stretch !important;`) asegurando que la barra del Total quede arriba y la intención de pago (cuando corresponda mostrarse) quede debajo en una línea punteada amarilla.
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/lista-entidades/visa/visa.ts`
+  - `src/app/pages/mensual/lista-entidades/visa/visa.html`
+  - `src/app/pages/mensual/lista-entidades/master-galicia/master-galicia.ts`
+  - `src/app/pages/mensual/lista-entidades/master-galicia/master-galicia.html`
+  - `src/app/pages/mensual/lista-entidades/naranja/naranja.ts`
+  - `src/app/pages/mensual/lista-entidades/naranja/naranja.html`
+  - `src/app/pages/mensual/lista-entidades/bancor/bancor.ts`
+  - `src/app/pages/mensual/lista-entidades/bancor/bancor.html`
+  - `src/app/pages/mensual/lista-entidades/mercado-libre/mercado-libre.ts`
+  - `src/app/pages/mensual/lista-entidades/mercado-libre/mercado-libre.html`
+  - `src/app/pages/mensual/lista-entidades/otros/otros.ts`
+  - `src/app/pages/mensual/lista-entidades/otros/otros.html`
+  - `src/styles.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-16 21:55] - Depuración en Producción (Cloud SQL), Búsqueda de Diciembre 2026 para Enero 2027 y Visualización de Intención de Pago en Amarillo
+- **Motivo / Requerimiento**:
+  - En la base de datos de producción (Google Cloud SQL), se había cargado por error un estimativo en Octubre de 2027 (`year: 2027, mes: 10`) que debía ser eliminado.
+  - Al cargar Enero 2027 (`year: 2027, mes: 1`), el sistema debe buscar automáticamente los últimos registros de Diciembre 2026 (`year: 2026, mes: 12`) tanto en base de datos como en Google Sheets para tomar el saldo final proyectado/real y la deuda de cierre de 2026 como base del nuevo ciclo.
+  - En la vista Mensual (`/mensual`), una vez guardada la intención de cuánto pagar en una entidad, debe mostrarse debajo del Total en Amarillo. Si la intención de pago es el total (100%), no hace falta mostrarse (se oculta).
+- **Acciones Realizadas**:
+  - **1. Depuración en Producción (Google Cloud SQL)**:
+    - Asignación temporal de IP (`--assign-ip`) y apertura de túnel seguro con `cloud-sql-proxy.exe` sobre el puerto `5433`.
+    - Detección y eliminación del registro erróneo `monthly_estimate_configs` con `year = 2027, mes = 10` y sus 31 filas diarias (`daily_estimates`) asociadas.
+    - Cierre de proxy y revocación inmediata de la IP pública (`--no-assign-ip`), preservando el aislamiento privado en la VPC y el costo de IP en $0,00.
+  - **2. Búsqueda de Diciembre 2026 como Base en Backend (`estimate.service.ts`)**:
+    - Ajustado `getPreviewExpenses` para que priorice el mes anterior (`year: 2026, mes: 12` para Enero 2027).
+    - Incorporado fallback para consultar `getMonthlyEstimate(2026, 12)` (Google Sheets / BD) cuando `real` sea nulo o 0, extrayendo fielmente el saldo proyectado del último día del año ($2.604.356,87) y la deuda ($743.800,86).
+  - **3. Visualización de Intención de Pago en Amarillo (`control-de-gastos-front`)**:
+    - Agregada señal computada `mostrarIntencionPago()` en todas las entidades (`Visa`, `Mastercard Galicia`, `Naranja X`, `Bancor`, `Mercado Libre` y `Otros`), que se activa únicamente cuando existe un pago guardado y `montoPagado < totalMes()`.
+    - Si `montoPagado === totalMes()` (pago del 100%), se oculta automáticamente.
+    - Maquetado en los templates de las tarjetas debajo de la barra del Total con contenedor `.intencion-pago-row`, icono de reloj/pendiente y estilos tipográficos en amarillo ámbar (`#facc15` / `#ffd54f`) con sombras suaves y contraste óptimo en temas claros y oscuros.
+  - **4. Compilación y Control de Calidad**:
+    - Compilación exitosa de frontend (`ng build`) y backend (`tsc`) sin errores.
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/lista-entidades/visa/visa.ts`
+  - `src/app/pages/mensual/lista-entidades/visa/visa.html`
+  - `src/app/pages/mensual/lista-entidades/master-galicia/master-galicia.ts`
+  - `src/app/pages/mensual/lista-entidades/master-galicia/master-galicia.html`
+  - `src/app/pages/mensual/lista-entidades/naranja/naranja.ts`
+  - `src/app/pages/mensual/lista-entidades/naranja/naranja.html`
+  - `src/app/pages/mensual/lista-entidades/bancor/bancor.ts`
+  - `src/app/pages/mensual/lista-entidades/bancor/bancor.html`
+  - `src/app/pages/mensual/lista-entidades/mercado-libre/mercado-libre.ts`
+  - `src/app/pages/mensual/lista-entidades/mercado-libre/mercado-libre.html`
+  - `src/app/pages/mensual/lista-entidades/otros/otros.ts`
+  - `src/app/pages/mensual/lista-entidades/otros/otros.html`
+  - `src/styles.scss`
+  - `../control-de-gastos-api/src/services/estimate.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-16 21:20] - Eliminación de Estimativos, Saldo/Deuda Base del Último Ciclo e Intención de Pago en Mensual
+- **Motivo / Requerimiento**:
+  - El usuario cargó por error un estimativo en Octubre en lugar de Enero y el sistema no permitía eliminarlo.
+  - Al dar de alta un estimativo nuevo (ej. para Enero), el sistema debe tomar como base los datos del último registro cronológico cargado (saldo estimado y deuda estimada acumulada).
+  - En el Día 1 del ciclo (día de cobro, ej. día 8), al sueldo neto se le debe restar: las tarjetas (restando compensaciones, es decir solo lo que efectivamente se va a pagar), los préstamos del mes y los servicios ("Otros").
+  - En la vista Mensual (`/mensual`), para meses futuros, debe permitir definir la intención de pago por entidad para proyectar con precisión cuánto serán las compensaciones (deuda) y lo que efectivamente se pagará.
+- **Acciones Realizadas**:
+  - **1. Backend (`control-de-gastos-api`)**:
+    - **Endpoint de Eliminación**: `DELETE /api/estimaciones/config?year=...&mes=...` con emisión reactiva SSE `DATA_UPDATED` (acción `ESTIMATE_DELETED`) y borrado en cascada de `monthly_estimate_configs` y `daily_estimates`.
+    - **Último Registro como Base en `getPreviewExpenses`**: Búsqueda cronológica del ciclo configurado más reciente anterior (`year < targetYear || (year == targetYear && mes < targetMes)`), heredando el saldo final (`lastDay.real ?? lastDay.saldoPesos`) y la deuda final (`lastDay.deudaReal ?? lastDay.deuda`).
+    - **Desglose Contable y Compensaciones**: Mapeo de `EntityPayment` para calcular la intención a pagar por tarjeta vs compensación no cubierta. Sumatoria exacta de tarjetas a pagar, préstamos del mes (`loan_installments`) y servicios ("Otros"). Asignación de deuda inicial sugerida = deuda base anterior + compensaciones del mes.
+  - **2. Frontend (`control-de-gastos-front`)**:
+    - **Modal de Configuración de Estimativo (`ModalConfigEstimativo`)**:
+      - Desglose contable visual completo: `+ Sueldo`, `- Tarjetas (efectivo a pagar con compensaciones)`, `- Préstamos del mes`, `- Servicios`, `+ Remanente anterior (base del ciclo previo)`, `- Gasto diario I1`, `+ Interés diario J1`.
+      - Botón rojo destacado **"🗑️ Eliminar Estimativo"** (disponible cuando ya existe configuración para el mes) con panel de confirmación de seguridad para evitar eliminaciones accidentales.
+    - **Intención de Pago para Meses Futuros (`ModalPagarEntidadComponent`)**:
+      - Detección automática de meses futuros (`esMesFuturo()`), adaptando títulos e instrucciones a "Intención de Pago / Proyección".
+      - Cálculo reactivo de compensación projected y desglose didáctico de lo que pasará a deuda y lo que se descontará del sueldo.
+      - Desmarcado por defecto del checkbox de movimiento bancario para no afectar saldos de hoy en meses proyectados.
+  - **3. Verificación y Pruebas**:
+    - Eliminado exitosamente el estimativo de Octubre 2026 cargado por error (status 200).
+    - Verificado `preview-gastos` de Enero 2027 heredando correctamente los $103.137,70 de saldo base y $1.047.222,41 de deuda del último ciclo previo registrado.
+    - Compilación completa verificada con `ng build` (0 errores).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/estimate.service.ts`
+  - `control-de-gastos-api/src/controllers/estimate.controller.ts`
+  - `control-de-gastos-api/src/routes/estimate.routes.ts`
+  - `control-de-gastos-front/src/app/services/estimates.service.ts`
+  - `control-de-gastos-front/src/app/pages/estimativos/modal-config-estimativo/modal-config-estimativo.ts`
+  - `control-de-gastos-front/src/app/pages/estimativos/modal-config-estimativo/modal-config-estimativo.html`
+  - `control-de-gastos-front/src/app/pages/estimativos/modal-config-estimativo/modal-config-estimativo.scss`
+  - `control-de-gastos-front/src/app/pages/mensual/modal-pagar-entidad/modal-pagar-entidad.component.ts`
+  - `control-de-gastos-front/src/app/pages/mensual/modal-pagar-entidad/modal-pagar-entidad.component.html`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+- **Motivo / Requerimiento**:
+  - Exportar y sincronizar la totalidad de los datos y estructuras actualizadas en el entorno local hacia la base de datos PostgreSQL de producción en Google Cloud SQL (`control-gastos-pg-0d0b84`), asegurando paridad contable absoluta y cumpliendo con las políticas de seguridad y costos.
+- **Acciones Realizadas**:
+  - **1. Respaldo Preventivo en Cloud Storage**:
+    - Ejecutado `backup.ps1` generando el snapshot cifrado `gs://control-gastos-backups-0d0b8487/backup_20261016_202843.sql.gz` y su copia local en `control-de-gastos-infra/backups/`.
+  - **2. Túnel Seguro con Cloud SQL Auth Proxy**:
+    - Asignación temporal de IP pública (`--assign-ip`) y apertura de túnel TLS en `127.0.0.1:5433` con `cloud-sql-proxy.exe`.
+  - **3. Sincronización DDL de Tablas en Producción**:
+    - Aplicación de `prisma db push` creando en Cloud SQL las tablas `financial_entities`, `entity_payments`, `loans` y `loan_installments`.
+  - **4. Exportación e Inserción Idempotente de Datos**:
+    - **6 Entidades Financieras (`FinancialEntity`)**: Catálogo completo sincronizado con vigencia temporal, colores y logotipos optimizados en Base64/WebP.
+    - **17 Pagos de Entidades (`EntityPayment`)**: Estados de liquidación para Octubre 2026 (pagos parciales en tarjetas, pagos completos de servicios, remanentes y cuentas de origen).
+    - **13 Préstamos Personales (`Loan`) y 116 Cuotas (`LoanInstallment`)**: Importes, vencimientos y estados contables.
+    - **1.083 Ítems Mensuales (`MonthlyItem`)**: Colección limpia y completa de 2026 (641 ítems) y 2022 (442 ítems).
+    - **1.423 Movimientos y 14 Estimativos**: Mapeo transparente de identificadores de usuario (`userIdMap`).
+  - **5. Aislamiento y Seguridad Post-Migración**:
+    - Cierre del proxy y revocación inmediata de la IP pública (`--no-assign-ip`), devolviendo Cloud SQL a su red privada 100% aislada en la VPC con costo de IP en $0.
+- **Archivos Afectados**:
+  - `PLAN_MIGRACION_CLOUD_API.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 - **Motivo / Requerimiento**:
   - Los archivos `README.md` de los distintos proyectos del ecosistema (`control-de-gastos-front`, `control-de-gastos-api` y `control-de-gastos-infra`) habían quedado desactualizados frente a la profunda evolución técnica ocurrida (arquitectura híbrida, persistencia PostgreSQL con Prisma, SSE, catálogo dinámico de entidades con vigencia temporal, carga por lotes, optimización de logos, pagos con badges y exportación nativa a Excel).
 - **Acciones Realizadas**:
