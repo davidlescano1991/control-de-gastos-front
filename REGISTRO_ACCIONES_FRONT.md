@@ -19,6 +19,42 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-16 21:55] - Depuración en Producción (Cloud SQL), Búsqueda de Diciembre 2026 para Enero 2027 y Visualización de Intención de Pago en Amarillo
+- **Motivo / Requerimiento**:
+  - En la base de datos de producción (Google Cloud SQL), se había cargado por error un estimativo en Octubre de 2027 (`year: 2027, mes: 10`) que debía ser eliminado.
+  - Al cargar Enero 2027 (`year: 2027, mes: 1`), el sistema debe buscar automáticamente los últimos registros de Diciembre 2026 (`year: 2026, mes: 12`) tanto en base de datos como en Google Sheets para tomar el saldo final proyectado/real y la deuda de cierre de 2026 como base del nuevo ciclo.
+  - En la vista Mensual (`/mensual`), una vez guardada la intención de cuánto pagar en una entidad, debe mostrarse debajo del Total en Amarillo. Si la intención de pago es el total (100%), no hace falta mostrarse (se oculta).
+- **Acciones Realizadas**:
+  - **1. Depuración en Producción (Google Cloud SQL)**:
+    - Asignación temporal de IP (`--assign-ip`) y apertura de túnel seguro con `cloud-sql-proxy.exe` sobre el puerto `5433`.
+    - Detección y eliminación del registro erróneo `monthly_estimate_configs` con `year = 2027, mes = 10` y sus 31 filas diarias (`daily_estimates`) asociadas.
+    - Cierre de proxy y revocación inmediata de la IP pública (`--no-assign-ip`), preservando el aislamiento privado en la VPC y el costo de IP en $0,00.
+  - **2. Búsqueda de Diciembre 2026 como Base en Backend (`estimate.service.ts`)**:
+    - Ajustado `getPreviewExpenses` para que priorice el mes anterior (`year: 2026, mes: 12` para Enero 2027).
+    - Incorporado fallback para consultar `getMonthlyEstimate(2026, 12)` (Google Sheets / BD) cuando `real` sea nulo o 0, extrayendo fielmente el saldo proyectado del último día del año ($2.604.356,87) y la deuda ($743.800,86).
+  - **3. Visualización de Intención de Pago en Amarillo (`control-de-gastos-front`)**:
+    - Agregada señal computada `mostrarIntencionPago()` en todas las entidades (`Visa`, `Mastercard Galicia`, `Naranja X`, `Bancor`, `Mercado Libre` y `Otros`), que se activa únicamente cuando existe un pago guardado y `montoPagado < totalMes()`.
+    - Si `montoPagado === totalMes()` (pago del 100%), se oculta automáticamente.
+    - Maquetado en los templates de las tarjetas debajo de la barra del Total con contenedor `.intencion-pago-row`, icono de reloj/pendiente y estilos tipográficos en amarillo ámbar (`#facc15` / `#ffd54f`) con sombras suaves y contraste óptimo en temas claros y oscuros.
+  - **4. Compilación y Control de Calidad**:
+    - Compilación exitosa de frontend (`ng build`) y backend (`tsc`) sin errores.
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/lista-entidades/visa/visa.ts`
+  - `src/app/pages/mensual/lista-entidades/visa/visa.html`
+  - `src/app/pages/mensual/lista-entidades/master-galicia/master-galicia.ts`
+  - `src/app/pages/mensual/lista-entidades/master-galicia/master-galicia.html`
+  - `src/app/pages/mensual/lista-entidades/naranja/naranja.ts`
+  - `src/app/pages/mensual/lista-entidades/naranja/naranja.html`
+  - `src/app/pages/mensual/lista-entidades/bancor/bancor.ts`
+  - `src/app/pages/mensual/lista-entidades/bancor/bancor.html`
+  - `src/app/pages/mensual/lista-entidades/mercado-libre/mercado-libre.ts`
+  - `src/app/pages/mensual/lista-entidades/mercado-libre/mercado-libre.html`
+  - `src/app/pages/mensual/lista-entidades/otros/otros.ts`
+  - `src/app/pages/mensual/lista-entidades/otros/otros.html`
+  - `src/styles.scss`
+  - `../control-de-gastos-api/src/services/estimate.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-10-16 21:20] - Eliminación de Estimativos, Saldo/Deuda Base del Último Ciclo e Intención de Pago en Mensual
 - **Motivo / Requerimiento**:
   - El usuario cargó por error un estimativo en Octubre en lugar de Enero y el sistema no permitía eliminarlo.

@@ -38,6 +38,13 @@ export class VisaComponent {
     return pagos.find(p => p.entidad.toLowerCase().includes('visa') && (!p.itemId || p.itemId === '')) || null;
   });
 
+  mostrarIntencionPago = computed(() => {
+    const p = this.pagoInfo();
+    if (!p) return false;
+    const total = this.totalMes();
+    return total > 0 && p.montoPagado < total;
+  });
+
   estadoPago = computed<'COMPLETO' | 'PARCIAL' | 'NO_PAGADO'>(() => {
     const p = this.pagoInfo();
     if (p) {

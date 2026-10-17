@@ -2163,3 +2163,56 @@ body.dark-mode .modal-baja-entidad {
     }
   }
 }
+
+
+/* ===== INTENCIÓN DE PAGO EN AMARILLO (VISTA MENSUAL) ===== */
+.acciones-total {
+  .totales-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    width: 100%;
+    gap: 4px;
+  }
+
+  .intencion-pago-row {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding-top: 5px;
+    margin-top: 3px;
+    border-top: 1px dashed rgba(250, 204, 21, 0.45);
+
+    .intencion-label {
+      font-size: 0.88rem;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: #facc15 !important;
+
+      .icon-intencion {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        line-height: 16px;
+        color: #facc15 !important;
+      }
+    }
+
+    .intencion-value {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #facc15 !important;
+    }
+
+    strong,
+    span {
+      color: #facc15 !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45) !important;
+    }
+  }
+}
