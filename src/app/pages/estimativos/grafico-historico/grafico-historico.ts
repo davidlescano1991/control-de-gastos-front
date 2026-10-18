@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input, signal } from '@angular/core';
+import { Component, Input, ViewChild, signal } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ChartConfiguration } from 'chart.js';
 import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2-charts';
@@ -13,6 +13,7 @@ import { calcularTendencia, getGridColor, getLineWidth, yearBackgroundPlugin } f
   providers: [provideCharts(withDefaultRegisterables())],
 })
 export class GraficoHistorico {
+  @ViewChild(BaseChartDirective) chart?: BaseChartDirective;
   isCollapsed = signal(false);
 
   toggleCollapse() {
@@ -88,6 +89,7 @@ export class GraficoHistorico {
           },
         ],
       };
+      this.chart?.update();
     }
   }
 

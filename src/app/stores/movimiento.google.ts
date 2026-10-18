@@ -34,6 +34,16 @@ export interface EstimativoRow {
 }
 
 /**
+ * Parámetros del estimativo mensual configurados en fila 1 (Columnas I, J, K, L)
+ */
+export interface EstimativoConfigData {
+  gastoFijoDiario: number;
+  ingresoInteresDiario: number;
+  totalDias: number;
+  gastoEstimadoMes: number;
+}
+
+/**
  * Estructura para el almacenamiento de entradas con versionado en LocalStorage.
  */
 interface PersistedCacheEntry<T> {
@@ -131,6 +141,7 @@ export class MovimientosStoreGoogle {
   // Mapas de almacenamiento en memoria reactivos por clave (año::mes o año)
   private mensualPorMes = new Map<string, Signal<{ values: string[][] }>>();
   private estimativoPorMes = new Map<string, Signal<EstimativoRow[]>>();
+  private estimativoConfigPorMes = new Map<string, Signal<EstimativoConfigData>>();
 
   // Tablas anuales de préstamos y secundarias
   readonly tablaAnual = signal<Prestamo[]>([]);
@@ -333,6 +344,12 @@ export class MovimientosStoreGoogle {
    */
   private hidratarEstimativoDesdeCache(anio: number, hoja: string): boolean {
     const clave = `${anio}::${hoja}`;
+    if (!this.estimativoConfigPorMes.has(clave)) {
+      const cachedCfg = this.leerDesdeStorage<EstimativoConfigData>('estimativo-config', clave, anio);
+      if (cachedCfg) {
+        this.estimativoConfigPorMes.set(clave, signal(cachedCfg.payload));
+      }
+    }
     if (this.estimativoPorMes.has(clave)) return true;
 
     const cached = this.leerDesdeStorage<EstimativoRow[]>('estimativo', clave, anio);
@@ -594,7 +611,7 @@ export class MovimientosStoreGoogle {
           `📦 asegurarEstimativoAnioRange() [${caller ?? 'desconocido'}] cargando desde API: ${rangoHojas} (${anio})`,
         );
         const res: any = await firstValueFrom(
-          this.sheets.obtenerMensualBatch(anio, hojasBase, 'A1:F500'),
+          this.sheets.obtenerMensualBatch(anio, hojasBase, 'A1:N500'),
         );
 
         for (let i = 0; i < (res.valueRanges?.length ?? 0); i++) {
@@ -602,6 +619,18 @@ export class MovimientosStoreGoogle {
           const mes = hojasBase[i];
           const valores = vr.values ?? [];
           const claveClavel = `${anio}::${mes}`;
+
+          if (valores.length > 0 && valores[0].length >= 10) {
+            const row0 = valores[0];
+            const cfg: EstimativoConfigData = {
+              gastoFijoDiario: row0[8] ? this.parseMoneda(row0[8]) : 0,
+              ingresoInteresDiario: row0[9] ? this.parseMoneda(row0[9]) : 0,
+              totalDias: row0[10] ? parseInt(String(row0[10]), 10) || 0 : 0,
+              gastoEstimadoMes: row0[11] ? this.parseMoneda(row0[11]) : 0,
+            };
+            this.estimativoConfigPorMes.set(claveClavel, signal<EstimativoConfigData>(cfg));
+            this.guardarEnStorage('estimativo-config', claveClavel, cfg);
+          }
 
           const normalizados: EstimativoRow[] = valores
             .slice(1)
@@ -1496,6 +1525,7 @@ export class MovimientosStoreGoogle {
     this.movimientosTimestamp.clear();
     this.mensualPorMes.clear();
     this.estimativoPorMes.clear();
+    this.estimativoConfigPorMes.clear();
     this.tablaAnualPorAnio.clear();
     this.cotizacionStore.limpiarTodoCache();
   }
@@ -1622,5 +1652,14 @@ export class MovimientosStoreGoogle {
       resultados.push(...datos);
     }
     return resultados;
+  }
+
+  /**
+   * Retorna la configuración de parámetros estimativos (fila 1: I, J, K, L) de un mes.
+   */
+  getEstimativoConfig(anio: number, hoja: string): EstimativoConfigData | null {
+    const clave = `${anio}::${hoja}`;
+    this.hidratarEstimativoDesdeCache(anio, hoja);
+    return this.estimativoConfigPorMes.get(clave)?.() ?? null;
   }
 }

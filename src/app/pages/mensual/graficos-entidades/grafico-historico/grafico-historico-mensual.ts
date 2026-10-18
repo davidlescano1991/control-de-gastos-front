@@ -1,5 +1,5 @@
 import { CommonModule, isPlatformBrowser } from "@angular/common";
-import { ChangeDetectorRef, Component, Inject, Input, PLATFORM_ID } from "@angular/core";
+import { AfterViewInit, ChangeDetectorRef, Component, Inject, Input, PLATFORM_ID, ViewChild } from "@angular/core";
 import { MatProgressSpinnerModule } from "@angular/material/progress-spinner";
 import { ChartConfiguration } from "chart.js";
 import { BaseChartDirective, provideCharts, withDefaultRegisterables } from "ng2-charts";
@@ -13,23 +13,12 @@ import { getGridColor, getLineWidth, yearBackgroundPlugin } from '../../../../ut
     styleUrls: ['./grafico-historico-mensual.scss'],
     providers: [provideCharts(withDefaultRegisterables())]
 })
-export class GraficoMensualHistorico {
+export class GraficoMensualHistorico implements AfterViewInit {
+    @ViewChild(BaseChartDirective) chart?: BaseChartDirective;
     @Input() isCargando: boolean = false;
     isBrowser = false;
     chartPlugins = [yearBackgroundPlugin];
-    //@Input() resultados: { anio: number; mes: string; total: number }[] = [];
-    /* @Input() set resultados(value: { anio: number; mes: string; total: number }[]) {
-        if (value && value.length > 0) {
-            const ordenado = [...value].sort((a, b) => {
-                const fechaA = new Date(`${a.mes} ${a.anio}`);
-                const fechaB = new Date(`${b.mes} ${b.anio}`);
-                return fechaA.getTime() - fechaB.getTime();
-            });
 
-            this.chartData.labels = ordenado.map(v => `${v.mes} ${v.anio}`);
-            this.chartData.datasets[0].data = ordenado.map(v => v.total);
-        }
-    } */
     @Input() set resultados(value: { anio: number; mes: string; total: number }[]) {
         if (value && value.length > 0) {
             const now = new Date();
@@ -61,6 +50,8 @@ export class GraficoMensualHistorico {
                     }
                 ]
             };
+            this.chart?.update();
+            this.cdr.detectChanges();
         }
     }
     chartData: ChartConfiguration<'line'>['data'] = {
@@ -99,6 +90,12 @@ export class GraficoMensualHistorico {
         private storeGoogle: MovimientosStoreGoogle
     ) {
         this.isBrowser = isPlatformBrowser(this.platformId);
+    }
 
+    ngAfterViewInit(): void {
+        if (this.chartData.labels && this.chartData.labels.length > 0) {
+            this.chart?.update();
+            this.cdr.detectChanges();
+        }
     }
 }

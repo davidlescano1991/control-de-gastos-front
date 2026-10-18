@@ -2,14 +2,14 @@ import { Component, Input, signal, OnChanges, inject } from '@angular/core';
 import { ThemeService } from '../../../services/theme.service';
 import { CurrencyPipe, NgIf } from '@angular/common';
 import { MatCard, MatCardContent, MatCardHeader, MatCardTitle } from '@angular/material/card';
+import { MatIcon } from '@angular/material/icon';
 import { Entidad } from '../../../models/entidad';
 
 @Component({
   selector: 'app-novedades-cuotas',
   standalone: true,
-  imports: [MatCard, MatCardContent, MatCardHeader, MatCardTitle, CurrencyPipe, NgIf],
+  imports: [MatCard, MatCardContent, MatCardHeader, MatCardTitle, CurrencyPipe, NgIf, MatIcon],
   templateUrl: './actualizacion-cuotas.html',
-
   styleUrls: ['./actualizacion-cuotas.scss'],
 })
 export class NovedadesCuotas implements OnChanges {

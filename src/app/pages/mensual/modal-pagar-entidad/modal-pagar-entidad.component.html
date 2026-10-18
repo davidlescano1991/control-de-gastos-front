@@ -3,12 +3,13 @@
     <!-- Header -->
     <div class="modal-header">
       <div class="header-title-container">
-        <mat-icon class="header-icon">{{ esMesFuturo() ? 'trending_up' : 'payments' }}</mat-icon>
+        <mat-icon class="header-icon">{{ !isPagoReal() ? 'trending_up' : (esMesFuturo() ? 'flash_on' : 'payments') }}</mat-icon>
         <div>
-          <h3>{{ esMesFuturo() ? 'Intención de Pago — ' : 'Pagar ' }}{{ entidadInfo.entidad }}</h3>
+          <h3>{{ !isPagoReal() ? 'Intención de Pago — ' : (esMesFuturo() ? 'Adelantar Pago — ' : 'Pagar ') }}{{ entidadInfo.entidad }}</h3>
           <p class="subtitulo">
             {{ entidadInfo.mesNombre }} {{ entidadInfo.year }}<span *ngIf="entidadInfo.concepto"> • {{ entidadInfo.concepto }}</span>
-            <span *ngIf="esMesFuturo()"> • Proyección y cálculo de compensación</span>
+            <span *ngIf="esMesFuturo() && !isPagoReal()"> • Proyección y cálculo de compensación</span>
+            <span *ngIf="esMesFuturo() && isPagoReal()"> • Adelanto de pago real (se descuenta de Movimientos y Deuda)</span>
           </p>
         </div>
       </div>
@@ -19,123 +20,285 @@
 
     <!-- Body -->
     <div class="modal-body">
-      <!-- Resumen del Total -->
-      <div class="resumen-total-box">
-        <span class="label-total">Total a Pagar del Resumen</span>
-        <span class="valor-total">{{ entidadInfo.totalOriginal | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
-      </div>
+      <!-- 1. RESUMEN FINANCIERO (3 CARDS KPI) -->
+      <div class="resumen-kpi-grid">
+        <div class="kpi-card kpi-total">
+          <span class="kpi-label">Total Resumen</span>
+          <span class="kpi-valor">{{ totalOriginal() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+        </div>
 
-      <!-- Selector de Tipo de Pago -->
-      <div class="opciones-pago-container">
-        <label class="label-seccion">Modalidad de Pago</label>
-        <div class="tipo-pago-grid">
-          <div
-            class="tipo-pago-card"
-            [class.activo]="tipoPago() === 'TOTAL'"
-            (click)="setTipoPago('TOTAL')"
-          >
-            <div class="card-radio">
-              <span class="dot" *ngIf="tipoPago() === 'TOTAL'"></span>
-            </div>
-            <div class="card-text">
-              <strong>Pago Total (100%)</strong>
-              <span>Cancela el saldo completo de este mes</span>
-            </div>
-          </div>
+        <div class="kpi-card kpi-abonado">
+          <span class="kpi-label">{{ esMesFuturo() && !isPagoReal() ? 'Intención de Pago' : 'Importe Pagado' }}</span>
+          <span class="kpi-valor">{{ totalYaAbonado() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+        </div>
 
-          <div
-            class="tipo-pago-card"
-            [class.activo]="tipoPago() === 'PARCIAL'"
-            (click)="setTipoPago('PARCIAL')"
-          >
-            <div class="card-radio">
-              <span class="dot" *ngIf="tipoPago() === 'PARCIAL'"></span>
-            </div>
-            <div class="card-text">
-              <strong>Pago Parcial</strong>
-              <span>Abona un importe y compensa la diferencia</span>
-            </div>
-          </div>
+        <div class="kpi-card kpi-restante" [class.saldado]="saldoPendiente() === 0">
+          <span class="kpi-label">{{ saldoPendiente() === 0 ? 'Estado' : (!isPagoReal() ? 'Compensación Proyectada' : 'Saldo Restante') }}</span>
+          <span class="kpi-valor">
+            {{ saldoPendiente() === 0 ? 'Saldado 100%' : (saldoPendiente() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR') }}
+          </span>
         </div>
       </div>
 
-      <!-- Input Monto Parcial si aplica -->
-      <div class="campo-grupo" *ngIf="tipoPago() === 'PARCIAL'">
-        <label for="inputMontoParcial">Monto efectivamente abonado ($)</label>
-        <input
-          id="inputMontoParcial"
-          type="number"
-          step="0.01"
-          class="form-control input-monto"
-          [ngModel]="montoParcial()"
-          (ngModelChange)="montoParcial.set($event)"
-          placeholder="0.00"
-          [disabled]="isGuardando()"
-        />
-        <div class="detalle-compensacion-box">
-          <div class="fila-detalle">
-            <span>{{ esMesFuturo() ? 'Intención a pagar en ' + entidadInfo.mesNombre + ':' : 'Abonas hoy:' }}</span>
-            <strong>{{ montoAPagar() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong>
+      <!-- 2. HISTORIAL DE PAGOS REALIZADOS (TABLA DE ABONOS) -->
+      <div class="seccion-historial" *ngIf="records().length > 0">
+        <div class="seccion-historial-header">
+          <div class="titulo-con-badge">
+            <mat-icon class="icono-historial">{{ !isPagoReal() ? 'trending_up' : 'history' }}</mat-icon>
+            <span class="label-seccion">{{ !isPagoReal() ? 'Intención Registrada' : 'Pagos Realizados' }}</span>
+            <span class="badge-count">{{ records().length }}</span>
           </div>
-          <div class="fila-detalle restante">
-            <span>{{ esMesFuturo() ? 'Compensación proyectada:' : 'Saldo restante impago:' }}</span>
-            <strong class="texto-remanente">{{ montoRestante() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong>
-          </div>
-          <p class="hint-compensacion" *ngIf="!esMesFuturo()">
-            ⚠️ El saldo impago de <strong>{{ montoRestante() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong> se sumará a la columna <strong>Compensaciones</strong> de la vista Anual y aumentará la Deuda Real en Estimativos.
+          <span class="subtexto-historial">{{ !isPagoReal() ? 'Intención proyectada:' : 'Importe pagado hasta el momento:' }} <strong>{{ totalYaAbonado() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong></span>
+        </div>
+
+        <div class="tabla-abonos-wrapper">
+          <table class="tabla-abonos">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Cuenta</th>
+                <th class="col-monto">{{ !isPagoReal() ? 'Monto Intención' : 'Monto Abonado' }}</th>
+                <th class="col-accion"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let rec of records(); let i = index">
+                <td class="col-fecha">
+                  <div class="fecha-item">
+                    <mat-icon class="icono-mini">event</mat-icon>
+                    <span>{{ rec.fechaPago | date: 'dd/MM/yyyy' }}</span>
+                  </div>
+                </td>
+                <td class="col-cuenta">
+                  <span class="chip-cuenta">{{ rec.cuentaOrigen || 'Galicia' }}</span>
+                </td>
+                <td class="col-monto">
+                  <strong>{{ rec.monto | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong>
+                </td>
+                <td class="col-accion">
+                  <button
+                    type="button"
+                    class="btn-eliminar-abono"
+                    (click)="eliminarAbono(rec)"
+                    [disabled]="isEliminandoRegistro() === rec.id || isGuardando()"
+                    matTooltip="Eliminar este abono y recalcular compensación"
+                  >
+                    <mat-spinner *ngIf="isEliminandoRegistro() === rec.id" diameter="14"></mat-spinner>
+                    <mat-icon *ngIf="isEliminandoRegistro() !== rec.id">delete_outline</mat-icon>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 3. BANNER SI YA FUE 100% SALDADO -->
+      <div *ngIf="pagoYaCompleto()" class="banner-ya-pagado">
+        <mat-icon class="icon-ya-pagado">check_circle</mat-icon>
+        <div class="ya-pagado-info">
+          <h4>¡Entidad cancelada en su totalidad!</h4>
+          <p>
+            Se ha completado el pago del 100% del resumen por un total acumulado de
+            <strong>{{ totalYaAbonado() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong>.
           </p>
-          <p class="hint-compensacion" *ngIf="esMesFuturo()">
-            💡 El remanente de <strong>{{ montoRestante() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong> pasará a <strong>Compensaciones</strong> (deuda acumulada). Del sueldo de {{ entidadInfo.mesNombre }} solo se descontarán <strong>{{ montoAPagar() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong>.
-          </p>
+          <small class="aviso-no-duplicar">No restan saldos impagos para este período.</small>
         </div>
       </div>
 
-      <!-- Fecha de Pago y Cuenta Origen -->
-      <div class="campos-row">
-        <div class="campo-grupo">
-          <label for="inputFechaPago">Fecha de Pago</label>
-          <input
-            id="inputFechaPago"
-            type="date"
-            class="form-control"
-            [ngModel]="fechaPago()"
-            (ngModelChange)="fechaPago.set($event)"
-            [disabled]="isGuardando()"
-          />
+      <!-- 4. FORMULARIO PARA REGISTRAR NUEVO PAGO / ABONO (Si hay saldo pendiente) -->
+      <ng-container *ngIf="!pagoYaCompleto()">
+        <div class="seccion-nuevo-pago">
+          <div class="seccion-nuevo-pago-titulo">
+            <mat-icon class="icono-seccion-pago">add_circle_outline</mat-icon>
+            <span>{{ totalYaAbonado() > 0 ? 'Registrar Siguiente Abono' : 'Registrar Pago' }}</span>
+          </div>
+
+          <!-- Selector de Tipo de Operación para Meses Futuros -->
+          <div class="opciones-pago-container" *ngIf="esMesFuturo()">
+            <label class="label-seccion">Tipo de Operación</label>
+            <div class="tipo-pago-grid">
+              <div
+                class="tipo-pago-card"
+                [class.activo]="modoOperacionFutura() === 'ADELANTAR'"
+                (click)="setModoOperacionFutura('ADELANTAR')"
+              >
+                <div class="card-radio">
+                  <span class="dot" *ngIf="modoOperacionFutura() === 'ADELANTAR'"></span>
+                </div>
+                <div class="card-text">
+                  <div class="card-title-row">
+                    <mat-icon class="icono-card-op">flash_on</mat-icon>
+                    <strong>Adelantar Pago (Pago Real)</strong>
+                  </div>
+                  <span>Abonar hoy efectivamente. Genera gasto en Movimientos y descuenta de Deuda Real.</span>
+                </div>
+              </div>
+
+              <div
+                class="tipo-pago-card"
+                [class.activo]="modoOperacionFutura() === 'INTENCION'"
+                (click)="setModoOperacionFutura('INTENCION')"
+              >
+                <div class="card-radio">
+                  <span class="dot" *ngIf="modoOperacionFutura() === 'INTENCION'"></span>
+                </div>
+                <div class="card-text">
+                  <div class="card-title-row">
+                    <mat-icon class="icono-card-op">trending_up</mat-icon>
+                    <strong>Intención de Pago</strong>
+                  </div>
+                  <span>Solo proyectar para compensaciones futuras. No genera egresos bancarios hoy.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Selector de Modalidad del Pago Actual -->
+          <div class="opciones-pago-container">
+            <label class="label-seccion">Modalidad de este Pago</label>
+            <div class="tipo-pago-grid">
+              <div
+                class="tipo-pago-card"
+                [class.activo]="tipoPago() === 'TOTAL'"
+                (click)="setTipoPago('TOTAL')"
+              >
+                <div class="card-radio">
+                  <span class="dot" *ngIf="tipoPago() === 'TOTAL'"></span>
+                </div>
+                <div class="card-text">
+                  <strong>Pagar Saldo Restante (100%)</strong>
+                  <span>Cancela los {{ saldoPendiente() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }} pendientes</span>
+                </div>
+              </div>
+
+              <div
+                class="tipo-pago-card"
+                [class.activo]="tipoPago() === 'PARCIAL'"
+                (click)="setTipoPago('PARCIAL')"
+              >
+                <div class="card-radio">
+                  <span class="dot" *ngIf="tipoPago() === 'PARCIAL'"></span>
+                </div>
+                <div class="card-text">
+                  <strong>Abono Parcial</strong>
+                  <span>Ingresar un importe menor y compensar el resto</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Input de Monto Parcial si aplica -->
+          <div class="campo-grupo" *ngIf="tipoPago() === 'PARCIAL'">
+            <div class="label-row-monto">
+              <label for="inputMontoParcial">Monto del nuevo abono ($)</label>
+              <span class="badge-formula-hint" *ngIf="resultadoFormula().esFormula && !resultadoFormula().error">
+                = {{ resultadoFormula().monto | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+              </span>
+            </div>
+            <div class="input-formula-wrapper">
+              <input
+                id="inputMontoParcial"
+                type="text"
+                class="form-control input-monto"
+                [ngModel]="montoInput()"
+                (ngModelChange)="onMontoInputChange($event)"
+                placeholder="Ej: 100000 ó =650000/2 ó 50000+25000"
+                [disabled]="isGuardando()"
+              />
+              <span class="icono-fx" title="Acepta funciones matemáticas (=, +, -, *, /, ())">fx</span>
+            </div>
+            <small class="error-formula" *ngIf="resultadoFormula().error">
+              ⚠️ {{ resultadoFormula().error }}
+            </small>
+            <small class="hint-formula" *ngIf="!resultadoFormula().error && !resultadoFormula().esFormula">
+              💡 Puedes ingresar un importe directo o una función matemática (ej: <code>=100000+50000</code> o <code>150000/2</code>).
+            </small>
+          </div>
+
+          <!-- Desglose y Proyección en Vivo -->
+          <div class="detalle-compensacion-box">
+            <div class="fila-detalle">
+              <span>{{ !isPagoReal() ? 'Intención a abonar:' : 'Abonas con esta operación:' }}</span>
+              <strong class="texto-abono-actual">{{ montoAbonoActual() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong>
+            </div>
+            <div class="fila-detalle">
+              <span>Total acumulado que quedará abonado:</span>
+              <strong>{{ nuevoTotalAcumulado() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong>
+            </div>
+            <div class="fila-detalle restante">
+              <span>{{ !isPagoReal() ? 'Compensación proyectada:' : 'Saldo restante impago:' }}</span>
+              <strong [class.texto-remanente]="nuevoSaldoRestante() > 0" [class.texto-saldado]="nuevoSaldoRestante() === 0">
+                {{ nuevoSaldoRestante() === 0 ? '$ 0,00 (100% Cancelado)' : (nuevoSaldoRestante() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR') }}
+              </strong>
+            </div>
+
+            <p class="hint-compensacion" *ngIf="nuevoSaldoRestante() === 0">
+              🎉 <strong>¡Excelente!</strong> Con este pago de {{ montoAbonoActual() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}, la entidad quedará totalmente saldada y no trasladará compensación al mes siguiente.
+            </p>
+
+            <p class="hint-compensacion" *ngIf="nuevoSaldoRestante() > 0 && isPagoReal()">
+              ⚠️ El saldo impago restante de <strong>{{ nuevoSaldoRestante() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong> se sumará automáticamente a la columna <strong>Compensaciones</strong> del mes siguiente y aumentará la Deuda Real.
+            </p>
+
+            <p class="hint-compensacion" *ngIf="nuevoSaldoRestante() > 0 && !isPagoReal()">
+              💡 El remanente proyectado de <strong>{{ nuevoSaldoRestante() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong> pasará a Compensaciones del mes posterior. Del sueldo de {{ entidadInfo.mesNombre }} solo se descontarán <strong>{{ montoAbonoActual() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</strong>.
+            </p>
+          </div>
+
+          <!-- Fecha de Pago y Cuenta Origen -->
+          <div class="campos-row">
+            <div class="campo-grupo">
+              <label for="inputFechaPago">Fecha del Abono</label>
+              <input
+                id="inputFechaPago"
+                type="date"
+                class="form-control"
+                [ngModel]="fechaPago()"
+                (ngModelChange)="fechaPago.set($event)"
+                [disabled]="isGuardando()"
+              />
+            </div>
+
+            <div class="campo-grupo">
+              <label for="selectCuentaOrigen">Cuenta de Origen / Débito</label>
+              <select
+                id="selectCuentaOrigen"
+                class="form-control select-cuenta"
+                [ngModel]="cuentaOrigen()"
+                (ngModelChange)="cuentaOrigen.set($event)"
+                [disabled]="isGuardando()"
+              >
+                <option *ngFor="let c of cuentasDisponibles" [value]="c">{{ c }}</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Checkbox de impacto contable -->
+          <div class="checkbox-container" *ngIf="isPagoReal()">
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                [checked]="registrarMovimiento()"
+                (change)="registrarMovimiento.set($any($event.target).checked)"
+                [disabled]="isGuardando()"
+              />
+              <span>Registrar egreso contable en la tabla de <strong>Movimientos</strong> y descontar de la <strong>Deuda Real</strong></span>
+            </label>
+          </div>
+
+          <div class="aviso-proyeccion-box" *ngIf="!isPagoReal()">
+            <mat-icon>info</mat-icon>
+            <span>La intención de pago solo guarda la proyección para cálculo de compensaciones y no genera egreso bancario hoy.</span>
+          </div>
         </div>
 
-        <div class="campo-grupo">
-          <label for="selectCuentaOrigen">Cuenta de Origen / Débito</label>
-          <select
-            id="selectCuentaOrigen"
-            class="form-control select-cuenta"
-            [ngModel]="cuentaOrigen()"
-            (ngModelChange)="cuentaOrigen.set($event)"
-            [disabled]="isGuardando()"
-          >
-            <option *ngFor="let c of cuentasDisponibles" [value]="c">{{ c }}</option>
-          </select>
+        <!-- Mensaje de error -->
+        <div class="alerta-error" *ngIf="errorMensaje()">
+          <mat-icon>error_outline</mat-icon>
+          <span>{{ errorMensaje() }}</span>
         </div>
-      </div>
-
-      <!-- Checkbox de impacto contable -->
-      <div class="checkbox-container">
-        <label class="checkbox-label">
-          <input
-            type="checkbox"
-            [checked]="registrarMovimiento()"
-            (change)="registrarMovimiento.set($any($event.target).checked)"
-            [disabled]="isGuardando()"
-          />
-          <span>Registrar egreso contable en la tabla de <strong>Movimientos</strong></span>
-        </label>
-      </div>
-
-      <!-- Mensaje de error -->
-      <div class="alerta-error" *ngIf="errorMensaje()">
-        <mat-icon>error_outline</mat-icon>
-        <span>{{ errorMensaje() }}</span>
-      </div>
+      </ng-container>
     </div>
 
     <!-- Footer -->
@@ -146,17 +309,21 @@
         (click)="cerrar.emit()"
         [disabled]="isGuardando()"
       >
-        Cancelar
+        {{ pagoYaCompleto() ? 'Cerrar' : 'Cancelar' }}
       </button>
 
       <button
+        *ngIf="!pagoYaCompleto()"
         type="button"
         class="btn-confirmar"
         (click)="confirmarPago()"
-        [disabled]="isGuardando()"
+        [disabled]="isGuardando() || montoAbonoActual() <= 0"
       >
         <mat-spinner *ngIf="isGuardando()" diameter="18" class="spinner-btn"></mat-spinner>
-        <span>{{ esMesFuturo() ? 'Guardar Intención de Pago de ' : 'Confirmar Pago de ' }}{{ montoAPagar() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+        <span>
+          {{ !isPagoReal() ? 'Guardar Intención de ' : (esMesFuturo() ? 'Confirmar Adelanto de ' : 'Confirmar Pago de ') }}
+          {{ montoAbonoActual() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+        </span>
       </button>
     </div>
   </div>

@@ -1106,3 +1106,138 @@ gantt
            - **Movimientos y Estimativos**: 1.423 movimientos y 14 ciclos estimativos vinculados con resolución de mapping de usuarios (`userIdMap`).
         5. **Auditoría de Paridad 100%**: Verificación de recuentos cruzados confirmando concordancia exacta entre el entorno local y Cloud SQL.
         6. **Restablecimiento Inmediato del Aislamiento Privado (VPC)**: Cierre de `cloud-sql-proxy.exe` y revocación inmediata de la IP pública (`--no-assign-ip`), devolviendo la base de datos a su estado privado en `control-gastos-vpc` con costo de IP en $0.
+
+  * **6.16**: Estimativos Avanzados (Eliminación Segura, Herencia Contable Interanual) e Intención de Pago en Tarjetas Mensuales *(Completado)*:
+    * **¿Qué es y por qué se hace de esta manera?**:
+      * Resuelve la flexibilidad operativa en la gestión de estimativos y la conciliación visual de compromisos de tarjetas para meses futuros:
+        1. **Eliminación Segura de Ciclos Estimativos**: Permite purgar ciclos creados por error (como pruebas de usuario o meses lejanos, ej. Octubre 2027) sin dejar registros huérfanos en `daily_estimates` ni `monthly_estimate_configs`, con confirmación modal de doble paso y sincronización en tiempo real vía SSE.
+        2. **Herencia Contable Automática del Ciclo Anterior**: Al planificar un nuevo mes (ej. Enero 2027), la API busca automáticamente el último ciclo base disponible (Diciembre 2026), resolviendo independientemente el remanente de saldo (`remanenteSaldoAnterior`) y la deuda acumulada (`deudaSugerida`) tanto desde Google Sheets como de PostgreSQL.
+        3. **Simulación Anticipada del Primer Hito (Día 8)**: Computa automáticamente el saldo proyectado del primer vencimiento sumando sueldos y restando tarjetas (deduciendo compensaciones e intenciones de pago), préstamos y servicios.
+        4. **Intención de Pago en Amarillo bajo el Total**: En la vista `/mensual`, para meses futuros donde el usuario define una intención de pago parcial, se muestra una fila en amarillo ámbar (`#facc15` / `#ffd54f`) justo debajo del Total: `Intención de pago: $X (Resta: $Y)`. Se oculta automáticamente cuando se cubre el 100% de la tarjeta (`montoRestante <= 0` o `estado === 'COMPLETO'`).
+        5. **Carga Ultra Rápida de Nuevas Entidades**: Botón de regreso a entidades existentes sin perder datos, buffer de carga masiva en borrador, atajo `Enter` y auto-foco inmediato en el campo Concepto para agilizar la carga.
+    * **Subpasos de Ejecución**:
+      * **6.16.1**: Backend: Endpoint `DELETE /api/estimaciones/:id` en `estimate.controller.ts` y `estimate.service.ts` con transacción atómica, invalidación de caché y emisión reactiva SSE `DATA_UPDATED` con acción `ESTIMATE_DELETED`. *(Completado)*
+      * **6.16.2**: Frontend: Botón de cesto de basura en el encabezado de `estimativo.component.html` con modal interactivo de confirmación (`ModalConfirmacionComponent`) respetando la Regla de Oro (`AGENTS.md`) y recarga reactiva de ciclos disponibles. *(Completado)*
+      * **6.16.3**: Backend: Refactorización de `getPreviewExpenses` en `estimate.service.ts` con mapeo de `prevEstimate?.filas` (resolviendo la discrepancia con `rows`) y fallback desacoplado entre saldo remanente y deuda acumulada. Desplegado y verificado en Cloud Run (`control-gastos-api-00011-pmt`). *(Completado)*
+      * **6.16.4**: Frontend: Implementación de la señal reactiva `mostrarIntencionPago()` en todas las entidades de tarjeta (`visa`, `master-galicia`, `naranja`, `bancor`, `mercado-libre`), con validación de estado `COMPLETO`, `montoRestante <= 0` y redondeo centesimal. *(Completado)*
+      * **6.16.5**: Frontend: Reubicación de `.intencion-pago-row` fuera de `.total-row` con estilos globales en `src/styles.scss` en color ámbar (`#facc15` / `#ffd54f`) alineado debajo del Total. *(Completado)*
+      * **6.16.6**: Frontend: Optimización de carga masiva en `ModalCargarItemComponent` con botón `← Volver a entidades`, atajo `Enter`, auto-foco y persistencia en lote. *(Completado)*
+      * **6.16.7**: Backend & Base de Datos: Sincronización automática de Compensación en el mes siguiente (`syncCompensacionMesSiguiente`) ante registros/actualizaciones de pagos parciales o totales, y propagación reactiva de ítems no-cuotas (suscripciones, fijos, servicios) hacia todos los meses futuros del mismo año ya inicializados en BD, con recálculo dinámico de saldos devengados y eventos SSE. *(Completado)*
+
+  * **6.17**: Plan de Paridad y Nuevas Funcionalidades del Excel 2026 *(PENDIENTE)*:
+    * **¿Qué es y por qué se hace de esta manera?**:
+      * Con base en las directivas específicas del usuario sobre la planilla `Cuentas claras_2026.xlsx` y la experiencia de uso de la aplicación:
+        1. **Nueva Vista de Reportes con Submenús (`/reportes`)**: Descongestiona las vistas principales centralizando los análisis visuales e históricos en un módulo dedicado con submenús.
+        2. **Gráficos de `Saldo 2026`**: En Reportes se mostrarán únicamente los gráficos de evolución de saldos del año, sin tablas de datos crudos redundantes.
+        3. **Tabla y Gráfico de Cortes Bimonetarios (`Saldo!K47:R60`)**: Submenú dedicado en Reportes con la tabla bimonetaria (`Fecha`, `Saldo $`, `Saldo U$`, `Deuda/bitcoin`, `Saldo $ a U$`, `Total Saldo U$`, `Variación $`, `Variación U$`) y su gráfico.
+        4. **Reorganización de Gráficos Anuales**: Se retira el gráfico de saldo de la vista `/anual` (para mantenerla limpia) y se traslada a Reportes, acompañado por un gráfico de gastos anuales separado con lógica condicional de colores (rojo cuando el gasto aumentó respecto al mes anterior, azul cuando disminuyó o fue cero) y un gráfico con el total de montos de préstamos mensuales.
+        5. **Gráfico de Gastos en Vista Mensual**: Junto al gráfico de saldo existente, se agrega el gráfico de gastos proyectados (`H36`) con el mismo rango dinámico de meses futuros según el mes seleccionado.
+        6. **Módulo de Gastos a Devolver / Reembolsables (`Saldo!S45:W57`)**: Gestión en `/mensual` de gastos que el usuario abona y posteriormente le son reintegrados (luz, agua, claro, mamá, etc.). Al pagarse a inicio de mes se descuentan del saldo (similar a "Otros"), y al registrar la devolución del dinero se genera un movimiento a favor (`INGRESO`).
+        7. **Feriados y Eventos con Color Personalizado en Estimativos**: Capacidad de seleccionar un día en la tabla diaria de `/estimativo`, cargar un feriado o nota de evento y asignarle un color personalizado para resaltarlo visualmente.
+        8. **Termómetro de Días Positivos en Estimativos**: Segundo gráfico tipo termómetro en `/estimativo` que refleja el porcentaje de días con rendimiento positivo del mes, obtenido de la tabla *Rendimientos positivos mensuales* de Anual (celda `H53` de cada mes).
+        9. **Explorador y Generador de Reportes Multicriterio con Gráficos Dinámicos (Exclusivo Administradores)**: Submenú exclusivo para usuarios administradores que permite consultar la base de datos mediante filtros visuales avanzados (fechas, entidades múltiples, estados de pago, tipos de ítems, montos) generando al vuelo tablas de resultados consolidados y gráficos interactivos (barras, líneas, torta) sin necesidad de escribir sentencias SQL complejas (`SELECT`, `JOIN`, `GROUP BY`).
+    * **Subpasos de Ejecución**:
+      * **6.17.1**: Frontend & Routing: Creación de la Nueva Vista de Reportes (`/reportes`) con Arquitectura de Submenús:
+        - Crear el módulo/componente `ReportesComponent` en `src/app/pages/reportes/` con barra de navegación por pestañas/submenús interactivos:
+          1. *Evolución de Saldo* (`Saldo [Año]`).
+          2. *Cortes Bimonetarios* (`Saldo!K47:R60`).
+          3. *Análisis Anual* (Saldos, Gastos Condicionales Rojo/Azul y Préstamos).
+          4. *Consultas y Reportes Dinámicos* (Protegido por `RoleGuard` para administradores).
+        - Integrar la ruta `/reportes` en el Navbar principal de la aplicación con icono analítico (`query_stats` / `analytics`), respetando la Regla de Oro (`AGENTS.md`) con `.movimientos-wrapper`, tarjetas con bordes suaves y soporte completo de Modo Claro y Modo Oscuro.
+      * **6.17.2**: Submenú 1 en Reportes: Gráficos de Evolución de Saldo del Año (`Saldo 2026` / Saldo):
+        - Implementar en el primer submenú de Reportes la visualización exclusiva de los gráficos de evolución de saldos en el tiempo (pesos y dólares) según el año seleccionado, prescindiendo de las tablas de datos crudos para una visualización ejecutiva limpia y ágil.
+      * **6.17.3**: Submenú 2 en Reportes: Tabla de Cortes Bimonetarios y Gráfico Asociado (`Saldo!K47:R60`):
+        - Backend: Endpoint para suministrar la serie de cortes bimonetarios de saldo de la tabla `K47:R60` (`Fecha`, `Saldo $`, `Saldo U$`, `Deuda/bitcoin`, `Saldo $ a U$`, `Total Saldo U$`, `Variación $`, `Variación U$`).
+        - Frontend: Renderizar la tabla con formateo monetario elegante y el gráfico nativo asociado que compara saldos y variaciones.
+      * **6.17.4**: Submenú 3 en Reportes: Análisis Anual Reorganizado (Saldos, Gastos Condicionales Rojo/Azul y Préstamos):
+        - Retirar el gráfico de saldos de la vista `/anual` (dejando `/anual` enfocada exclusivamente en la matriz contable y balance) y trasladarlo a este submenú de Reportes.
+        - Desarrollar el gráfico independiente de Gastos Anuales con coloración reactiva condicional:
+          - **Rojo (#EF4444)**: Cuando el gasto del mes superó al del mes anterior (aumento).
+          - **Azul (#3B82F6)**: Cuando el gasto del mes disminuyó o fue igual a cero.
+        - Desarrollar el gráfico con el total acumulado de montos de cuotas/amortizaciones de préstamos para cada mes del año.
+      * **6.17.5**: Módulo Mensual (`/mensual`): Gráfico de Gastos Proyectados de Próximos Meses:
+        - Incorporar en la vista `/mensual`, junto al gráfico de proyección de saldo existente, el gráfico interactivo de gastos proyectados (`H36`), cubriendo los mismos rangos de meses futuros según el ciclo consultado (ej. para Octubre, proyectando Noviembre, Diciembre, Enero, etc.).
+      * **6.17.6**: Módulo Mensual (`/mensual`): Gastos a Devolver / Reembolsables (`Saldo!S45:W57`):
+        - Backend: Modelo o extensión para registrar gastos compartidos/reembolsables con campos de concepto, importe pagado, entidad/cuenta de egreso, estado (`PENDIENTE`, `REINTEGRADO_PARCIAL`, `REINTEGRADO_TOTAL`), fecha de reintegro y cuenta receptora.
+        - Frontend: Sección en `/mensual` (o integración configurable en "Otros") para conceptos a devolver (luz, agua, claro, mamá, etc.):
+          - Al abonarse a inicio de mes: se resta del saldo disponible.
+          - Al registrar la devolución: genera automáticamente un asiento de movimiento a favor (`INGRESO`) con fecha y cuenta seleccionada.
+      * **6.17.7**: Módulo de Estimativos (`/estimativo`): Feriados y Eventos con Color Personalizado:
+        - Permitir al usuario hacer clic o seleccionar cualquier día en la grilla de seguimiento diario de `/estimativo` para:
+          - Asignar una etiqueta o tipo de evento (ej. "Feriado", "Cobro", "Vencimiento", "Viaje").
+          - Seleccionar un color personalizado (paleta predefinida y color picker).
+        - Persistir la configuración en base de datos (`DailyEstimate.evento` / `color`) y pintar dinámicamente la fila o badge del día con el color elegido.
+      * **6.17.8**: Módulo de Estimativos (`/estimativo`): Termómetro de Porcentaje de Días Positivos:
+        - Incorporar en `/estimativo` un segundo indicador tipo termómetro/gauge visual (junto al termómetro de días transcurridos existente).
+        - El termómetro calculará y mostrará el **porcentaje de días con rendimiento positivo del mes**, tomando los datos de la tabla de *Rendimientos positivos mensuales* de la vista Anual (celda `H53` de cada mes en Excel).
+
+  * **6.18**: Explorador de Base de Datos y Generador de Reportes Multicriterio con Gráficos Dinámicos (Solo Administradores) *(PENDIENTE)*:
+    * **¿Qué es y por qué se hace de esta manera?**:
+      * Brinda una herramienta analítica de alto impacto operativa directamente desde la interfaz web, permitiendo al usuario administrador consultar, cruzar y graficar cualquier conjunto de datos del sistema sin necesidad de acceder a la base de datos ni escribir complejas sentencias SQL (`SELECT`, `JOIN`, `WHERE`, `GROUP BY`):
+        1. **Acceso Exclusivo para Administradores**: Protegido por `RoleGuard` en el frontend y middleware de autorización en el backend, siendo invisible e inaccesible para usuarios estándar.
+        2. **Selector de Dominio y Tablas Clave**:
+           - **Pagos de Entidades (`entity_payments`)**: Liquidaciones por mes, pagos parciales, saldos impagos, remanentes y cuentas de origen.
+           - **Movimientos y Asientos Diarios (`movements`)**: Histórico de gastos e ingresos, cuentas bancarias, billeteras y efectivo.
+           - **Ítems Mensuales y Cuotas (`monthly_items`)**: Detalle de compras en cuotas, series de financiamiento y servicios recurrentes.
+           - **Préstamos Personales (`loans` / `loan_installments`)**: Cuotas canceladas, capital amortizado y compromisos futuros.
+           - **Estimaciones y Saldos (`daily_estimates`)**: Evolución diaria y desviaciones entre presupuesto y saldo real.
+        3. **Filtros Multicriterio Flexibles**:
+           - Rango de fechas libre (con selectores rápidos: "Este mes", "Mes anterior", "Año actual", "Histórico completo" o rango personalizado con datepicker).
+           - Multi-selección de entidades financieras (filtrar por una, varias o todas las tarjetas/cuentas simultáneamente).
+           - Filtrado por estados de liquidación (`COMPLETO`, `PARCIAL`, `NO_PAGADO`, `PENDIENTE`, `REINTEGRADO`).
+           - Filtrado por palabras clave / conceptos (búsqueda parcial de texto) y rangos de importes ($ mín / $ máx).
+        4. **Generador Automático de Gráficos Analíticos (Chart.js)**:
+           - Generación instantánea del gráfico más representativo según la información consultada:
+             - Distribución de pagos/gastos por entidad (gráfico de barras comparativas o gráfico de dona).
+             - Evolución temporal acumulada de egresos vs ingresos (gráfico de líneas con marcadores).
+             - Proporción de estados de pago (gráfico circular/porcentual).
+        5. **Tabla de Resultados Consolidados con Métricas**: Grilla interactiva con totales acumulados, subtotales por entidad, cantidad de operaciones y promedios, aportando total autonomía de auditoría y análisis financiero.
+    * **Subpasos de Ejecución**:
+      * **6.18.1**: Backend: Endpoint Analítico Multicriterio y Motor de Consultas Dinámicas (`GET /api/reportes/explorador`):
+        - Implementación en `control-de-gastos-api` con middleware `requireAdmin` y `authenticateToken`.
+        - Soporte para filtros dinámicos en Prisma ORM construyendo cláusulas `where` compuestas según parámetros de consulta (`tabla`, `desde`, `hasta`, `entidades[]`, `estados[]`, `concepto`, `montoMin`, `montoMax`).
+        - Agregaciones automáticas en base de datos (`_sum`, `_avg`, `_count`) para máxima velocidad de respuesta.
+      * **6.18.2**: Frontend: Creación del Submenú "Consultas y Reportes" en `/reportes` con `RoleGuard`:
+        - Integración de la pestaña protegida en `ReportesComponent`, visible exclusivamente si el usuario autenticado posee rol `ADMIN`.
+        - Estructura visual basada en la Regla de Oro (`AGENTS.md`) con `.movimientos-wrapper`, tarjetas con bordes suaves y diseño adaptativo.
+      * **6.18.3**: Frontend: Formulario Interactivo de Filtros Multicriterio:
+        - Selector de tabla / dominio con chips de selección rápida.
+        - Datepicker de rango de fechas con presets mensuales y anuales.
+        - Dropdown multi-select con checkboxes para entidades (`Visa`, `Mastercard`, `Naranja`, `Bancor`, `Mercado Libre`, etc.).
+        - Selector de estados y campos de búsqueda de texto y rango de importes.
+        - Botones de acción: `Aplicar Filtros` (con indicador de carga) y `Limpiar Filtros`.
+      * **6.18.4**: Frontend: Motor Generador de Gráficos Dinámicos con Chart.js:
+        - Componente reactivo que escucha los resultados filtrados y ensambla la configuración óptima de gráfico (barras, dona o líneas).
+        - Tooltips con formateo de moneda argentina, leyendas interactivas y paletas de colores coherentes con el tema Claro y Oscuro.
+      * **6.18.5**: Frontend: Grilla de Resultados Analíticos y Resumen Ejecutivo:
+        - Tarjetas KPI superiores: `Total Monto Filtrado`, `Cantidad de Registros`, `Promedio por Operación`.
+        - Tabla paginada de resultados con ordenamiento por columnas (Fecha, Entidad, Concepto, Importe, Estado).
+        - Botón de exportación rápida de la consulta filtrada.
+
+  * **6.19**: Sistema de Multi-Abonos Acumulativos por Entidad con Historial de Pagos y Sincronización Automática de Compensaciones *(COMPLETADO)*:
+    * **¿Qué es y por qué se implementó?**:
+      * Permite registrar pagos fraccionados o abonos consecutivos sobre un mismo resumen mensual de entidad financiera (ej. pagar $650.000 y posteriormente otros $100.000 sobre un total de $836.190,30):
+        1. **Persistencia Detallada (`entity_payment_records`)**: Cada abono se registra como una transacción independiente con su fecha de pago, cuenta bancaria de egreso, monto e ID de movimiento contable asociado.
+        2. **Cálculos Claros sin Inversión**: Se erradicó la confusión donde el saldo ya abonado se mostraba como deuda. La interfaz desglosa con total transparencia: Total del Resumen, Total ya Abonado Acumulado y Saldo Restante por Pagar.
+        3. **Tabla de Historial Interactivo**: Muestra la lista cronológica de todos los pagos realizados con opción de eliminar abonos individuales y reversión automática de movimientos contables y saldos compensatorios.
+        4. **Sincronización Automática de Compensaciones**: El saldo impago restante se actualiza en tiempo real en la fila de *Compensación* del mes posterior, eliminándose si el saldo llega a $0.
+    * **Subpasos Ejecutados**:
+      * **6.19.1**: Backend: Tabla `entity_payment_records`, migración de base de datos y migración de pagos previos.
+      * **6.19.2**: Backend: Servicio y controlador para acumulación de abonos y endpoint `DELETE /api/pagos-entidades/registro/:id`.
+      * **6.19.3**: Frontend: Modelos e interfaces en `EntityPaymentService` y nuevo método `deletePaymentRecord`.
+      * **6.19.4**: Frontend: Rediseño completo de `ModalPagarEntidadComponent` con 3 KPI cards, tabla de abonos y previsualización en vivo.
+      * **6.19.5**: Sincronización reactiva con `abonoEliminado` en `MensualComponent` para refrescar totales sin cerrar el modal.
+
+  * **6.20**: Visualización de Parámetros Clave del Estimativo (Fila 1 Google Sheets / Config BD: I, J, L) *(COMPLETADO)*:
+    * **¿Qué es y por qué se implementó?**:
+      * En la vista `/estimativo`, debajo del gráfico derecho de estimaciones (`app-grafico-estimativo`), se integraron 3 chips/KPI cards compactos con diseño idéntico a "Novedades de cuotas" para visualizar los parámetros directos del ciclo estimativo mensual:
+        1. **Gasto Diario Estimado (Columna I)**: Importe diario presupuestado (ej: `$ 10.500,00`).
+        2. **Interés Diario Billeteras (Columna J)**: Rendimiento diario de billeteras virtuales (ej: `$ 600,00`).
+        3. **Gasto Estimado en el Mes (Columna L)**: Sumatoria de gastos día a día del ciclo a partir del primer día del estimativo hasta el último día del mes (fuera de pagos iniciales) (ej: `$ 647.800,00`).
+    * **Subpasos Ejecutados**:
+      * **6.20.1**: Frontend Store: Extensión de rango de consulta batch a `A1:N500` en `MovimientosStoreGoogle`, lectura y parseo de fila 0 (columnas I, J, K, L), persistencia en memoria y caché local con `EstimativoConfigData`.
+      * **6.20.2**: Frontend Component: Signals reactivos `gastoDiarioEstimado`, `interesDiarioBilleteras` y `gastoEstimadoMes` en `HomeEstimativo`, hidratación inmediata desde caché (0ms) y sincronización con `EstimatesService.getMonthly()` tanto para Google Sheets como para BD.
+      * **6.20.3**: Frontend UI: Tarjeta colapsable `.parametros-estimativo-card` con grilla `.parametros-chips-grid`, iconos temáticos (`trending_down`, `savings`, `receipt_long`), tooltips informativos y compatibilidad completa con Dark Mode.
+
+
+

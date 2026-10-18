@@ -101,6 +101,7 @@
       <div class="header-left-actions">
         <img src="assets/logos/mastercard.svg" alt="Mastercard" class="entidad-logo" />
         <button
+          *ngIf="estadoPago() !== 'COMPLETO'"
           type="button"
           class="btn-pagar-entidad"
           (click)="abrirModalPago()"
@@ -145,6 +146,18 @@
               </button>
 
               <button
+                *ngIf="authService.isAdmin()"
+                type="button"
+                class="btn-baja-entidad-header"
+                (click)="solicitarBajaEntidad($event)"
+                [title]="'Dar de baja ' + entidad + ' a partir de este mes'"
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                </svg>
+              </button>
+
+              <button
                 type="button"
                 class="btn-collapse-card"
                 [class.collapsed]="isCollapsed()"
@@ -182,10 +195,21 @@
                                 type="button"
                                 class="btn-accion-editar"
                                 (click)="onEditarFila(fila, $event)"
-                                title="Editar o eliminar este ítem"
+                                title="Editar este ítem"
                               >
                                 <svg viewBox="0 0 24 24" width="14" height="14">
                                   <path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                                </svg>
+                              </button>
+                              <button
+                                *ngIf="fila['id'] && authService.isAdmin()"
+                                type="button"
+                                class="btn-accion-eliminar"
+                                (click)="onEliminarFila(fila, $event)"
+                                title="Eliminar este ítem"
+                              >
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                                  <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                                 </svg>
                               </button>
                             </div>
@@ -214,8 +238,8 @@
 
           <div class="intencion-pago-row" *ngIf="mostrarIntencionPago()">
             <div class="intencion-label">
-              <mat-icon class="icon-intencion">pending</mat-icon>
-              <span>Intención de pago:</span>
+              <mat-icon class="icon-intencion">{{ esIntencionPago() ? 'trending_up' : 'payments' }}</mat-icon>
+              <span>{{ esIntencionPago() ? 'Intención de pago:' : 'Importe pagado:' }}</span>
             </div>
             <div class="intencion-value">
               <strong>{{ pagoInfo()?.montoPagado | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>

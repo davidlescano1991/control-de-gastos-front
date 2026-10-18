@@ -44,7 +44,7 @@
                 </button>
                 <h2>Gastos de {{ mesSeleccionado() }} {{ anioSeleccionado() }}</h2>
                 <button type="button" class="btn-cargar-cuota-header" *ngIf="authService.isAdmin()"
-                  (click)="abrirModalCarga()" title="Cargar nuevo ítem o compra en cuotas">
+                  (click)="abrirModalCarga()" title="Cargar nuevo ítem o compras en lote">
                   <mat-icon>add_circle</mat-icon>
                   <span>Cargar</span>
                 </button>
@@ -57,7 +57,7 @@
                 <div class="contenedor-entidad" *ngIf="estaEntidadVigente('Visa Galicia') || estaEntidadVigente('Visa')">
                   <app-visa (eliminarEntidad)="abrirModalBajaEntidad($event)" [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="visaDatos()"
                     [entidad]="visaEntidad()" [isCargando]="isCargando()"
-                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)"></app-visa>
+                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)" (eliminarFila)="abrirModalEliminarItem($event)"></app-visa>
                   <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
                     <span class="punto-origen" [class.origen-bd]="esOrigenBD()" [class.origen-sheets]="!esOrigenBD()"></span>
                     <span>{{ leyendaOrigenActual() }}</span>
@@ -67,7 +67,7 @@
                 <div class="contenedor-entidad" *ngIf="estaEntidadVigente('Master Card Galicia') || estaEntidadVigente('Mastercard')">
                   <app-master-galicia (eliminarEntidad)="abrirModalBajaEntidad($event)" [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="masterDatos()"
                     [entidad]="masterEntidad()" [isCargando]="isCargando()"
-                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)"></app-master-galicia>
+                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)" (eliminarFila)="abrirModalEliminarItem($event)"></app-master-galicia>
                   <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
                     <span class="punto-origen" [class.origen-bd]="esOrigenBD()" [class.origen-sheets]="!esOrigenBD()"></span>
                     <span>{{ leyendaOrigenActual() }}</span>
@@ -77,7 +77,7 @@
                 <div class="contenedor-entidad" *ngIf="estaEntidadVigente('Naranja X') || estaEntidadVigente('Naranja')">
                   <app-naranja (eliminarEntidad)="abrirModalBajaEntidad($event)" [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="naranjaDatos()"
                     [entidad]="naranjaEntidad()" [isCargando]="isCargando()"
-                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)"></app-naranja>
+                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)" (eliminarFila)="abrirModalEliminarItem($event)"></app-naranja>
                   <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
                     <span class="punto-origen" [class.origen-bd]="esOrigenBD()" [class.origen-sheets]="!esOrigenBD()"></span>
                     <span>{{ leyendaOrigenActual() }}</span>
@@ -87,7 +87,7 @@
                 <div class="contenedor-entidad" *ngIf="estaEntidadVigente('Bancor')">
                   <app-bancor (eliminarEntidad)="abrirModalBajaEntidad($event)" [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="bancorDatos()"
                     [entidad]="bancorEntidad()" [isCargando]="isCargando()"
-                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)"></app-bancor>
+                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)" (eliminarFila)="abrirModalEliminarItem($event)"></app-bancor>
                   <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
                     <span class="punto-origen" [class.origen-bd]="esOrigenBD()" [class.origen-sheets]="!esOrigenBD()"></span>
                     <span>{{ leyendaOrigenActual() }}</span>
@@ -97,7 +97,7 @@
                 <div class="contenedor-entidad" *ngIf="estaEntidadVigente('Mercado Libre')">
                   <app-mercado-libre (eliminarEntidad)="abrirModalBajaEntidad($event)" [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="mLDatos()"
                     [entidad]="mLEntidad()" [isCargando]="isCargando()"
-                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)"></app-mercado-libre>
+                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)" (eliminarFila)="abrirModalEliminarItem($event)"></app-mercado-libre>
                   <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
                     <span class="punto-origen" [class.origen-bd]="esOrigenBD()" [class.origen-sheets]="!esOrigenBD()"></span>
                     <span>{{ leyendaOrigenActual() }}</span>
@@ -107,7 +107,7 @@
                 <div class="contenedor-entidad" *ngIf="estaEntidadVigente('Otros')">
                   <app-otros (eliminarEntidad)="abrirModalBajaEntidad($event)" [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="otrosDatos()"
                     [entidad]="otrosEntidad()" [isCargando]="isCargando()"
-                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)"></app-otros>
+                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)" (eliminarFila)="abrirModalEliminarItem($event)"></app-otros>
                   <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
                     <span class="punto-origen" [class.origen-bd]="esOrigenBD()" [class.origen-sheets]="!esOrigenBD()"></span>
                     <span>{{ leyendaOrigenActual() }}</span>
@@ -225,7 +225,7 @@
     (abrirModal)="overlayService.abrirModalCompleto(overlayService.entidadKey(), overlayService.nombreEntidad(), overlayService.anio(), overlayService.mes(), overlayService.logoUrl())"></app-modal-proyeccion-entidad>
   <!-- Modal de Carga de Cuotas e Ítems Mensuales -->
   <app-modal-cargar-item [visible]="mostrarModalCargar()" [anioSeleccionado]="anioSeleccionado()"
-    [mesSeleccionado]="mesSeleccionado()" [itemAEditar]="itemParaEditar()" (cerrado)="cerrarModalCargar()"
+    [mesSeleccionado]="mesSeleccionado()" [itemAEditar]="itemParaEditar()" [modoEliminarDirecto]="modoEliminarDirecto()" (cerrado)="cerrarModalCargar()"
     (itemCreado)="onItemCreado($event)"></app-modal-cargar-item>
 
   <!-- Modal de Pago de Entidades a nivel raíz (supera cualquier stacking context) -->
@@ -233,7 +233,8 @@
     *ngIf="entityPaymentService.entidadAPagarSeleccionada()"
     [entidadInfo]="entityPaymentService.entidadAPagarSeleccionada()!"
     (cerrar)="entityPaymentService.cerrarModalPago()"
-    (pagoConfirmado)="entityPaymentService.cerrarModalPago()"
+    (pagoConfirmado)="onPagoConfirmado()"
+    (abonoEliminado)="onAbonoEliminado()"
   ></app-modal-pagar-entidad>
 
   <!-- Modal de Confirmación de Baja de Entidad con Integridad Histórica -->

@@ -5,7 +5,7 @@ import { AppConfigService } from '../../services/app-config.service';
 import { SseService } from '../../services/sse.service';
 import { EstimatesService } from '../../services/estimates.service';
 import { Subscription, firstValueFrom } from 'rxjs';
-import { NgIf, NgFor } from '@angular/common';
+import { NgIf, NgFor, CurrencyPipe } from '@angular/common';
 import { MatCardContent, MatCardModule } from '@angular/material/card';
 import { GraficoEstimativo } from './grafico-estimativo/grafico-estimativo';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -38,6 +38,7 @@ import { ModalEditarDiaComponent } from './modal-editar-dia/modal-editar-dia';
   imports: [
     NgIf,
     NgFor,
+    CurrencyPipe,
     MatCardContent,
     MatCardModule,
     GraficoEstimativo,
@@ -60,6 +61,16 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   diaParaEditar = signal<any | null>(null);
   modalEditarDiaVisible = signal(false);
 
+  // Parámetros clave del estimativo (Fila 1 Google Sheets / Config BD: I, J, L)
+  gastoDiarioEstimado = signal<number>(0);
+  interesDiarioBilleteras = signal<number>(0);
+  gastoEstimadoMes = signal<number>(0);
+  parametrosCollapsed = signal<boolean>(false);
+
+  toggleParametrosCollapse(): void {
+    this.parametrosCollapsed.update((v) => !v);
+  }
+
   abrirModalConfig(): void {
     this.modalConfigVisible.set(true);
   }
@@ -78,13 +89,15 @@ export class HomeEstimativo implements OnInit, OnDestroy {
     this.diaParaEditar.set(null);
   }
 
-  onDiaGuardado(): void {
+  async onDiaGuardado(): Promise<void> {
     this.cerrarEditarDia();
-    void this.seleccionarMesMensual(this.mesSeleccionado(), true);
+    await this.seleccionarMesMensual(this.mesSeleccionado(), true);
+    void this.cargaInicial(false, true);
   }
 
-  onEstimativoConfigurado(): void {
-    void this.seleccionarMesMensual(this.mesSeleccionado(), true);
+  async onEstimativoConfigurado(): Promise<void> {
+    await this.seleccionarMesMensual(this.mesSeleccionado(), true);
+    void this.cargaInicial(false, true);
   }
 
   mesNumero(): number {
@@ -177,9 +190,10 @@ export class HomeEstimativo implements OnInit, OnDestroy {
 
     // 📡 Suscripción reactiva en tiempo real al canal SSE
     this.sseSub = this.sseService.getEvents$().subscribe((msg) => {
-      if (msg.event === 'DATA_UPDATED') {
+      if (msg.event === 'DATA_UPDATED' || msg.event === 'ESTIMATE_UPDATED') {
         console.log('⚡ [Estimativos] Actualización en tiempo real recibida vía SSE. Recargando...', msg.data);
         void this.refrescarAutomaticamente();
+        void this.cargaInicial(false, true);
       }
     });
   }
@@ -220,7 +234,6 @@ export class HomeEstimativo implements OnInit, OnDestroy {
           );
           await this.storeGoogle.asegurarEstimativoAnioRange(anio, mesesDelAnio, 'mensual', force);
           const fila = await this.storeGoogle.getEstimadosRange(anio, mesesDelAnio);
-          console.warn(`Fila en getEstimadoRange: ${JSON.stringify(fila)} para año ${anio}`);
           filas.push(...fila);
         } catch (e) {
           console.warn(`⚠️ Error cargando año ${anio} en cargaInicial estimativos:`, e);
@@ -241,7 +254,6 @@ export class HomeEstimativo implements OnInit, OnDestroy {
         return fechaA - fechaB;
       });
 
-      console.log(`✅ Filas ordenadas:`, JSON.stringify(uniqueFilas));
       this.setSignalIfChanged(this.datosHistoricosEstimativos, uniqueFilas);
     } finally {
       if (mostrarCarga) {
@@ -273,17 +285,16 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   async seleccionarMesMensual(mes: string, force = false) {
     const hoja = 'Estimativo ' + mes;
     const anio = this.anioSeleccionado();
+    const mesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const mesBase = mes.split('_')[0];
+    let mesNumero = mesNombres.indexOf(mesBase) + 1;
+    if (mesNumero <= 0) mesNumero = 1;
 
     if (!this.appConfig.isSheetsActivo(anio)) {
-      const mesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-      const mesBase = mes.split('_')[0];
-      let mesNumero = mesNombres.indexOf(mesBase) + 1;
-      if (mesNumero <= 0) mesNumero = 1;
-
       try {
         const res = await firstValueFrom(this.estimatesService.getMonthly(anio, mesNumero));
         if (res && res.filas && res.filas.length > 0) {
-          const filas = res.filas.map((f: any) => ({
+          const filas: EstimativoRow[] = res.filas.map((f: any) => ({
             id: f.id,
             dia: f.dia,
             fecha: f.fecha,
@@ -294,8 +305,14 @@ export class HomeEstimativo implements OnInit, OnDestroy {
             deudaReal: f.deudaReal !== null && f.deudaReal !== undefined ? Number(f.deudaReal) : Number(f.deuda),
           }));
           this.setSignalIfChanged(this.estimativoFilas, filas);
+          this.actualizarFilasEnHistorico(filas);
         } else {
           this.setSignalIfChanged(this.estimativoFilas, []);
+        }
+        if (res && res.config) {
+          this.gastoDiarioEstimado.set(Number(res.config.gastoFijoDiario) || 0);
+          this.interesDiarioBilleteras.set(Number(res.config.ingresoInteresDiario) || 0);
+          this.gastoEstimadoMes.set(Number(res.config.presupuestoTotal) || 0);
         }
       } catch (err) {
         console.warn(`[HomeEstimativo] Sin datos de estimativo en BD para ${anio}-${mesNumero}:`, err);
@@ -308,6 +325,13 @@ export class HomeEstimativo implements OnInit, OnDestroy {
     const filasCache = await this.storeGoogle.getEstimados(anio, hoja);
     if (filasCache && filasCache.length > 0) {
       this.setSignalIfChanged(this.estimativoFilas, filasCache);
+      this.actualizarFilasEnHistorico(filasCache);
+    }
+    const cfgCache = this.storeGoogle.getEstimativoConfig(anio, hoja);
+    if (cfgCache) {
+      this.gastoDiarioEstimado.set(cfgCache.gastoFijoDiario);
+      this.interesDiarioBilleteras.set(cfgCache.ingresoInteresDiario);
+      this.gastoEstimadoMes.set(cfgCache.gastoEstimadoMes);
     }
 
     try {
@@ -324,29 +348,74 @@ export class HomeEstimativo implements OnInit, OnDestroy {
     const clave = `${anio}::${hoja}`;
     console.warn(`Estimados clave en Home ${clave}`);
     const filas = await this.storeGoogle.getEstimados(anio, hoja);
-    //console.log(`✅ filas en Home: ${JSON.stringify(filas)}`);
     this.setSignalIfChanged(this.estimativoFilas, filas);
+    this.actualizarFilasEnHistorico(filas);
 
-    // Sincronizar automáticamente datos históricos con los cambios del mes activo
-    if (filas && filas.length > 0) {
-      const historicosActuales = this.datosHistoricosEstimativos();
-      if (historicosActuales.length > 0) {
-        const mapaNuevas = new Map(filas.map((f: EstimativoRow) => [f.fecha, f]));
-        let huboCambio = false;
-        const actualizados = historicosActuales.map((h) => {
-          if (mapaNuevas.has(h.fecha)) {
-            const nuevaFila = mapaNuevas.get(h.fecha)!;
-            if (JSON.stringify(h) !== JSON.stringify(nuevaFila)) {
-              huboCambio = true;
-              return nuevaFila;
-            }
-          }
-          return h;
-        });
-        if (huboCambio) {
-          this.setSignalIfChanged(this.datosHistoricosEstimativos, actualizados);
+    const cfgLive = this.storeGoogle.getEstimativoConfig(anio, hoja);
+    if (cfgLive && (cfgLive.gastoFijoDiario > 0 || cfgLive.gastoEstimadoMes > 0)) {
+      this.gastoDiarioEstimado.set(cfgLive.gastoFijoDiario);
+      this.interesDiarioBilleteras.set(cfgLive.ingresoInteresDiario);
+      this.gastoEstimadoMes.set(cfgLive.gastoEstimadoMes);
+    }
+
+    // Asegurar sincronización con la API de estimaciones (para presupuestoTotal y parámetros de BD/Sheets)
+    try {
+      const res = await firstValueFrom(this.estimatesService.getMonthly(anio, mesNumero));
+      if (res?.config) {
+        if (res.config.gastoFijoDiario !== undefined && res.config.gastoFijoDiario > 0) {
+          this.gastoDiarioEstimado.set(Number(res.config.gastoFijoDiario));
+        }
+        if (res.config.ingresoInteresDiario !== undefined && res.config.ingresoInteresDiario > 0) {
+          this.interesDiarioBilleteras.set(Number(res.config.ingresoInteresDiario));
+        }
+        if (res.config.presupuestoTotal !== undefined && res.config.presupuestoTotal !== null && Number(res.config.presupuestoTotal) > 0) {
+          this.gastoEstimadoMes.set(Number(res.config.presupuestoTotal));
         }
       }
+    } catch {
+      // ignorar si no hay conexión o no está disponible
+    }
+  }
+
+  /**
+   * Sincroniza dinámicamente las filas de un mes con el histórico general.
+   * Si la fila ya existía, actualiza sus valores. Si es un mes nuevo (ej. Febrero 2027),
+   * incorpora automáticamente sus días y reordena cronológicamente el gráfico.
+   */
+  private actualizarFilasEnHistorico(filasMes: EstimativoRow[]): void {
+    if (!filasMes || filasMes.length === 0) return;
+    const historicos = [...this.datosHistoricosEstimativos()];
+    const mapaNuevas = new Map(filasMes.map((f: EstimativoRow) => [f.fecha, f]));
+
+    let huboCambios = false;
+    // 1. Actualizar filas existentes en el histórico
+    const actualizadas = historicos.map((h) => {
+      if (mapaNuevas.has(h.fecha)) {
+        const nueva = mapaNuevas.get(h.fecha)!;
+        mapaNuevas.delete(h.fecha);
+        if (JSON.stringify(h) !== JSON.stringify(nueva)) {
+          huboCambios = true;
+          return { ...h, ...nueva };
+        }
+      }
+      return h;
+    });
+
+    // 2. Incorporar filas de meses nuevos que aún no estaban en el gráfico histórico
+    if (mapaNuevas.size > 0) {
+      huboCambios = true;
+      for (const [, nuevaFila] of mapaNuevas) {
+        actualizadas.push(nuevaFila);
+      }
+      actualizadas.sort((a, b) => {
+        const [diaA, mesA, anioA] = a.fecha.split('/').map(Number);
+        const [diaB, mesB, anioB] = b.fecha.split('/').map(Number);
+        return new Date(anioA, mesA - 1, diaA).getTime() - new Date(anioB, mesB - 1, diaB).getTime();
+      });
+    }
+
+    if (huboCambios) {
+      this.setSignalIfChanged(this.datosHistoricosEstimativos, actualizadas);
     }
   }
 

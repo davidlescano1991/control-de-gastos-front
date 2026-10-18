@@ -122,10 +122,17 @@ export class Resumen implements OnInit, OnChanges {
 
         const entidadMap: Record<string, string> = {
           'visa galicia': 'visa',
+          'visa': 'visa',
           'master card galicia': 'mastercard',
+          'master card': 'mastercard',
+          'mastercard': 'mastercard',
           'naranja': 'naranja',
+          'naranja x': 'naranja',
           'bancor': 'bancor',
-          'mercado libre': 'ml'
+          'mercado libre': 'ml',
+          'mercado libre / pago': 'ml',
+          'mercado pago': 'ml',
+          'mercadopago': 'ml'
         };
 
         const subOtrosKeys: string[] = [];
@@ -150,7 +157,9 @@ export class Resumen implements OnInit, OnChanges {
         const listaEntidades: string[] = [];
         for (const [nombreDb, key] of Object.entries(entidadMap)) {
           if (itemsVentana.some(it => it.entidad.toLowerCase() === nombreDb)) {
-            listaEntidades.push(key);
+            if (!listaEntidades.includes(key)) {
+              listaEntidades.push(key);
+            }
           }
         }
         listaEntidades.push(...subOtrosKeys);

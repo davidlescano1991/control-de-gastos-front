@@ -19,7 +19,8 @@ Sistema integral de gestión, proyección y auditoría contable personal bimonet
      - [Carga Masiva por Lotes y Foco Veloz](#b-carga-masiva-por-lotes-y-foco-veloz)
      - [Compresión de Logos en Cliente (WebP Base64)](#c-compresión-de-logos-en-cliente-webp-base64)
      - [Gestión de Pagos de Entidades y Badges de Estado](#d-gestión-de-pagos-de-entidades-y-badges-de-estado)
-     - [Baja Histórica Inmutable](#e-baja-histórica-inmutable)
+     - [Intención de Pago en Amarillo bajo el Total](#e-intención-de-pago-en-amarillo-bajo-el-total)
+     - [Baja Histórica Inmutable](#f-baja-histórica-inmutable)
    - [3. Exportación Nativa a Excel Multianual (`.xlsx`)](#3-exportación-nativa-a-excel-multianual-xlsx)
    - [4. Estimativos y Proyecciones (`/estimativo`)](#4-estimativos-y-proyecciones-estimativo)
    - [5. Balance Anual Consolidado (`/anual`)](#5-balance-anual-consolidado-anual)
@@ -210,7 +211,12 @@ src/
   - 🔴 **`NO_PAGADO`** (rojo con cruz): Pendiente de pago para el mes.
 - Tooltip interactivo con fecha de pago, importe abonado y saldo restante.
 
-#### e. Baja Histórica Inmutable
+#### e. Intención de Pago en Amarillo bajo el Total
+- Para tarjetas mensuales (`Visa`, `Mastercard`, `Naranja`, `Bancor`, `Mercado Libre`), cuando el usuario definió una intención de pago parcial para meses futuros, se muestra justo debajo de la fila del `Total` una fila en tipografía ámbar/amarilla (`#facc15` / `#ffd54f`):
+  $$\text{Intención de pago: } \$X \quad (\text{Resta: } \$Y)$$
+- **Ocultamiento Automático al 100%**: Si la intención de pago cubre la totalidad del resumen (`montoRestante <= 0` o pago en estado `COMPLETO`), el indicador se oculta automáticamente evitando información redundante.
+
+#### f. Baja Histórica Inmutable
 - Al dar de baja una entidad o servicio mediante el botón 🗑️ en la cabecera de la tarjeta:
   - Se fija el fin de su vigencia en el mes anterior (`mes - 1`).
   - Se eliminan los ítems del mes actual y futuros.
@@ -228,6 +234,9 @@ src/
 ### 4. Estimativos y Proyecciones (`/estimativo`)
 - **Termómetro de Progreso de Días**: Barra dinámica adaptativa en gradiente HSL que mide el avance temporal del mes.
 - **Curva de Regresión Lineal**: Mide la tendencia del gasto real vs el estimado y la proyección de deuda acumulada.
+- **Eliminación Segura de Estimativos**: Botón interactivo de eliminación (ícono de cesto de basura) con modal de confirmación de doble paso (`ModalConfirmacionComponent`) para purgar ciclos erróneos sin dejar registros huérfanos, notificando vía SSE y actualizando el selector mensual.
+- **Herencia Contable Automática del Ciclo Anterior**: Al dar de alta un nuevo estimativo (ej. Enero 2027), el sistema localiza automáticamente el último ciclo base disponible (Diciembre 2026), heredando de forma independiente el remanente de saldo real (`remanenteSaldoAnterior`) y la deuda acumulada del cierre (`deudaSugerida`), tanto desde Google Sheets como de PostgreSQL.
+- **Simulación del Hito Inicial (Día 8)**: Computa automáticamente el saldo proyectado del primer vencimiento sumando sueldos y deduciendo resúmenes de tarjetas (descontando compensaciones e intenciones de pago), cuotas de préstamos y servicios fijos.
 
 ---
 
@@ -294,6 +303,8 @@ npx ng build --configuration production
 - [x] **Compresión de Logo**: Adjuntar una imagen de alta resolución (2-5 MB) en la nueva entidad y comprobar que se previsualice correctamente y su tamaño comprimido sea menor a 3 KB.
 - [x] **Retorno a Entidades**: En el formulario de nueva entidad, pulsar sobre otra tarjeta existente o sobre `← Volver a entidades` y verificar que el formulario se cierre y se seleccione la entidad elegida.
 - [x] **Baja Histórica Inmutable**: Dar de baja una entidad en un mes determinado y verificar que en los meses anteriores se mantenga intacta con todos sus consumos.
-- [x] **Badges de Pago**: Registrar un pago total o parcial en una tarjeta y comprobar el cambio de badge a verde o amarillo, y a rojo en meses futuros sin pago.
+- [x] **Badges de Pago e Intención de Pago en Amarillo**: Registrar un pago total o parcial en una tarjeta y comprobar el cambio de badge a verde o amarillo, y a rojo en meses futuros sin pago. Para meses futuros con intención de pago parcial, verificar que aparezca la fila amarilla ámbar debajo del Total con el desglose exacto, y que al abonar el 100% se oculte de inmediato.
+- [x] **Eliminación Segura de Estimativos**: Abrir un ciclo estimativo creado por error, presionar el botón de eliminar, confirmar en el modal de verificación y constatar que el ciclo se purga en base de datos y se actualiza el selector reactivo vía SSE.
+- [x] **Herencia Automática de Ciclo Base en Estimativos**: Dar de alta un estimativo para Enero 2027 y constatar que cargue automáticamente el saldo remanente y la deuda acumulada del cierre de Diciembre 2026, junto con el desglose preliminar de tarjetas, préstamos y servicios del día 8.
 - [x] **Exportación a Excel**: Descargar el libro Excel de cualquier año y abrirlo para verificar que contenga las 12 pestañas mensuales y la anual con estilos idénticos.
 - [x] **Modo Claro / Oscuro**: Alternar el tema y validar legibilidad de textos, contraste de badges y actualización de ejes en los gráficos.

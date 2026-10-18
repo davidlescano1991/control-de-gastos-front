@@ -247,7 +247,7 @@ export class AppConfigService {
     if (!anio) return false;
     const anioStr = String(anio);
     const info = this.config?.origenPorAnio?.[anioStr];
-    if (!info) return true;
+    if (!info) return false;
     return info.activo === true;
   }
 

@@ -78,6 +78,15 @@ export class ModalConfigEstimativo implements OnChanges {
   totalCompensaciones = 0;
   totalPrestamos = 0;
   totalServicios = 0;
+  mostrarTooltipItems = false;
+  tooltipFijado = false;
+  private tooltipTimeout: any = null;
+  itemsDetalle: Array<{
+    entidad: string;
+    concepto: string;
+    monto: number;
+    esCompensacion?: boolean;
+  }> = [];
   desgloseTarjetas: Array<{
     entidad: string;
     totalOriginal: number;
@@ -85,6 +94,46 @@ export class ModalConfigEstimativo implements OnChanges {
     compensacion: number;
     estado: string;
   }> = [];
+
+  onMouseEnterTooltip(): void {
+    if (this.tooltipTimeout) {
+      clearTimeout(this.tooltipTimeout);
+      this.tooltipTimeout = null;
+    }
+    this.mostrarTooltipItems = true;
+  }
+
+  onMouseLeaveTooltip(): void {
+    if (this.tooltipFijado) return;
+    this.tooltipTimeout = setTimeout(() => {
+      this.mostrarTooltipItems = false;
+      this.cdr.markForCheck();
+    }, 280);
+  }
+
+  toggleTooltipFijado(event?: MouseEvent): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    if (this.tooltipTimeout) {
+      clearTimeout(this.tooltipTimeout);
+      this.tooltipTimeout = null;
+    }
+    this.tooltipFijado = !this.tooltipFijado;
+    this.mostrarTooltipItems = this.tooltipFijado;
+  }
+
+  cerrarTooltip(event?: MouseEvent): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    if (this.tooltipTimeout) {
+      clearTimeout(this.tooltipTimeout);
+      this.tooltipTimeout = null;
+    }
+    this.tooltipFijado = false;
+    this.mostrarTooltipItems = false;
+  }
 
   async ngOnChanges(changes: SimpleChanges): Promise<void> {
     if (this.visible && (changes['visible'] || changes['year'] || changes['mesNumero'])) {
@@ -112,6 +161,15 @@ export class ModalConfigEstimativo implements OnChanges {
       this.remanenteAnterior = preview.remanenteSaldoAnterior || 0;
       this.deudaInicial = preview.deudaSugerida !== undefined ? preview.deudaSugerida : (preview.deudaMesAnterior || 0);
       this.itemsPresupuestadosCount = preview.itemsCount || 0;
+      this.itemsDetalle = preview.itemsDetalle || [];
+
+      // Parámetros diarios sugeridos traídos del mes anterior (ej. Diciembre 2026 para Enero 2027)
+      if (preview.gastoFijoDiarioSugerido !== undefined && preview.gastoFijoDiarioSugerido > 0) {
+        this.gastoFijoDiario = preview.gastoFijoDiarioSugerido;
+      }
+      if (preview.ingresoInteresDiarioSugerido !== undefined && preview.ingresoInteresDiarioSugerido > 0) {
+        this.ingresoInteresDiario = preview.ingresoInteresDiarioSugerido;
+      }
 
       // 2. Intentar cargar si ya existe configuración para este año y mes
       try {
@@ -127,9 +185,15 @@ export class ModalConfigEstimativo implements OnChanges {
           if (cfg.fechaFin) {
             this.fechaFin = this.convertirADateInput(cfg.fechaFin);
           }
-          this.gastoFijoDiario = cfg.gastoFijoDiario ?? 10500;
-          this.ingresoInteresDiario = cfg.ingresoInteresDiario ?? 600;
-          this.deudaInicial = cfg.deudaInicial ?? this.deudaInicial;
+          if (cfg.gastoFijoDiario !== undefined && cfg.gastoFijoDiario > 0) {
+            this.gastoFijoDiario = cfg.gastoFijoDiario;
+          }
+          if (cfg.ingresoInteresDiario !== undefined && cfg.ingresoInteresDiario > 0) {
+            this.ingresoInteresDiario = cfg.ingresoInteresDiario;
+          }
+          if (cfg.deudaInicial !== undefined && cfg.deudaInicial > 0) {
+            this.deudaInicial = cfg.deudaInicial;
+          }
           this.saldoInicialManual = cfg.saldoInicial;
           this.usarCalculoAutomatico = false;
         } else {
@@ -278,6 +342,7 @@ export class ModalConfigEstimativo implements OnChanges {
   }
 
   cerrarModal(): void {
+    this.cerrarTooltip();
     this.cerrar.emit();
   }
 }
