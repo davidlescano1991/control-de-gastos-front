@@ -19,6 +19,464 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-18 13:30] - Visualización de Parámetros Clave del Estimativo (Columnas I, J, L)
+- **Problema / Requerimiento**:
+  - En la vista de Estimativos (`/estimativo`), el usuario requería visualizar de forma clara y destacada los 3 parámetros financieros fundamentales de la fila 1 de la hoja de Google Sheets para cada mes seleccionado:
+    1. **Columna I (Gasto Diario Estimado)**: Gasto diario fijo presupuestado (ej: `$ 10.500,00`).
+    2. **Columna J (Interés Diario de Billeteras)**: Rendimiento diario estimado de las billeteras virtuales (ej: `$ 600,00`).
+    3. **Columna L (Gasto Estimado en el Mes)**: Sumatoria de los gastos día a día del ciclo a partir del primer día de estimación hasta el último día del mes (fuera de los pagos iniciales de cuotas/entidades) (ej: `$ 647.800,00`).
+  - **Ubicación y Estilo**: Debía colocarse inmediatamente debajo del gráfico de la derecha (`app-grafico-estimativo`) y mantener con exactitud el estilo de chips/KPI cards compactos de "Novedades de cuotas" de la vista mensual (contenedor blanco con esquinas redondeadas, sombra suave, icono temático redondeado, etiqueta en mayúsculas, importe en negrita y soporte completo de modo oscuro).
+- **Causa Raíz / Diagnóstico**:
+  - `MovimientosStoreGoogle.asegurarEstimativoAnioRange()` consultaba únicamente el rango `A1:F500` de las hojas de estimativos, ignorando las columnas superiores a F donde residen estos parámetros clave (`I1`, `J1`, `K1`, `L1`).
+  - `HomeEstimativo` no contaba con los signals ni el contenedor de visualización de estos parámetros debajo del gráfico derecho.
+- **Solución Técnica Aplicada**:
+  - **Store Google (`movimiento.google.ts`)**:
+    - Se amplió el rango de consulta batch a `A1:N500`, capturando la fila 0 de encabezados con las columnas I, J, K y L.
+    - Se definió la interfaz `EstimativoConfigData` (`gastoFijoDiario`, `ingresoInteresDiario`, `totalDias`, `gastoEstimadoMes`).
+    - Se implementó la persistencia y lectura reactiva en memoria y caché local (`estimativo-config`), y el método público `getEstimativoConfig(anio, hoja)`.
+  - **Componente Estimativos (`home.ts`, `home.html`, `home.scss`)**:
+    - Se incorporaron los signals reactivos `gastoDiarioEstimado`, `interesDiarioBilleteras`, `gastoEstimadoMes` y `parametrosCollapsed`.
+    - En `seleccionarMesMensual()`, se hidratan estos valores de inmediato desde la caché local (0ms), se actualizan tras la respuesta de Google Sheets, y se sincronizan también con la API de estimaciones (`estimatesService.getMonthly()`) para garantizar compatibilidad total tanto en modo Google Sheets como en modo Base de Datos.
+    - En `home.html`, se ubicó `<mat-card class="tabla-resumen-card parametros-estimativo-card">` justo debajo de `<app-grafico-estimativo>` en la columna derecha, con botón de colapso y 3 chips de alto impacto visual:
+      - `chip-gasto-diario`: Icono `trending_down`, estilo rojo pastel con tooltip explicativo.
+      - `chip-interes-diario`: Icono `savings`, estilo verde pastel con tooltip explicativo.
+      - `chip-gasto-mes`: Icono `receipt_long`, estilo coral pastel con tooltip explicativo.
+    - En `home.scss`, se replicó la estética premium de `novedades-chips-grid` respetando `AGENTS.md` (ancho 100%, contenedores con borde y sombras suaves, hover interactivo y adaptación a tema oscuro `:host-context(body.dark-mode)`).
+- **Archivos Afectados**:
+  - `control-de-gastos-front/src/app/stores/movimiento.google.ts`
+  - `control-de-gastos-front/src/app/pages/estimativos/home.ts`
+  - `control-de-gastos-front/src/app/pages/estimativos/home.html`
+  - `control-de-gastos-front/src/app/pages/estimativos/home.scss`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-18 10:55] - Tabla de Historial de Pagos Acumulados y Corrección de Cálculo en Modal de Pagos
+- **Problemas Detectados**:
+  1. **Confusión en el cálculo de saldos**: En Octubre 2026, tras abonar $650.000,00 sobre un total de $836.190,30, el saldo restante impago es de $186.190,30. Sin embargo, al abrir el modal de pago, este invertía los valores: precargaba $186.190,30 como monto a abonar y calculaba que el saldo restante impago era de $650.000,00 (lo que en realidad ya se había pagado).
+  2. **Ausencia de desglose multi-pago (abonos parciales acumulativos)**: No existía la posibilidad de visualizar un historial detallado de los pagos realizados (con su fecha individual, cuenta de débito y monto), ni de abonar en múltiples cuotas consecutivas (ej. abonar $650.000 y luego otros $100.000 mostrando un total acumulado pagado de $750.000 y un saldo restante impago de $86.190,30).
+- **Causas Raíz**:
+  1. En `modal-pagar-entidad.component.ts`, la inicialización asignaba el `montoRestante` previo a `montoParcial`, y la fórmula computaba `totalOriginal - montoParcial`, haciendo que el total abonado original apareciera erróneamente como la nueva deuda.
+  2. El modelo de datos de la API previamente solo persistía una única cabecera `EntityPayment`, sin una tabla hija para transacciones individuales de abonos con soporte para eliminación y auditoría.
+- **Solución Técnica Aplicada**:
+  - **Backend (API)**:
+    - Se creó la tabla `entity_payment_records` en PostgreSQL (`id`, `paymentId`, `year`, `mes`, `entidad`, `itemId`, `monto`, `fechaPago`, `cuentaOrigen`, `movimientoId`, `notas`).
+    - Se migró el esquema Prisma con el modelo `EntityPaymentRecord` y se migraron todos los pagos preexistentes a registros individuales.
+    - `EntityPaymentService.registerPayment` ahora acumula cada nuevo abono en `entity_payment_records`, genera su correspondiente movimiento bancario individual por el importe abonado, recalcula el saldo restante y sincroniza la compensación del mes siguiente.
+    - Se implementó el endpoint `DELETE /api/pagos-entidades/registro/:id` que elimina el registro individual, su movimiento contable y recalcula la deuda y compensaciones asociadas.
+  - **Frontend (Angular)**:
+    - Se incorporaron las interfaces `EntityPaymentRecord` y los métodos `deletePaymentRecord` en `entity-payment.service.ts`.
+    - Se rediseñó `ModalPagarEntidadComponent`:
+      - **Resumen Financiero en 3 KPI Cards**: Total Resumen, Total Abonado Acumulado y Saldo Restante por Pagar (o "Saldado 100%").
+      - **Tabla de Historial de Pagos Realizados**: Detalla cada abono previo con fecha, cuenta de débito, monto formateado y botón de eliminación con confirmación y spinner.
+      - **Formulario de Nuevo Abono Intuitivo**: Permite elegir entre cancelar el saldo restante al 100% o realizar un abono parcial personalizado, validado contra el saldo pendiente real.
+      - **Previsualización en Vivo**: Desglose claro de "Abonas hoy", "Nuevo total que quedará pagado" y "Saldo restante que se trasladará a compensaciones".
+      - **Modo Oscuro**: Estilos visuales adaptados a Dark Theme respetando la estética del proyecto.
+      - Evento `abonoEliminado` para refrescar los datos de la vista mensual en segundo plano sin cerrar el modal.
+      - Re-exportación de `EntidadAPagarInfo`, `EntityPayment` y `EntityPaymentRecord` en `modal-pagar-entidad.component.ts` garantizando retrocompatibilidad con todos los componentes hijos de lista de entidades (`visa`, `bancor`, `naranja`, `master-galicia`, `mercado-libre`, `otros`).
+      - **Diferenciación Conceptual**: En las tarjetas de entidades (`visa`, `master-galicia`, `bancor`, `naranja`, `mercado-libre`, `otros`) y en el modal, se ajustó la leyenda para mostrar **"Importe pagado:"** en el mes actual y meses pasados con pagos parciales, reservando **"Intención de pago:"** exclusivamente para meses futuros proyectados.
+      - **Corrección de Detección Reactiva de Intenciones de Pago vs Pagos Reales**:
+        - En los componentes de entidades (`master-galicia`, `visa`, `bancor`, `naranja`, `mercado-libre`, `otros`), `esIntencionPago()` ahora evalúa dinámicamente si el mes seleccionado es futuro y si el registro no posee un movimiento bancario real (`movimientoId == null`). Esto corrigió el fallo donde meses futuros (como Noviembre 2026) mostraban erróneamente "Importe pagado".
+        - En `ModalPagarEntidadComponent`, se corrigió la inicialización para que los meses futuros seleccionen por defecto el modo `'INTENCION'` (salvo que ya existiera un asiento real con `movimientoId`), adaptando las tarjetas a `Intención de Pago` y `Compensación Proyectada`, y los botones a `Guardar Intención de Pago`.
+      - **Soporte de Funciones Matemáticas en Montos**:
+        - Se creó el módulo utilitario compartido `src/app/utils/formula.util.ts` (`evaluarFormula`) con un parser aritmético seguro recursivo que soporta operaciones (`+`, `-`, `*`, `/`, `()`, coma y punto decimal) tanto con el prefijo `=` como directo (ej: `=100000+50000`, `650000/2`).
+        - Se integró en `ModalPagarEntidadComponent` con feedback en vivo: píldora verde `= $ ...`, indicador visual `fx`, detección de errores de sintaxis y cálculo reactivo en todos los resúmenes y botones.
+        - Se desacopló `evaluarFormulaLocal` en `mensual-items.service.ts` delegando en `formula.util.ts` para reutilización global en la aplicación.
+- **Archivos Afectados**:
+  - `control-de-gastos-front/src/app/services/entity-payment.service.ts`
+  - `control-de-gastos-front/src/app/pages/mensual/modal-pagar-entidad/modal-pagar-entidad.component.ts`
+  - `control-de-gastos-front/src/app/pages/mensual/modal-pagar-entidad/modal-pagar-entidad.component.html`
+  - `control-de-gastos-front/src/app/pages/mensual/modal-pagar-entidad/modal-pagar-entidad.component.scss`
+  - `control-de-gastos-front/src/app/pages/mensual/mensual.ts`
+  - `control-de-gastos-front/src/app/pages/mensual/mensual.html`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-18 10:20] - Sincronización Automática de Compensación en el Mes Siguiente y Propagación de Ítems Fijos/Recurrentes a Meses Futuros
+- **Problemas Detectados**:
+  1. Al registrar o actualizar una intención de pago parcial en un mes (ej. Marzo 2027 pagando $700.000 sobre un total de $1.117.932,07), el saldo impago restante ($417.932,07) no se sincronizaba automáticamente en el ítem `'Compensación'` del mes siguiente (Abril 2027), manteniendo un valor desactualizado (ej. $558.966,07).
+  2. Al crear o modificar ítems recurrentes o estándar que no son cuotas (ej. "Impuestos", "Spotify", etc.) en un mes determinado, los cambios quedaban aislados y no se propagaban a los meses posteriores del año ya configurados en la base de datos.
+- **Causas Raíz**:
+  1. En `entity-payment.service.ts`, `registerPayment` guardaba el pago en la tabla `entityPayment` pero no tenía lógica para verificar ni actualizar el registro de Compensación del mes inmediatamente posterior (`mes + 1`).
+  2. En `monthly-item.service.ts`, `createItem` y `updateItem` solo propagaban cuotas secuenciales (`grupoCuotaId`), pero no sincronizaban ítems fijos/servicios hacia los meses futuros del mismo año ni recalculaban el total devengado y saldo impago ante cambios en los ítems.
+- **Solución Técnica Aplicada**:
+  - **Sincronización de Compensación (`entity-payment.service.ts`)**:
+    - Se implementó `syncCompensacionMesSiguiente(year, mes, entidad, montoRestante)`: si el mes siguiente (`nextMes`, `nextYear`) ya cuenta con ítems para esa entidad en BD, actualiza el ítem de Compensación existente o lo crea si no existía. Si el pago es completo (`montoRestante === 0`), elimina la compensación para no dejar deudas residuales.
+    - Se emiten eventos SSE en tiempo real (`MENSUAL_ITEM_UPDATED` y `MONTHLY_UPDATED`) para que el Frontend actualice instantáneamente.
+  - **Propagación de Ítems No-Cuotas (`monthly-item.service.ts`)**:
+    - En `createItem`: si se crea un ítem que no es cuota ni compensación, se propaga automáticamente a todos los meses futuros del mismo año (`mes > targetMes`) que ya tengan registros de la entidad.
+    - En `updateItem`: si se edita un ítem no-cuota, se actualiza el monto, fórmula, concepto y notas en todos los meses futuros del mismo año que contengan ese concepto.
+    - Se agregó `recalcularPagoYCompensacion(year, mes, entidad)` para que cualquier creación, edición o eliminación de ítems mantenga automáticamente consistentes los subtotales, saldo restante del pago y la compensación del mes posterior.
+  - **Utilidad Compartida (`entidad.util.ts`)**:
+    - Se extrajeron `getEntidadAliases`, `MESES_NOMBRES` y `esItemCompensacionOSaldoAnterior` a `src/utils/entidad.util.ts` garantizando desacoplamiento y cero dependencias circulares.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/utils/entidad.util.ts`
+  - `control-de-gastos-api/src/services/entity-payment.service.ts`
+  - `control-de-gastos-api/src/services/monthly-item.service.ts`
+
+### [2026-10-18 09:55] - Rediseño Compacto y Tipo Chips para Novedades de Cuotas en Resumen Gráfico
+- **Problemas Detectados**:
+  1. El componente `app-novedades-cuotas` mostraba los valores de "Total nuevas cuotas", "Total últimas cuotas" y "Compensaciones" en líneas de texto `<p>` apiladas verticalmente con espaciado amplio y colores básicos sin formato de badge.
+  2. Esto ocupaba excesivo espacio vertical en la columna derecha de la vista mensual, desplazando hacia abajo y reduciendo la visibilidad directa del gráfico principal `Total mensual $` sin hacer scroll.
+- **Causas Raíz**:
+  1. Estructura basada en etiquetas `<p>` con márgenes altos por defecto dentro del cuerpo de la tarjeta y sin un contenedor de métricas horizontal/grid.
+  2. `actualizacion-cuotas.scss` contaba con un padding y margen altos y no implementaba micro-KPIs ni estilos diferenciados para modo claro y modo oscuro.
+- **Solución Técnica Aplicada**:
+  - **Estructura HTML (`actualizacion-cuotas.html`)**:
+    - Se reemplazaron los párrafos `<p>` apilados por una grilla responsiva `.novedades-chips-grid` con 3 chips ejecutivos (`.novedad-chip`): `chip-nuevas`, `chip-ultimas` y `chip-compensaciones`.
+    - Cada chip incluye un contenedor de icono temático (`mat-icon`), etiqueta descriptiva en miniatura en mayúsculas (`.chip-label`), valor monetario destacado con alineación tabular (`.chip-val`) y tooltip explicativo contextual.
+  - **Estilos SCSS (`actualizacion-cuotas.scss`)**:
+    - Reducción drástica del espacio vertical (~50% menos altura, optimizando márgenes y padding a 10px 14px 12px y min-height de cabecera a 38px).
+    - Diseño visual de chips tipo dashboard moderno con bordes suaves, fondo traslúcido tintado según tipo (rojo/coral para nuevas cuotas, esmeralda/verde para últimas cuotas, dinámico para compensaciones) y micro-animación hover.
+    - Soporte completo y armónico para Modo Oscuro (`body.dark-mode`) con fondos oscuros translúcidos, contrastes accesibles y bordes integrados.
+    - Reducción del tamaño del estado vacío (`.sin-datos-msg`) a una sola línea compacta de 38px.
+  - **Componente TS (`actualizacion-cuotas.ts`)**:
+    - Se incorporó `MatIcon` a los `imports` del componente standalone.
+- **Archivos Afectados**:
+  - `control-de-gastos-front/src/app/pages/mensual/actualizacion-cuotas/actualizacion-cuotas.html`
+  - `control-de-gastos-front/src/app/pages/mensual/actualizacion-cuotas/actualizacion-cuotas.scss`
+  - `control-de-gastos-front/src/app/pages/mensual/actualizacion-cuotas/actualizacion-cuotas.ts`
+
+### [2026-10-18 09:40] - Incorporación Automática de la Compensación / Saldo Impago del Mes Anterior en la Precarga de Entidades
+- **Problemas Detectados**:
+  1. Al abrir el modal de carga para una entidad en un nuevo mes (ej. Abril 2027 tras haber cargado Marzo 2027), la lista de ítems sugeridos precargaba suscripciones y cuotas pero omitía por completo la **Compensación** (el saldo impago resultante de: `Total de la entidad - Monto pagado / Intención de pago`).
+  2. Si en meses anteriores ya existía un ítem histórico denominado "Compensación" o "Saldo Anterior", se corría el riesgo de duplicarlo o arrastrarlo como suscripción fija recurrente.
+- **Causas Raíz**:
+  1. En `monthly-item.service.ts` del Backend, `getPreviewMesAnterior` y `precargarMesAnterior` solo filtraban cuotas finalizadas o incrementaban cuotas vigentes y replicaban ítems fijos, sin consultar la tabla `entityPayment` del mes origen para contrastar el total devengado con el pago efectuado.
+  2. No se excluían ítems con conceptos de saldo anterior previo al replicar la lista base, arriesgando arrastrar saldos desactualizados.
+- **Solución Técnica Aplicada**:
+  - **Backend (`monthly-item.service.ts`)**:
+    - Se incorporó la función de sanitización `esItemCompensacionOSaldoAnterior(concepto)` para omitir saldos anteriores previos al copiar ítems hacia el nuevo mes.
+    - En `getPreviewMesAnterior`: se consulta `entityPayment` del mes anterior para la entidad solicitada. Si existe un pago no completo (`estado !== 'COMPLETO'`), se calcula el saldo impago exacto `montoRestante = totalMesAnterior - montoPagado` y se inyecta dinámicamente un ítem con concepto `'Compensación'` con el valor restante (ej. `$ 558.966,07` en Master Card Galicia Abril 2027) y notas explicativas (`Compensación / saldo impago de Marzo 2027`).
+    - En `precargarMesAnterior`: se aplicó la misma regla para todas las entidades con saldo impago al realizar precarga por lote.
+  - **Frontend (`modal-cargar-item.html` y `modal-cargar-item.scss`)**:
+    - Se añadió un distintivo visual `.badge-compensacion-mini` en tono ámbar ("Saldo impago anterior") en las filas de la lista de ítems sugeridos para identificar claramente el origen de la compensación.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/monthly-item.service.ts`
+  - `control-de-gastos-front/src/app/pages/mensual/modal-cargar-item/modal-cargar-item.html`
+  - `control-de-gastos-front/src/app/pages/mensual/modal-cargar-item/modal-cargar-item.scss`
+
+### [2026-10-18 00:50] - Sincronización Automática y Reactiva en el Gráfico Histórico de Gastos Mensuales
+- **Problemas Detectados**:
+  1. Al agregar un ítem nuevo, editarlo, registrar una entidad o avanzar a un período nuevo (ej. Febrero 2027), el **Gráfico de Gastos Históricos** en la pantalla Mensual (`/mensual`) no se actualizaba automáticamente ni reflejaba los nuevos montos/meses en tiempo real.
+  2. En años futuros en base de datos (ej. 2027), el gráfico generaba puntos planos en `$0` para todos los meses restantes del año que aún no contaban con ítems o configuración.
+- **Causas Raíz**:
+  1. En `grafico-historico-mensual.ts`, el componente carecía de `@ViewChild(BaseChartDirective)` y de llamadas explícitas a `this.chart?.update()` y `this.cdr.detectChanges()`. Con la detección de cambios zoneless de Angular 18, reasignar `chartData` en el setter no provocaba el repintado del canvas de Chart.js.
+  2. En `mensual.ts`, `cargarTotalesTotales()` no se ejecutaba dinámicamente al seleccionar o cambiar de mes, y solo se cargaba una única vez en `ngOnInit`.
+  3. `cargarTotalesTotales()` recorría ciegamente los 12 meses del año sin filtrar meses futuros vacíos en años posteriores al actual, agregando ceros a meses inexistentes.
+  4. Los pagos confirmados en `app-modal-pagar-entidad` no disparaban la recarga del histórico de totales en la vista mensual, y las notificaciones SSE de eventos no forzaban la recarga en segundo plano.
+- **Solución Técnica Aplicada**:
+  - **Frontend (`grafico-historico-mensual.ts`)**:
+    - Se agregó `@ViewChild(BaseChartDirective) chart?: BaseChartDirective;`, implementando `AfterViewInit`.
+    - Se incorporaron llamadas a `this.chart?.update()` y `this.cdr.detectChanges()` tanto en el setter `@Input() set resultados` como en `ngAfterViewInit()`.
+  - **Frontend (`mensual.ts` y `mensual.html`)**:
+    - Se creó el método `actualizarMesEnResultados(anio, mesNombre, total)` que inserta o actualiza el mes actual en la señal `resultados` y reordena cronológicamente en tiempo real.
+    - Se conectó `actualizarMesEnResultados` dentro de `cargarEntidadesDesdeBD` y `cargarEntidadesDesdeSheets` para que cada cambio de mes mantenga el histórico actualizado de inmediato.
+    - En `cargarTotalesTotales()`: se sincroniza dinámicamente el listado de años (`anios`) asegurando que contenga todos los años de configuración de la app, y en años futuros (ej. 2027) solo se incorporan los meses que poseen datos o hasta el último mes con registros, evitando caídas artificiales a cero en meses por venir.
+    - Se agregó el manejador `onPagoConfirmado()` vinculado a `app-modal-pagar-entidad`, refrescando mes e histórico.
+    - Se robusteció el canal SSE para escuchar `DATA_UPDATED` y `MONTHLY_UPDATED` ejecutando `cargarTotalesTotales(false, true)` en segundo plano.
+- **Archivos Afectados**:
+  - `control-de-gastos-front/src/app/pages/mensual/graficos-entidades/grafico-historico/grafico-historico-mensual.ts`
+  - `control-de-gastos-front/src/app/pages/mensual/mensual.ts`
+  - `control-de-gastos-front/src/app/pages/mensual/mensual.html`
+
+### [2026-10-18 00:25] - Sincronización Automática de Nuevos Meses y Actualizaciones en el Gráfico Histórico de Estimativos
+- **Problemas Detectados**:
+  1. Al configurar un estimativo nuevo (ej. Febrero 2027), la tabla mensual cargaba los datos correctamente, pero el **Gráfico Histórico Estimativo** no incorporaba el nuevo período automáticamente, quedándose sin reflejar las fechas del nuevo ciclo.
+- **Causas Raíz**:
+  1. En `home.ts`, `onEstimativoConfigurado()` solo ejecutaba `seleccionarMesMensual(mes, true)`. Para años en Base de Datos (ej. 2027, 2022), este método retornaba tempranamente sin propagar los datos a la señal `datosHistoricosEstimativos`.
+  2. El algoritmo de sincronización existente dentro de `seleccionarMesMensual` realizaba un `.map()` exclusivo sobre las fechas preexistentes del histórico, ignorando completamente los días de meses nuevos que no formaban parte de la carga inicial.
+  3. No se ejecutaba `cargaInicial(false, true)` tras guardar el nuevo ciclo en el modal ni ante eventos de actualización vía Server-Sent Events (SSE).
+- **Solución Técnica Aplicada**:
+  - **Frontend (`home.ts`)**:
+    - Se implementó el método `actualizarFilasEnHistorico`: mapea y actualiza fechas ya existentes, e incorpora automáticamente cualquier día de períodos nuevos (ej. Febrero 2027), reordenando cronológicamente el array completo en tiempo real.
+    - Se conectó `actualizarFilasEnHistorico` tanto para el flujo de Base de Datos como para Google Sheets en `seleccionarMesMensual`.
+    - Se actualizaron `onEstimativoConfigurado()`, `onDiaGuardado()` y la suscripción SSE (`DATA_UPDATED` / `ESTIMATE_UPDATED`) para ejecutar `this.cargaInicial(false, true)` en segundo plano.
+  - **Frontend (`grafico-historico.ts`)**:
+    - Se vinculó `@ViewChild(BaseChartDirective)` y se invoca `this.chart?.update()` ante cada emisión de nuevos datos históricos, garantizando el re-renderizado instantáneo de la curva del gráfico.
+- **Archivos Afectados**:
+  - `control-de-gastos-front/src/app/pages/estimativos/home.ts`
+  - `control-de-gastos-front/src/app/pages/estimativos/grafico-historico/grafico-historico.ts`
+
+### [2026-10-18 00:10] - Precarga de Parámetros del Mes Anterior (Gasto e Interés Diario) y Deducción de Préstamos en Deuda Inicial en Estimativos
+- **Problemas Detectados**:
+  1. Al configurar el ciclo estimativo para un mes nuevo como Enero 2027, los campos `Gasto Fijo Diario (I1)` e `Interés Diario a Favor (J1)` se inicializaban en `0` en vez de heredar automáticamente los valores del mes anterior (Diciembre 2026: 11.500 y 500).
+  2. La `Deuda Inicial Proyectada ($)` sugería `743.800,86` (la deuda íntegra de Diciembre) sin restarle las amortizaciones/cuotas de préstamos a pagar en el mes corriente (`$216.681,27`), discrepando con la fórmula de Excel donde `Deuda = Deuda_Mes_Anterior - Préstamos_Del_Mes = $527.119,59`.
+  3. En la fórmula contable de saldo inicial (Día 1), cuando el componente "Otros" incluía compensaciones netas negativas, la fila de desglose de Otros no se mostraba.
+- **Causas Raíz**:
+  1. En `sheets.service.ts`, la consulta a Google Sheets API solo traía el rango `A1:F500`, omitiendo las columnas I (I1: gasto fijo diario), J (J1: interés diario) y L (L1: presupuesto total), asignando `0` en el objeto de configuración. Además, `getPreviewExpenses` en `estimate.service.ts` no extraía ni exponía estos parámetros sugeridos.
+  2. En `estimate.service.ts`, `deudaSugerida` solo calculaba `deudaMesAnterior + totalCompensacionesTarjetas`, omitiendo la deducción de `totalPrestamosMes`.
+  3. En `modal-config-estimativo.html`, el desglose de Servicios / Otros tenía `*ngIf="totalServicios > 0"`, ocultándose en caso de saldos de ajuste negativos.
+- **Solución Técnica Aplicada**:
+  - **Backend (`sheets.service.ts`)**: Se amplió el rango de consulta de Google Sheets a `A1:L500`, extrayendo dinámicamente las celdas I1 (gasto fijo diario), J1 (interés diario a favor) y L1 (presupuesto total).
+  - **Backend (`estimate.service.ts`)**: Se corrigió el cálculo de `deudaSugerida` aplicando la fórmula exacta de Excel: `deudaMesAnterior - totalPrestamosMes + totalCompensacionesTarjetas`, arrojando con exactitud matemática `$527.119,59` para Enero 2027. Se exponen también `gastoFijoDiarioSugerido` e `ingresoInteresDiarioSugerido` en la respuesta de preview.
+  - **Frontend (`estimates.service.ts` y `modal-config-estimativo.ts`)**: Se integraron los nuevos campos sugeridos en la interfaz TypeScript y se inicializan automáticamente en el formulario si no existe configuración previa o si sus valores previos eran 0.
+  - **Frontend (`modal-config-estimativo.html`)**: Se añadió el desglose de ajustes de Otros (`*ngIf="totalServicios < 0"`) en el resumen contable del Día 1.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/sheets.service.ts`
+  - `control-de-gastos-api/src/services/estimate.service.ts`
+  - `control-de-gastos-front/src/app/services/estimates.service.ts`
+  - `control-de-gastos-front/src/app/pages/estimativos/modal-config-estimativo/modal-config-estimativo.ts`
+  - `control-de-gastos-front/src/app/pages/estimativos/modal-config-estimativo/modal-config-estimativo.html`
+
+### [2026-10-17 23:45] - Adelanto de Pagos Reales en Meses Futuros, Impacto en Movimientos y Deuda en Estimativos, y Ocultamiento de Botón de Pago en Entidades Abonadas al 100%
+- **Problemas Detectados**:
+  1. En los meses futuros (ej. Noviembre 2026, Enero 2027), el modal de pago obligaba a registrar exclusivamente una "Intención de Pago" (proyección para compensaciones), sin dar la posibilidad de realizar un pago real adelantado efectivo.
+  2. Al adelantar un pago real, se requería registrar el egreso contable en la tabla de `Movimientos` (`GASTO`), descontar el saldo bancario de la cuenta de origen y reducir la deuda real en la vista de `Estimativos` a partir del día exacto en que se abonó (`fechaPago`).
+  3. En meses pasados o en el mes actual, cuando una entidad o ítem ya había sido pagado en su totalidad (`estadoPago() === 'COMPLETO'`), el sistema continuaba mostrando el botón de pago `[$]` en las tarjetas y permitía abrir el modal para agregar pagos redundantes/duplicados.
+- **Causas Raíz**:
+  1. El modal `ModalPagarEntidadComponent` asociaba automáticamente `esMesFuturo()` con modo exclusivo de proyección presupuestaria, sin selector para elegir pago adelantado real.
+  2. En el backend (`entity-payment.service.ts`), la fecha de pago sufría desfase por conversión UTC a medianoche (`new Date("YYYY-MM-DD")` retrocedía a las 21:00 hs del día anterior en GMT-3). Además, no existía actualización sobre los registros de `DailyEstimate` para reducir la columna `deudaReal` a partir del día del pago.
+  3. En las plantillas de las entidades (`visa.html`, `master-galicia.html`, `naranja.html`, `bancor.html`, `mercado-libre.html` y `otros.html`), los botones `.btn-pagar-entidad` y `.btn-pagar-fila` se renderizaban incondicionalmente sin verificar si el estado ya era `'COMPLETO'`.
+- **Solución Técnica Aplicada**:
+  - **Backend (`entity-payment.service.ts`)**:
+    - Se corrigió el parsing de fecha (`new Date(yearPago, mesPago - 1, diaPago, 12, 0, 0)`) evitando saltos de fecha por huso horario.
+    - Se integró la actualización sincronizada de `DailyEstimate`: para todas las filas con `dia >= diaPago`, se descuenta el monto amortizado de `deudaReal` y se actualiza `diferenciaDeuda`, notificando en tiempo real a los clientes vía Server-Sent Events (`ESTIMATE_UPDATED`).
+    - Se mantiene el registro del egreso en `Movement` y el impacto en saldo real según la cuenta seleccionada.
+  - **Frontend Modal (`modal-pagar-entidad.component.ts`, `.html`, `.scss`)**:
+    - Se incorporó selector en meses futuros para alternar entre `Adelantar Pago (Pago Real)` e `Intención de Pago`.
+    - Si la entidad o ítem ya está 100% pagado, el modal exhibe el banner informativo `.banner-ya-pagado` con los detalles del pago realizado (monto, fecha y cuenta de origen) y solo deja activo el botón "Cerrar", previniendo cualquier duplicación.
+  - **Frontend Tarjetas (`visa.html`, `master-galicia.html`, `naranja.html`, `bancor.html`, `mercado-libre.html`, `otros.html`)**:
+    - Se añadió `*ngIf="estadoPago() !== 'COMPLETO'"` en los botones de cabecera de las tarjetas y `*ngIf="getEstadoPagoFila(fila) !== 'COMPLETO'"` en las filas de Otros. Una vez abonada la totalidad, el botón `[$]` desaparece y se exhibe únicamente el badge verde de pago completado con su ícono de confirmación.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/entity-payment.service.ts`
+  - `control-de-gastos-front/src/app/pages/mensual/modal-pagar-entidad/modal-pagar-entidad.component.ts`
+  - `control-de-gastos-front/src/app/pages/mensual/modal-pagar-entidad/modal-pagar-entidad.component.html`
+  - `control-de-gastos-front/src/app/pages/mensual/modal-pagar-entidad/modal-pagar-entidad.component.scss`
+  - `control-de-gastos-front/src/app/pages/mensual/lista-entidades/visa/visa.html`
+  - `control-de-gastos-front/src/app/pages/mensual/lista-entidades/master-galicia/master-galicia.html`
+  - `control-de-gastos-front/src/app/pages/mensual/lista-entidades/naranja/naranja.html`
+  - `control-de-gastos-front/src/app/pages/mensual/lista-entidades/bancor/bancor.html`
+  - `control-de-gastos-front/src/app/pages/mensual/lista-entidades/mercado-libre/mercado-libre.html`
+  - `control-de-gastos-front/src/app/pages/mensual/lista-entidades/otros/otros.html`
+
+### [2026-10-17 22:30] - Resumen por Entidad para Naranja X, Corrección de Baja de Entidad "Otros" y Eliminación Directa por Ítem
+- **Problemas Detectados**:
+  1. En la tabla "Resumen por Entidad" de la vista mensual (`/mensual`), no aparecía la entidad **Naranja X** a pesar de tener gastos registrados en Enero 2027.
+  2. Al presionar el botón de eliminar entidad en la cabecera de la tarjeta **"Otros"**, la baja no se ejecutaba y arrojaba error.
+  3. No existía la posibilidad de eliminar ítems de forma directa fila por fila desde las tarjetas de gastos, obligando al usuario a abrir el modal de edición para encontrar la opción de borrado.
+- **Causas Raíz**:
+  1. En `resumen.ts`, el diccionario `entidadMap` solo contenía `'naranja': 'naranja'`. Al guardarse los registros en BD como `'Naranja X'`, `it.entidad.toLowerCase()` evaluaba `'naranja x'`, quedando excluida tanto de la lista de entidades presentes como del cálculo de totales.
+  2. En el backend (`financial-entity.service.ts`), el método `deleteEntity` ejecutaba `prisma.financialEntity.findUnique({ where: { id } })`. Al enviar el nombre `"Otros"` en vez de su UUID (`ba523fcb-1f90-44ec-b43d-92ee71bf5229`), Prisma devolvía `null` y arrojaba error `"Entidad financiera no encontrada"`.
+  3. Las filas de las tablas de movimientos solo disponían de los botones `$` (pagar), `(X)` (badge de estado no pagado) y `✏️` (editar), sin un botón dedicado de eliminación por registro.
+- **Solución Técnica Aplicada**:
+  - **Frontend (`resumen.ts`)**:
+    - Se incorporaron las variantes `'naranja x': 'naranja'`, `'visa': 'visa'`, `'master card': 'mastercard'`, `'mercado pago': 'ml'` y `'mercadopago': 'ml'` al mapa de entidades.
+    - Se añadió deduplicación en la generación de `listaEntidades` para evitar registros duplicados.
+  - **Backend (`financial-entity.service.ts`)**:
+    - Se modificó `deleteEntity` para buscar la entidad por `id` (UUID) o alternativamente por `nombre` de forma insensible a mayúsculas/minúsculas (`findFirst({ where: { OR: [{ id }, { nombre: { equals: id, mode: 'insensitive' } }] } })`).
+    - Al purgar ítems mensuales posteriores, se incluyeron todos los alias conocidos de la entidad (`Naranja`, `Naranja X`, `Visa`, `Visa Galicia`, etc.) para asegurar una baja completa y limpia.
+  - **Eliminación Directa por Ítem**:
+    - Se incorporó el botón `btn-accion-eliminar` con ícono de tacho de basura (`🗑️`) en cada fila de las 6 entidades (`otros`, `visa`, `master-galicia`, `naranja`, `bancor`, `mercado-libre`).
+    - Al hacer clic, emite el evento `(eliminarFila)` que invoca `abrirModalEliminarItem()` en `mensual.ts`.
+    - `ModalCargarItemComponent` recibe `[modoEliminarDirecto]="true"`, abriendo directamente la pantalla de confirmación contextual (permitiendo elegir entre eliminar sólo esta cuota o serie completa si es cuota; o eliminar sólo en este mes o de aquí en adelante si es gasto/servicio).
+- **Archivos Afectados**:
+  - `control-de-gastos-front/src/app/pages/mensual/resumen/resumen.ts`
+  - `control-de-gastos-front/src/app/pages/mensual/mensual.ts` y `mensual.html`
+  - `control-de-gastos-front/src/app/pages/mensual/modal-cargar-item/modal-cargar-item.ts`
+  - `control-de-gastos-front/src/app/pages/mensual/lista-entidades/otros/otros.html`, `.ts`, `.scss`
+  - `control-de-gastos-front/src/app/pages/mensual/lista-entidades/visa/visa.html`, `.ts`, `.scss`
+  - `control-de-gastos-front/src/app/pages/mensual/lista-entidades/master-galicia/master-galicia.html`, `.ts`, `.scss`
+  - `control-de-gastos-front/src/app/pages/mensual/lista-entidades/naranja/naranja.html`, `.ts`, `.scss`
+  - `control-de-gastos-front/src/app/pages/mensual/lista-entidades/bancor/bancor.html`, `.ts`, `.scss`
+  - `control-de-gastos-front/src/app/pages/mensual/lista-entidades/mercado-libre/mercado-libre.html`, `.ts`, `.scss`
+  - `control-de-gastos-api/src/services/financial-entity.service.ts`
+
+
+
+### [2026-10-17 21:50] - Sanitización de Fórmulas con Referencias de Hojas (Excel) y Restauración de Botón de Baja en Master Card Galicia
+- **Problemas Detectados**:
+  1. Al guardar los ítems precargados de Master Card Galicia para Enero 2027, el sistema arrojaba el error: `"La fórmula contiene caracteres no permitidos. Solo se admiten números y operadores (+, -, *, /)"`, dejando guardados solo los 3 primeros ítems y fallando en el 4to ("Impuestos").
+  2. En la tarjeta de Master Card Galicia no figuraba el botón para dar de baja la entidad (`btn-baja-entidad-header`).
+- **Causa Raíz**:
+  - El ítem "Impuestos" de Diciembre 2026 poseía una fórmula heredada de Sheets/Excel con referencias de celda: `=Noviembre!B40-Noviembre!B41`.
+  - El backend y el frontend rechazaban esta fórmula por no ser una expresión puramente aritmética (`+`, `-`, `*`, `/`).
+  - En `master-galicia.html`, el botón `btn-baja-entidad-header` estaba omitido en el encabezado a diferencia de las demás tarjetas.
+- **Solución Técnica Aplicada**:
+  - **Backend (`monthly-item.service.ts`)**:
+    - En `getPreviewMesAnterior()`, se verifica con `evaluarFormula()` si la fórmula histórica es válida. Si contiene referencias no evaluables, se asigna automáticamente como valor el monto numérico limpio (`montoCalculado`), asegurando que pueda guardarse sin errores.
+  - **Frontend (`modal-cargar-item.ts`)**:
+    - Se agregó una capa de sanitización preventiva en `consultarPrecargaEntidad()`: si alguna fórmula comienza con `=` pero no supera la evaluación aritmética cliente, se reemplaza por su monto numérico resuelto.
+  - **Frontend (`master-galicia.html`)**:
+    - Se agregó el botón `btn-baja-entidad-header` con llamada a `solicitarBajaEntidad($event)` en la cabecera de la tarjeta para permitir la baja/eliminación contextual igual que en Visa, Naranja, Bancor, etc.
+  - **Limpieza de Base de Datos**:
+    - Se eliminaron los 3 registros incompletos que habían quedado guardados en 2027-1 para Master Card Galicia, permitiendo que la entidad vuelva a figurar vacía y lista para precargar sus 4 ítems íntegros.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/monthly-item.service.ts`
+  - `control-de-gastos-front/src/app/pages/mensual/modal-cargar-item/modal-cargar-item.ts`
+  - `control-de-gastos-front/src/app/pages/mensual/lista-entidades/master-galicia/master-galicia.html`
+
+
+### [2026-10-17 21:35] - Corrección de Homologación de Alias de Entidades ("Naranja" vs "Naranja X") en Precarga y Vista Mensual
+- **Problema Reportado**:
+  - Al abrir el modal de carga para Enero 2027 y seleccionar "Naranja X", no aparecía precargada la lista de ítems vigentes de Diciembre 2026, mientras que en las otras entidades funcionaba correctamente.
+- **Causa Raíz**:
+  - En la base de datos PostgreSQL (`MonthlyItem`), los registros históricos de 2026 se encontraban migrados con el nombre literal `"Naranja"`, mientras que la entidad activa en `FinancialEntity` y el chip del modal enviaba el nombre `"Naranja X"`.
+  - La consulta en `monthly-item.service.ts` realizaba un match exacto por string (`where: { entidad }`), dando 0 resultados para `"Naranja X"`.
+  - Asimismo, en `mensual.ts`, el mapa de `porEntidad` consultaba de forma rígida únicamente `res.porEntidad['Naranja']`.
+- **Solución Técnica Aplicada**:
+  - **Backend (`monthly-item.service.ts`)**:
+    - Se implementó la función helper `getEntidadAliases(entidad)` que mapea variaciones históricas comunes:
+      - `Naranja`: `['Naranja X', 'Naranja']`
+      - `Visa`: `['Visa Galicia', 'Visa']`
+      - `Master`: `['Master Card Galicia', 'Master Card', 'Mastercard', 'Master']`
+      - `Mercado Libre`: `['Mercado Libre', 'Mercado Libre / Pago', 'MercadoPago', 'Mercado Pago']`
+    - En `getPreviewMesAnterior()`, tanto la verificación del mes actual (`count`) como la búsqueda del mes anterior (`findMany`) ahora consultan `entidad: { in: aliases }`.
+  - **Frontend (`mensual.ts`)**:
+    - En `cargarEntidadesDesdeBD()`, se actualizaron los asignadores de `datos` para consultar alternativamente ambos alias (`res.porEntidad['Naranja X']?.items || res.porEntidad['Naranja']?.items`).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/monthly-item.service.ts`
+  - `control-de-gastos-front/src/app/pages/mensual/mensual.ts`
+
+
+### [2026-10-17 21:15] - Precarga Contextual de Ítems del Mes Anterior dentro del Modal de Carga por Entidad
+- **Aclaración del Requerimiento por el Usuario**:
+  1. No agregar botones adicionales en la barra de cabecera mensual (se removió el botón `[Copiar Mes Anterior]`).
+  2. No usar diálogos nativos del navegador (`alert()` / `confirm()`).
+  3. La sugerencia/precarga de ítems vigentes del mes anterior debe ocurrir **dentro del modal de carga de ítems** (`modal-cargar-item`).
+  4. La precarga se aplica **únicamente para la entidad seleccionada** y **solo si dicha entidad NO tiene ítems cargados en ese mes** (como Enero 2027 que está completamente vacío).
+  5. Si la entidad ya cuenta con ítems cargados en ese mes, el modal permanece limpio como siempre para cargar normalmente.
+- **Implementación Técnica**:
+  - **Frontend (`modal-cargar-item.ts`, `modal-cargar-item.html`, `modal-cargar-item.scss`)**:
+    - Se transformó `@Input() visible` en getter/setter para disparar la verificación contextual al abrir el modal.
+    - Se agregó el método `consultarPrecargaEntidad()`: llama al servicio `getPreviewAnterior(year, mes, entidad)`.
+    - Si `!res.tieneItemsActuales && res.items.length > 0`: llena `itemsBorrador()` con los ítems sugeridos (cuotas vigentes avanzadas, cuotas finalizadas descartadas e impuestos/gastos recurrentes).
+    - Si `res.tieneItemsActuales`: deja `itemsBorrador()` vacío (`[]`) manteniendo el modal limpio.
+    - Al cambiar de entidad (`seleccionarEntidad`), cambiar de mes (`setMes`) o año (`setAnio`), se limpia el borrador y se reconsulta de forma inmediata la entidad correspondiente.
+    - En el template, se agregó un indicador de carga discreto (`precarga-loading-row`) y un banner violeta (`precarga-info-banner`) en el panel de borrador explicando los ítems precargados, con subtotal calculado, posibilidad de eliminar/ajustar cualquier ítem y botón de guardado en lote `Guardar N Ítems`.
+  - **Frontend (`mensual.ts`)**:
+    - Se eliminó completamente la función `precargarDesdeMesAnterior` y sus llamadas a `confirm()` / `alert()`.
+  - **Archivos Afectados**:
+    - `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.ts`
+    - `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.html`
+    - `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.scss`
+    - `src/app/services/mensual-items.service.ts`
+    - `src/app/pages/mensual/mensual.ts`
+
+### [2026-10-17 20:55] - Precarga Inteligente de Mes/Año Nuevo (2027) sin Cuotas Finalizadas y Carga Masiva en Lote para Entidades Existentes
+- **Motivo / Requerimiento**:
+  1. Al navegar o cargar un año nuevo (como 2027) en la vista mensual, todas las entidades figuraban vacías con advertencia de fallback de Google Sheets (`Cuentas claras_2027 (Fallback: API no disponible)`).
+  2. El usuario requirió que al abrir un año nuevo o mes sin datos, se precarguen automáticamente los ítems del mes anterior (en este caso Diciembre 2026), **excluyendo estrictamente las cuotas que hayan finalizado en dicho mes anterior** (ej: cuotas 3/3, 6/6, 4/4), mientras que las cuotas vigentes deben avanzar a su cuota consecutiva (`cuotaActual + 1`) y los gastos recurrentes (servicios, suscripciones, impuestos) deben conservarse.
+  3. En el modal de carga mensual (`ModalCargarItemComponent`), permitir cargar múltiples ítems en una lista de borrador tanto para **entidades existentes** (Visa, Master, Naranja, Bancor, ML, Otros) como para nuevas entidades, acumulando ítems con Enter o botón y guardándolos todos juntos con un único clic.
+- **Solución Técnica Aplicada**:
+  - **Backend (`monthly-item.service.ts`, `monthly-item.controller.ts`, `monthly-item.routes.ts`)**:
+    - Se implementó `precargarMesAnterior(year, mes, forzar)`:
+      - Si el mes destino está vacío, analiza el mes previo (`mes === 1 ? { year - 1, 12 } : { year, mes - 1 }`).
+      - Filtra y descarta las cuotas donde `cuotaActual >= totalCuotas` (ej. se descartaron las 7 cuotas finalizadas en Diciembre 2026: `MPago 3/3`, `MPago 6/6`, `Zeta 3/3`, etc.).
+      - Incrementa las cuotas pendientes (`cuotaActual < totalCuotas`) avanzando su número de cuota y actualizando el concepto (`MPago 5/6` -> `MPago 6/6`).
+      - Replica los gastos recurrentes no cuotas.
+      - Para Enero 2027 se generaron y persistieron en PostgreSQL los 26 registros activos con un total general de `$ 3.079.624,05`.
+    - Se integró la llamada automática a `precargarMesAnterior()` dentro de `getItems()` cuando se consulta un mes sin ítems en base de datos.
+    - Se implementó `createItemsBatch()` y el endpoint `POST /api/mensual/items/batch` para guardar atómicamente listas de ítems por entidad.
+    - Se expuso `POST /api/mensual/precargar-mes-anterior`.
+  - **Frontend (`app-config.service.ts`, `mensual-items.service.ts`, `modal-cargar-item`, `mensual.html`, `mensual.ts`, `mensual.scss`)**:
+    - En `app-config.service.ts`: se ajustó `isSheetsActivo()` para retornar `false` cuando el año no está explícitamente configurado en Sheets, garantizando que años 2027+ operen nativamente en Modo Base de Datos (PostgreSQL) sin caer en el fallback erróneo de Sheets.
+    - En `mensual-items.service.ts`: se crearon los métodos `precargarMesAnterior()` y `createItemsBatch()`.
+    - En `modal-cargar-item`:
+      - Se generalizó el manejo de borradores con `itemsBorrador()`.
+      - Ahora la fila `+ Agregar ítem a la lista` (y el atajo con la tecla `Enter`) está habilitada para cualquier entidad seleccionada.
+      - Se visualiza la tabla interactiva de ítems acumulados con subtotal calculado y botón de eliminación individual.
+      - El botón del pie muta dinámicamente: `Guardar Ítem` (para 1 solo ítem directo) o `Guardar N Ítems` (cuando hay registros en la lista de borrador).
+    - En `mensual.html` / `mensual.ts`:
+      - Se incorporó en la cabecera el botón **`[Copiar Mes Anterior]`** (`btn-copiar-mes-anterior`) para que el usuario pueda forzar la replicación o resincronización del mes anterior cuando lo desee.
+- **Archivos Afectados**:
+  - `control-de-gastos-front/src/app/services/app-config.service.ts`
+  - `control-de-gastos-front/src/app/services/mensual-items.service.ts`
+  - `control-de-gastos-front/src/app/pages/mensual/modal-cargar-item/modal-cargar-item.ts`, `.html`
+  - `control-de-gastos-front/src/app/pages/mensual/mensual.ts`, `.html`, `.scss`
+  - `control-de-gastos-api/src/services/monthly-item.service.ts`
+  - `control-de-gastos-api/src/controllers/monthly-item.controller.ts`
+  - `control-de-gastos-api/src/routes/monthly-item.routes.ts`
+
+### [2026-10-17 16:25] - Corrección de Tooltip en Modal Estimativo (Scroll/Pin), Paleta Violeta del Sistema y Formato Moneda ($)
+- **Problemas Detectados**:
+  1. Al mover el cursor desde el ícono de ayuda hacia la tabla del tooltip, el modal se cerraba inmediatamente debido a la falta de puente de hover y debounce, impidiendo hacer scroll para revisar los ítems o el total.
+  2. En modo oscuro, por especificidad CSS el tooltip presentaba cabecera y pie con fondo blanco claro y tabla oscura ("efecto sándwich").
+  3. Los íconos y acentos del modal estaban en celeste/turquesa (`#38bdf8`), rompiendo la armonía con la paleta violeta del sistema (`#7c3aed`, `#8b5cf6`, `#a78bfa`).
+  4. Los montos mostraban el prefijo `ARS` en lugar del símbolo `$` con el separador de miles y decimales correspondiente al resto del modal padre (`$ 384.118,87`).
+  5. La etiqueta figuraba como `"Gastos del mes"` en vez de `"Gastos del mes anterior"`.
+- **Solución Técnica Aplicada**:
+  - **Fijado (Pin) y Hover con Gracia**:
+    - Se agregó `toggleTooltipFijado()` para fijar el tooltip abierto con un clic y navegarlo/scrollearlo con total comodidad.
+    - Se incorporó un debounce de 280ms y un pseudoelemento `::before` como puente transparente para que el mouse no pierda foco al desplazarse desde el ícono hasta el cuerpo de la tabla.
+    - Se agregó botón de cierre rápido `(✕)` en la cabecera del tooltip.
+  - **Unificación de Paleta Violeta**:
+    - Se restablecieron los íconos del header, secciones, cálculo, badges e íconos de información al color violeta (`#7c3aed` en modo claro, `#a78bfa` en modo oscuro).
+    - Se devolvió el degradado violeta (`linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)`) al botón primario de acción ("Actualizar Ciclo").
+  - **Formato de Moneda**:
+    - Se aplicó `: 'es-AR'` al pipe de moneda (`currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR'`), unificando el formato con el resto del modal (`$ 384.118,87` y total `-$ 366.294,52`).
+  - **Modo Oscuro Cohesivo**:
+    - Se corrigió la especificidad del selector `.items-tooltip-dropdown` en `.es-dark`, asegurando fondo Slate 900 (`#0f172a`) en cabecera y footer, y Slate 800 (`#1e293b`) en la tabla con bordes Slate 700 (`#334155`).
+- **Archivos Afectados**:
+  - `control-de-gastos-front/src/app/pages/estimativos/modal-config-estimativo/modal-config-estimativo.html`
+  - `control-de-gastos-front/src/app/pages/estimativos/modal-config-estimativo/modal-config-estimativo.scss`
+  - `control-de-gastos-front/src/app/pages/estimativos/modal-config-estimativo/modal-config-estimativo.ts`
+  - `control-de-gastos-front/src/app/services/estimates.service.ts`
+  - `control-de-gastos-api/src/services/estimate.service.ts`
+
+### [2026-10-17 15:45] - Reestructuración del Paso 6.17 del Plan Maestro: Reportes, Gastos a Devolver, Feriados con Color y Termómetro
+- **Motivo / Requerimiento**:
+  - El usuario especificó con precisión las funcionalidades pendientes extraídas de la planilla `Cuentas claras_2026.xlsx`:
+    1. Nueva vista `/reportes` con submenús dedicada a visualizaciones analíticas.
+    2. Submenú en Reportes con los gráficos de evolución de saldo (`Saldo 2026` / Saldo), sin tablas de datos crudos.
+    3. Submenú en Reportes con la tabla bimonetaria de cortes de saldo (`Saldo!K47:R60`) y su gráfico nativo.
+    4. Reorganización de gráficos anuales: retirar el gráfico de saldo de `/anual` y llevarlo a Reportes, acompañado por un gráfico de gastos anual independiente con colores condicionales (rojo cuando el gasto aumenta, azul cuando disminuye o es cero), más un gráfico de total de préstamos mensuales.
+    5. Gráfico de gastos proyectados en `/mensual` (`H36`) con los mismos rangos de meses futuros según el ciclo.
+    6. Módulo de gastos a devolver / reembolsables en `/mensual` (tabla `Saldo!S45:W57`): se descuentan del saldo al pagarse a inicio de mes y al reintegrarse generan un movimiento a favor (`INGRESO`).
+    7. Feriados y eventos con color personalizado al seleccionar un día en la tabla diaria de `/estimativo`.
+    8. Segundo termómetro en `/estimativo` con el porcentaje de días con rendimiento positivo del mes (extraído de *Rendimientos positivos mensuales* de Anual).
+- **Acciones Realizadas**:
+  - Reestructurado el **Paso 6.17** en `PLAN_MIGRACION_CLOUD_API.md` en 8 subpasos estructurados y cronológicos (`6.17.1` a `6.17.8`).
+  - Incorporado al final del plan el **Paso 6.18: Explorador de Base de Datos y Generador de Reportes Multicriterio con Gráficos Dinámicos (Solo Administradores)** con 5 subpasos (`6.18.1` a `6.18.5`) que permiten a los admins realizar filtros visuales avanzados (fechas, entidades múltiples, estados de pago, conceptos, importes) y generar gráficos y tablas resumen sin tocar SQL.
+  - Mantenimiento estricto del control de versiones: **0 commits, 0 pushes**. Todo queda listo en el *working tree* para control del desarrollador.
+- **Archivos Afectados**:
+  - `PLAN_MIGRACION_CLOUD_API.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-16 23:15] - Sincronización de Documentación (READMEs, Plan Maestro) y Auditoría Exhaustiva de Excel 2026 (34 Hojas, 94 Gráficos)
+- **Motivo / Requerimiento**:
+  - Incorporar en los `README.md` (front y api) y en el Plan Maestro (`PLAN_MIGRACION_CLOUD_API.md`) las funcionalidades recientemente desarrolladas: eliminación segura de estimativos (endpoint DELETE y confirmación modal), herencia contable automática del ciclo base anterior (saldo remanente y deuda acumulada independiente con fallback) e intención de pago en amarillo debajo del Total con auto-ocultamiento al 100%.
+  - Realizar una auditoría técnica completa del archivo `C:\Users\u900670\Downloads\Cuentas claras_2026.xlsx` para relevar todas las estructuras pendientes (hojas, tablas, gráficos e indicadores).
+  - Integrar en el Plan Maestro el nuevo **Paso 6.17: Plan Maestro de Paridad Total** estructurado con subpasos cronológicos detallados.
+  - Ratificar la regla inmutable de control de versiones: **el asistente NUNCA debe ejecutar commits ni pushes de forma autónoma**, dejando el control exclusivo al desarrollador.
+- **Acciones Realizadas**:
+  - **1. Actualización de README Frontend (`control-de-gastos-front/README.md`)**:
+    - Agregada subsección de Intención de Pago en Amarillo bajo el Total y su regla de auto-ocultamiento al 100%.
+    - Documentada la eliminación segura de estimativos con modal de doble verificación y la herencia contable automática del ciclo base anterior en `/estimativo`.
+    - Actualizada la tabla de contenidos y la matriz de validación de QA checklist.
+  - **2. Actualización de README Backend (`control-de-gastos-api/README.md`)**:
+    - Agregado el módulo 8 de Estimativos y Proyecciones Diarias (`DELETE /api/estimaciones/:id`, `GET /api/estimaciones/preview-gastos?year=&mes=`).
+    - Actualizado el catálogo de endpoints en la referencia de la API y la tabla de contenidos.
+  - **3. Actualización de Plan Maestro (`PLAN_MIGRACION_CLOUD_API.md`)**:
+    - Documentado el **Paso 6.16: Estimativos Avanzados e Intención de Pago en Tarjetas Mensuales** con subpasos 6.16.1 a 6.16.6.
+    - Documentado el **Paso 6.17: Auditoría Exhaustiva del Libro Excel 2026 y Plan Maestro de Paridad Total** estructurado en 8 subpasos minuciosos:
+      - 6.17.1: Pestaña `Saldo 2026` / `Saldo` — Grilla y Gráficos de Evolución Diaria de Saldos ($ / USD) y Deuda Consolidada (`SUMIF(Movimientos)`).
+      - 6.17.2: Pestaña `Anual 2026` — Matriz de Préstamos y Deuda Acumulada (filas 85 a 103, cols O a AA: `Deuda total a pagar`, `resta por pagar`, `% resta por pagar`, `% prom a pagar`).
+      - 6.17.3: Pestaña `Anual 2026` — Rendimientos Positivos Mensuales (%) y Avance del Año (filas 16 a 28, cols N, O y R, con chart58 y chart61).
+      - 6.17.4: Pestaña `Anual 2026` — Gráficos Históricos Anuales de Categorías Clave (Líneas de Saldo, Gastos, Combustible, Préstamos).
+      - 6.17.5: Pestañas Mensuales (`Enero` a `Diciembre`) — Proyección Futura de Entidades a 5-10 Meses (Cols H a Q con gráficos de tendencia `H36` y `H38`).
+      - 6.17.6: Pestañas Mensuales — Tabla y Gráficos de "Ítem a Pagar" y Subtotales (Cols S y T con gráficos de barras y áreas).
+      - 6.17.7: Métricas Macroeconómicas y Proyecciones de Alquiler (Ratio de Deuda sobre Salario Mínimo Vital y Móvil `SMVM`, proyecciones de ajuste).
+      - 6.17.8: Incorporación de Hojas y Estimativos 2027 presentes en el Excel (`Enero_2027`, `Febrero_2027` y Estimativos 2027).
+  - **4. Cumplimiento de Regla de Git**:
+    - Ningún comando `git commit` ni `git push` fue ejecutado. El working tree se encuentra listo con los cambios intactos para que el usuario tome el control total del versionado.
+- **Archivos Afectados**:
+  - `README.md`
+  - `../control-de-gastos-api/README.md`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-16 22:50] - Despliegue en Producción (Cloud Run) y Corrección de Mapeo de Filas en Diciembre 2026
+- **Motivo / Requerimiento**:
+  - Al abrir el modal de configuración de Enero 2027 en producción (`control-gastos-dml.web.app`), el campo "Remanente Mes Anterior" mostraba $ 0 en lugar del saldo estimativo de cierre de Diciembre 2026 ($ 2.604.356,87).
+- **Causa Raíz**:
+  - En `estimate.service.ts` (`getPreviewExpenses`), la propiedad de las filas devuelta por `getMonthlyEstimate` es `filas` (no `rows`). Al verificar `prevEstimate.rows`, la condición daba `undefined` y caía a un fallback impreciso.
+  - Además, los cambios previos estaban en la rama `develop` y no habían sido fusionados a `main`, por lo que el servicio de Cloud Run en producción (`control-gastos-api`) continuaba ejecutando una versión previa donde `real: 0` sobreescribía el saldo proyectado.
+- **Solución Técnica**:
+  - **Mapeo de Filas**: Se ajustó la consulta para leer directamente `prevEstimate?.filas || prevEstimate?.rows`, extrayendo la última fila del ciclo de Diciembre 2026 (día 30, `07/01/2027`): `saldoPesos: 2604356.87` y `deuda: 743800.86`.
+  - **Despliegue a Producción en Cloud Run**: Se fusionó el código a la rama `main` y se compiló la nueva revisión activa `control-gastos-api-00011-pmt` en Google Cloud Run.
+  - **Verificación en Vivo**: Se probó el endpoint de producción `https://control-gastos-api-io57eybm3q-tl.a.run.app/api/estimaciones/preview-gastos?year=2027&mes=1`, confirmando que retorna `remanenteSaldoAnterior: 2604356.87` y `deudaSugerida: 743800.86`.
+- **Archivos Afectados**:
+  - `../control-de-gastos-api/src/services/estimate.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-10-16 22:15] - Corrección: Ocultar Intención de Pago en Pagos Completos (100%) y Alineación Vertical Debajo del Total
 - **Motivo / Requerimiento**:
   - En la tarjeta de Naranja X (y extensible a las demás entidades), la intención de pago se mostraba a pesar de haberse pagado el total ($ 367.180,10 de $ 367.180,10, con estado `COMPLETO`).

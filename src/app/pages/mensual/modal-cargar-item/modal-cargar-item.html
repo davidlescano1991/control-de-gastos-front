@@ -290,7 +290,7 @@
             type="number"
             class="form-control"
             [ngModel]="anio()"
-            (ngModelChange)="anio.set($event)"
+            (ngModelChange)="setAnio($event)"
             min="2020"
             max="2035"
             [disabled]="esModoEdicion()"
@@ -428,14 +428,14 @@
         />
       </div>
 
-      <!-- Botón para agregar ítem a la lista en modo Nueva Entidad -->
-      <div *ngIf="mostrarCrearEntidad()" class="agregar-item-row">
+      <!-- Botón para agregar ítem a la lista (modo batch para cualquier entidad) -->
+      <div *ngIf="!esModoEdicion()" class="agregar-item-row">
         <button
           type="button"
           class="btn-agregar-a-lista"
-          (click)="agregarItemANuevaEntidad()"
+          (click)="agregarItemALista()"
           [disabled]="!concepto().trim() || !montoOFormula().trim()"
-          title="Agregar este ítem a la lista de la nueva entidad"
+          title="Agregar este ítem a la lista"
         >
           <mat-icon>playlist_add</mat-icon>
           <span>+ Agregar ítem a la lista</span>
@@ -446,21 +446,42 @@
         </span>
       </div>
 
-      <!-- Tabla / Lista de Ítems acumulados para la nueva entidad -->
-      <div *ngIf="mostrarCrearEntidad() && itemsNuevaEntidad().length > 0" class="items-borrador-panel">
+      <!-- Indicador de consulta de precarga en segundo plano -->
+      <div *ngIf="isConsultandoPrecarga()" class="precarga-loading-row">
+        <mat-spinner diameter="18" class="spinner-precarga"></mat-spinner>
+        <span>Verificando ítems vigentes del mes anterior...</span>
+      </div>
+
+      <!-- Tabla / Lista de Ítems acumulados en borrador -->
+      <div *ngIf="itemsBorrador().length > 0" class="items-borrador-panel">
         <div class="borrador-header">
           <div class="borrador-count">
-            <mat-icon>checklist</mat-icon>
-            <strong>Ítems en esta entidad ({{ itemsNuevaEntidad().length }})</strong>
+            <mat-icon>{{ precargaOrigen() ? 'auto_awesome' : 'checklist' }}</mat-icon>
+            <strong>
+              <ng-container *ngIf="precargaOrigen() as orig">
+                Ítems sugeridos de {{ mesesLista[orig.mes - 1] }} {{ orig.year }} ({{ itemsBorrador().length }})
+              </ng-container>
+              <ng-container *ngIf="!precargaOrigen()">
+                Ítems en {{ mostrarCrearEntidad() ? (nuevaEntidadNombre().trim() || 'Nueva Entidad') : entidad() }} ({{ itemsBorrador().length }})
+              </ng-container>
+            </strong>
           </div>
           <div class="borrador-total">
-            <span>Subtotal inicial:</span>
-            <strong>{{ totalItemsNuevaEntidad() | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>
+            <span>Subtotal:</span>
+            <strong>{{ totalItemsBorrador() | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>
           </div>
         </div>
 
+        <!-- Banner contextual cuando provienen de precarga sugerida -->
+        <div *ngIf="precargaOrigen()" class="precarga-info-banner">
+          <mat-icon class="info-icon">info</mat-icon>
+          <span>
+            Gastos e impuestos vigentes precargados automáticamente. Las cuotas finalizadas fueron descartadas y las activas avanzadas. Puedes quitar o agregar más ítems antes de guardar.
+          </span>
+        </div>
+
         <div class="borrador-list">
-          <div *ngFor="let it of itemsNuevaEntidad(); let i = index" class="borrador-row">
+          <div *ngFor="let it of itemsBorrador(); let i = index" class="borrador-row">
             <span class="row-num">{{ i + 1 }}</span>
             <div class="row-info">
               <div class="row-concepto-line">
@@ -468,6 +489,9 @@
                 <span *ngIf="it.esCuota" class="badge-cuota-mini">
                   {{ it.cuotaActual }}/{{ it.totalCuotas }}
                   <span *ngIf="it.autoPropagarCuotas"> (propagando)</span>
+                </span>
+                <span *ngIf="it.concepto.toLowerCase().startsWith('compensaci')" class="badge-compensacion-mini">
+                  Saldo impago anterior
                 </span>
               </div>
               <small *ngIf="it.notas" class="row-notas">{{ it.notas }}</small>
@@ -479,7 +503,7 @@
             <button
               type="button"
               class="btn-eliminar-item-borrador"
-              (click)="quitarItemDeNuevaEntidad(it.idTemp)"
+              (click)="quitarItemDeBorrador(it.idTemp)"
               title="Quitar este ítem de la lista"
             >
               <mat-icon>delete_outline</mat-icon>
@@ -518,7 +542,7 @@
           type="button"
           class="btn btn-primary"
           (click)="guardar()"
-          [disabled]="isGuardando() || (!mostrarCrearEntidad() && (!concepto().trim() || !montoOFormula().trim())) || (mostrarCrearEntidad() && !nuevaEntidadNombre().trim())"
+          [disabled]="isGuardando() || (!mostrarCrearEntidad() && itemsBorrador().length === 0 && (!concepto().trim() || !montoOFormula().trim())) || (mostrarCrearEntidad() && !nuevaEntidadNombre().trim() && itemsBorrador().length === 0 && (!concepto().trim() || !montoOFormula().trim()))"
         >
           <mat-spinner *ngIf="isGuardando()" diameter="20" class="btn-spinner"></mat-spinner>
           <mat-icon *ngIf="!isGuardando()">{{ esModoEdicion() ? 'check_circle' : 'save' }}</mat-icon>
@@ -527,9 +551,11 @@
           </span>
           <span *ngIf="!isGuardando()">
             <ng-container *ngIf="esModoEdicion()">Actualizar Ítem</ng-container>
-            <ng-container *ngIf="!esModoEdicion() && !mostrarCrearEntidad()">Guardar Ítem</ng-container>
+            <ng-container *ngIf="!esModoEdicion() && !mostrarCrearEntidad()">
+              {{ itemsBorrador().length > 0 ? 'Guardar ' + (itemsBorrador().length + (concepto().trim() && montoOFormula().trim() ? 1 : 0)) + ' Ítems' : 'Guardar Ítem' }}
+            </ng-container>
             <ng-container *ngIf="!esModoEdicion() && mostrarCrearEntidad()">
-              {{ itemsNuevaEntidad().length > 0 ? 'Guardar Entidad (' + itemsNuevaEntidad().length + ' ítems)' : 'Guardar Entidad' }}
+              {{ itemsBorrador().length > 0 ? 'Guardar Entidad (' + (itemsBorrador().length + (concepto().trim() && montoOFormula().trim() ? 1 : 0)) + ' ítems)' : 'Guardar Entidad' }}
             </ng-container>
           </span>
         </button>

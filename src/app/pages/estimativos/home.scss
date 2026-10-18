@@ -400,3 +400,260 @@ app-bancor {
     position: static;
   }
 }
+
+/* 🔹 Card Parámetros del Estimativo (Estilo homogéneo a Novedades de Cuotas) */
+.tabla-resumen-card.parametros-estimativo-card {
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+  background-color: #ffffff;
+  padding: 10px 14px 12px;
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+
+  .card-header-wrapper {
+    min-height: 38px !important;
+    margin-bottom: 10px !important;
+    padding: 4px 12px !important;
+
+    mat-card-title,
+    .mat-mdc-card-title {
+      font-size: 0.95rem !important;
+      letter-spacing: 0.2px;
+      font-weight: 600;
+    }
+
+    .btn-collapse-card {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      color: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      transition: transform 0.2s ease;
+
+      &.collapsed {
+        transform: translateY(-50%) rotate(180deg);
+      }
+    }
+  }
+
+  &.is-collapsed {
+    padding-bottom: 10px;
+
+    .card-header-wrapper {
+      margin-bottom: 0 !important;
+    }
+  }
+
+  mat-card-content {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}
+
+.parametros-chips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.parametro-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  min-width: 0;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
+  }
+
+  .chip-icon-box {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    mat-icon {
+      font-size: 17px;
+      width: 17px;
+      height: 17px;
+      line-height: 17px;
+    }
+  }
+
+  .chip-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+    line-height: 1.25;
+
+    .chip-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+
+    .chip-val {
+      font-size: 0.88rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  /* Chip Gasto Diario (I) - Rojo suave */
+  &.chip-gasto-diario {
+    background-color: #fef2f2;
+    border-color: #fee2e2;
+
+    .chip-icon-box {
+      background-color: #fee2e2;
+      color: #dc2626;
+    }
+
+    .chip-label {
+      color: #991b1b;
+    }
+
+    .chip-val {
+      color: #b91c1c;
+    }
+
+    &:hover {
+      border-color: #fca5a5;
+    }
+  }
+
+  /* Chip Interés Diario (J) - Verde suave */
+  &.chip-interes-diario {
+    background-color: #f0fdf4;
+    border-color: #dcfce7;
+
+    .chip-icon-box {
+      background-color: #dcfce7;
+      color: #16a34a;
+    }
+
+    .chip-label {
+      color: #166534;
+    }
+
+    .chip-val {
+      color: #15803d;
+    }
+
+    &:hover {
+      border-color: #86efac;
+    }
+  }
+
+  /* Chip Gasto Estimado en el Mes (L) - Rosa / Coral suave */
+  &.chip-gasto-mes {
+    background-color: #fef2f2;
+    border-color: #fee2e2;
+
+    .chip-icon-box {
+      background-color: #fee2e2;
+      color: #dc2626;
+    }
+
+    .chip-label {
+      color: #991b1b;
+    }
+
+    .chip-val {
+      color: #b91c1c;
+    }
+
+    &:hover {
+      border-color: #fca5a5;
+    }
+  }
+}
+
+/* 🌙 Modo Oscuro */
+:host-context(body.dark-mode) {
+  .tabla-resumen-card.parametros-estimativo-card {
+    background-color: #1e293b;
+    border-color: #334155;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+
+    .card-header-wrapper {
+      background-color: #0f172a;
+      color: #f8fafc;
+    }
+  }
+
+  .parametro-chip {
+    &.chip-gasto-diario,
+    &.chip-gasto-mes {
+      background-color: rgba(239, 68, 68, 0.12);
+      border-color: rgba(239, 68, 68, 0.25);
+
+      .chip-icon-box {
+        background-color: rgba(239, 68, 68, 0.22);
+        color: #f87171;
+      }
+
+      .chip-label {
+        color: #fca5a5;
+      }
+
+      .chip-val {
+        color: #f87171;
+      }
+
+      &:hover {
+        border-color: rgba(239, 68, 68, 0.5);
+      }
+    }
+
+    &.chip-interes-diario {
+      background-color: rgba(34, 197, 94, 0.12);
+      border-color: rgba(34, 197, 94, 0.25);
+
+      .chip-icon-box {
+        background-color: rgba(34, 197, 94, 0.22);
+        color: #4ade80;
+      }
+
+      .chip-label {
+        color: #86efac;
+      }
+
+      .chip-val {
+        color: #4ade80;
+      }
+
+      &:hover {
+        border-color: rgba(34, 197, 94, 0.5);
+      }
+    }
+  }
+}

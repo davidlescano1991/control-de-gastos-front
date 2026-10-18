@@ -1,4 +1,4 @@
-<mat-card class="tabla-resumen-card" [class.is-collapsed]="isCollapsed()">
+<mat-card class="tabla-resumen-card novedades-cuotas-card" [class.is-collapsed]="isCollapsed()">
   <mat-card-header class="card-header-wrapper">
     <mat-card-title>Novedades de cuotas</mat-card-title>
     <button
@@ -15,24 +15,46 @@
   </mat-card-header>
   <mat-card-content *ngIf="!isCollapsed()">
     <ng-container *ngIf="tieneDatos(); else sinNovedadesTpl">
-      <p>
-        Total nuevas cuotas:
-        <strong style="color: red">
-          {{ nuevasCuotas() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
-        </strong>
-      </p>
-      <p>
-        Total últimas cuotas:
-        <strong style="color: green">
-          {{ ultimasCuotas() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
-        </strong>
-      </p>
-      <p>
-        Compensaciones:
-        <strong [style.color]="getColorPorValor(compensaciones())">
-          {{ compensaciones() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
-        </strong>
-      </p>
+      <div class="novedades-chips-grid">
+        <!-- Nuevas Cuotas -->
+        <div class="novedad-chip chip-nuevas" title="Cuotas iniciadas este mes (1/x)">
+          <div class="chip-icon-box">
+            <mat-icon>add_circle_outline</mat-icon>
+          </div>
+          <div class="chip-body">
+            <span class="chip-label">Nuevas cuotas</span>
+            <span class="chip-val">{{ nuevasCuotas() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+          </div>
+        </div>
+
+        <!-- Últimas Cuotas -->
+        <div class="novedad-chip chip-ultimas" title="Cuotas que finalizan este mes (x/x)">
+          <div class="chip-icon-box">
+            <mat-icon>check_circle_outline</mat-icon>
+          </div>
+          <div class="chip-body">
+            <span class="chip-label">Últimas cuotas</span>
+            <span class="chip-val">{{ ultimasCuotas() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+          </div>
+        </div>
+
+        <!-- Compensaciones -->
+        <div
+          class="novedad-chip chip-compensaciones"
+          [class.negativo]="compensaciones() < 0"
+          [class.positivo]="compensaciones() > 0"
+          [class.cero]="compensaciones() === 0"
+          title="Ajustes o compensaciones registradas en el mes"
+        >
+          <div class="chip-icon-box">
+            <mat-icon>swap_horiz</mat-icon>
+          </div>
+          <div class="chip-body">
+            <span class="chip-label">Compensaciones</span>
+            <span class="chip-val">{{ compensaciones() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+          </div>
+        </div>
+      </div>
     </ng-container>
     <ng-template #sinNovedadesTpl>
       <div class="sin-datos-msg">
@@ -41,4 +63,3 @@
     </ng-template>
   </mat-card-content>
 </mat-card>
-

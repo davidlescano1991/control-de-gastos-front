@@ -3,6 +3,21 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../config/environment';
 
+export interface EntityPaymentRecord {
+  id: string;
+  paymentId?: string | null;
+  year: number;
+  mes: number;
+  entidad: string;
+  itemId?: string;
+  monto: number;
+  fechaPago: string;
+  cuentaOrigen?: string | null;
+  movimientoId?: string | null;
+  notas?: string | null;
+  createdAt?: string;
+}
+
 export interface EntityPayment {
   id?: string;
   year: number;
@@ -18,6 +33,7 @@ export interface EntityPayment {
   movimientoId?: string | null;
   notas?: string | null;
   esSintetico?: boolean;
+  records?: EntityPaymentRecord[];
 }
 
 export interface RegisterPaymentDTO {
@@ -104,5 +120,9 @@ export class EntityPaymentService {
   getUnpaid(year: number, mes?: number): Observable<{ success: boolean; year: number; mes?: number; unpaid: number | Record<number, number> }> {
     const url = mes !== undefined ? `${this.apiUrl}/impagas?year=${year}&mes=${mes}` : `${this.apiUrl}/impagas?year=${year}`;
     return this.http.get<{ success: boolean; year: number; mes?: number; unpaid: number | Record<number, number> }>(url);
+  }
+
+  deletePaymentRecord(recordId: string): Observable<{ success: boolean; message: string }> {
+    return this.http.delete<{ success: boolean; message: string }>(`${this.apiUrl}/registro/${recordId}`);
   }
 }

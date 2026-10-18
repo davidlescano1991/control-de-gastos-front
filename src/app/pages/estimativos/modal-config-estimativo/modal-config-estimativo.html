@@ -45,13 +45,8 @@
               <span>Fecha Inicio (Cobro Sueldo)</span>
               <mat-icon class="info-icon" matTooltip="Día 1 del ciclo en que se percibe el ingreso">info</mat-icon>
             </label>
-            <input
-              type="date"
-              id="fechaInicio"
-              [(ngModel)]="fechaInicio"
-              (ngModelChange)="onFechaChange()"
-              class="input-control"
-            />
+            <input type="date" id="fechaInicio" [(ngModel)]="fechaInicio" (ngModelChange)="onFechaChange()"
+              class="input-control" />
           </div>
 
           <div class="form-group">
@@ -59,13 +54,8 @@
               <span>Fecha Fin (Víspera próximo cobro)</span>
               <mat-icon class="info-icon" matTooltip="Último día del ciclo antes del próximo sueldo">info</mat-icon>
             </label>
-            <input
-              type="date"
-              id="fechaFin"
-              [(ngModel)]="fechaFin"
-              (ngModelChange)="onFechaChange()"
-              class="input-control"
-            />
+            <input type="date" id="fechaFin" [(ngModel)]="fechaFin" (ngModelChange)="onFechaChange()"
+              class="input-control" />
           </div>
         </div>
       </div>
@@ -86,44 +76,72 @@
               <span>Sueldo / Ingreso Neto ($)</span>
               <mat-icon class="info-icon" matTooltip="Total percibido en mano al iniciar el ciclo">info</mat-icon>
             </label>
-            <input
-              type="number"
-              id="sueldoNeto"
-              [(ngModel)]="sueldoNeto"
-              (ngModelChange)="onParametrosChange()"
-              placeholder="Ej: 2500000"
-              class="input-control"
-            />
+            <input type="number" id="sueldoNeto" [(ngModel)]="sueldoNeto" (ngModelChange)="onParametrosChange()"
+              placeholder="Ej: 2500000" class="input-control" />
           </div>
 
-          <div class="form-group">
-            <label for="gastosPresupuestados">
-              <span>Gastos del Mes (Pre-cargado)</span>
-              <span class="badge-tag" *ngIf="itemsPresupuestadosCount > 0">{{ itemsPresupuestadosCount }} ítems</span>
+          <div class="form-group form-group-relative">
+            <label for="gastosPresupuestados" class="label-with-tooltip">
+              <span>Gastos del mes</span>
+              <div class="info-tooltip-trigger" (mouseenter)="onMouseEnterTooltip()"
+                (mouseleave)="onMouseLeaveTooltip()" (click)="toggleTooltipFijado($event)"
+                [class.activo]="mostrarTooltipItems" title="Click para fijar o ver desglose detallado">
+                <mat-icon class="info-icon info-icon-items">info</mat-icon>
+
+                <!-- Popover / Tooltip interactivo con la tabla de ítems -->
+                <div class="items-tooltip-dropdown" *ngIf="mostrarTooltipItems && itemsDetalle.length > 0"
+                  (mouseenter)="onMouseEnterTooltip()" (mouseleave)="onMouseLeaveTooltip()"
+                  (click)="$event.stopPropagation()">
+                  <div class="tooltip-header">
+                    <div class="th-left">
+                      <span class="th-title">Detalle de Gastos del Mes</span>
+                      <span class="th-badge">{{ itemsDetalle.length }} ítems</span>
+                    </div>
+                    <button type="button" class="btn-close-tooltip" (click)="cerrarTooltip($event)"
+                      title="Cerrar detalle">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </div>
+                  <div class="tooltip-table-scroll">
+                    <table class="items-table">
+                      <thead>
+                        <tr>
+                          <th>Entidad</th>
+                          <th>Concepto</th>
+                          <th class="text-right">Monto</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let it of itemsDetalle" [class.es-compensacion]="it.esCompensacion">
+                          <td class="col-entidad">{{ it.entidad }}</td>
+                          <td class="col-concepto">{{ it.concepto }}</td>
+                          <td class="col-monto text-right" [class.monto-negativo]="it.monto < 0">
+                            {{ it.monto | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="tooltip-footer">
+                    <span class="tf-count">{{ itemsDetalle.length }} ítems</span>
+                    <span class="tf-total">Total: <strong>{{ gastosPresupuestados | currency: 'ARS' : 'symbol' : '1.2-2'
+                        : 'es-AR' }}</strong></span>
+                  </div>
+                </div>
+              </div>
             </label>
-            <input
-              type="number"
-              id="gastosPresupuestados"
-              [(ngModel)]="gastosPresupuestados"
-              (ngModelChange)="onParametrosChange()"
-              placeholder="0.00"
-              class="input-control input-destacado-gasto"
-            />
+            <input type="number" id="gastosPresupuestados" [(ngModel)]="gastosPresupuestados"
+              (ngModelChange)="onParametrosChange()" placeholder="0.00" class="input-control input-destacado-gasto" />
           </div>
 
           <div class="form-group">
             <label for="remanenteAnterior">
               <span>Remanente Mes Anterior</span>
-              <mat-icon class="info-icon" matTooltip="Saldo que quedó en la cuenta bancaria del ciclo anterior">info</mat-icon>
+              <mat-icon class="info-icon"
+                matTooltip="Saldo que quedó en la cuenta bancaria del ciclo anterior">info</mat-icon>
             </label>
-            <input
-              type="number"
-              id="remanenteAnterior"
-              [(ngModel)]="remanenteAnterior"
-              (ngModelChange)="onParametrosChange()"
-              placeholder="0.00"
-              class="input-control"
-            />
+            <input type="number" id="remanenteAnterior" [(ngModel)]="remanenteAnterior"
+              (ngModelChange)="onParametrosChange()" placeholder="0.00" class="input-control" />
           </div>
         </div>
       </div>
@@ -139,45 +157,31 @@
           <div class="form-group">
             <label for="gastoFijoDiario">
               <span>Gasto Fijo Diario (I1)</span>
-              <mat-icon class="info-icon" matTooltip="Monto estimado que se resta cada día (ej: $10.500)">info</mat-icon>
+              <mat-icon class="info-icon"
+                matTooltip="Monto estimado que se resta cada día (ej: $10.500)">info</mat-icon>
             </label>
-            <input
-              type="number"
-              id="gastoFijoDiario"
-              [(ngModel)]="gastoFijoDiario"
-              (ngModelChange)="onParametrosChange()"
-              placeholder="Ej: 10500"
-              class="input-control"
-            />
+            <input type="number" id="gastoFijoDiario" [(ngModel)]="gastoFijoDiario"
+              (ngModelChange)="onParametrosChange()" placeholder="Ej: 10500" class="input-control" />
           </div>
 
           <div class="form-group">
             <label for="ingresoInteresDiario">
               <span>Interés Diario a Favor (J1)</span>
-              <mat-icon class="info-icon" matTooltip="Intereses ganados diarios en cuentas remuneradas (ej: $600)">info</mat-icon>
+              <mat-icon class="info-icon"
+                matTooltip="Intereses ganados diarios en cuentas remuneradas (ej: $600)">info</mat-icon>
             </label>
-            <input
-              type="number"
-              id="ingresoInteresDiario"
-              [(ngModel)]="ingresoInteresDiario"
-              (ngModelChange)="onParametrosChange()"
-              placeholder="Ej: 600"
-              class="input-control"
-            />
+            <input type="number" id="ingresoInteresDiario" [(ngModel)]="ingresoInteresDiario"
+              (ngModelChange)="onParametrosChange()" placeholder="Ej: 600" class="input-control" />
           </div>
 
           <div class="form-group">
             <label for="deudaInicial">
               <span>Deuda Inicial Proyectada ($)</span>
-              <mat-icon class="info-icon" matTooltip="Deuda global de tarjetas/préstamos con la que inicia el ciclo">info</mat-icon>
+              <mat-icon class="info-icon"
+                matTooltip="Deuda global de tarjetas/préstamos con la que inicia el ciclo">info</mat-icon>
             </label>
-            <input
-              type="number"
-              id="deudaInicial"
-              [(ngModel)]="deudaInicial"
-              placeholder="0.00"
-              class="input-control input-destacado-deuda"
-            />
+            <input type="number" id="deudaInicial" [(ngModel)]="deudaInicial" placeholder="0.00"
+              class="input-control input-destacado-deuda" />
           </div>
         </div>
       </div>
@@ -189,12 +193,8 @@
             <mat-icon class="icon-calc">calculate</mat-icon>
             <h4>Cálculo Contable del Saldo Inicial (Día 1)</h4>
           </div>
-          <button
-            type="button"
-            class="btn-toggle-auto"
-            [class.activo]="usarCalculoAutomatico"
-            (click)="toggleCalculoAutomatico()"
-          >
+          <button type="button" class="btn-toggle-auto" [class.activo]="usarCalculoAutomatico"
+            (click)="toggleCalculoAutomatico()">
             <mat-icon>{{ usarCalculoAutomatico ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
             <span>Cálculo Automático Fiel al Excel</span>
           </button>
@@ -209,7 +209,8 @@
             <span class="label">- Tarjetas (efectivo a pagar):</span>
             <span class="monto">
               {{ totalTarjetasEfectivo | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
-              <small *ngIf="totalCompensaciones > 0" class="sub-compensacion">(Compensación a deuda: {{ totalCompensaciones | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }})</small>
+              <small *ngIf="totalCompensaciones > 0" class="sub-compensacion">(Compensación a deuda: {{
+                totalCompensaciones | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }})</small>
             </span>
           </div>
           <div class="item-formula negativo" *ngIf="totalPrestamos > 0">
@@ -220,7 +221,12 @@
             <span class="label">- Servicios / Impuestos ("Otros"):</span>
             <span class="monto">{{ totalServicios | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
           </div>
-          <div class="item-formula negativo" *ngIf="totalTarjetasEfectivo === 0 && totalPrestamos === 0 && totalServicios === 0">
+          <div class="item-formula positivo" *ngIf="totalServicios < 0">
+            <span class="label">+ Ajuste / Compensaciones ("Otros"):</span>
+            <span class="monto">{{ (-totalServicios) | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+          </div>
+          <div class="item-formula negativo"
+            *ngIf="totalTarjetasEfectivo === 0 && totalPrestamos === 0 && totalServicios === 0">
             <span class="label">- Gastos Totales del Mes:</span>
             <span class="monto">{{ gastosPresupuestados | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
           </div>
@@ -247,12 +253,8 @@
             <span *ngIf="usarCalculoAutomatico">
               {{ saldoInicialCalculado | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
             </span>
-            <input
-              *ngIf="!usarCalculoAutomatico"
-              type="number"
-              [(ngModel)]="saldoInicialManual"
-              class="input-saldo-manual"
-            />
+            <input *ngIf="!usarCalculoAutomatico" type="number" [(ngModel)]="saldoInicialManual"
+              class="input-saldo-manual" />
           </div>
         </div>
       </div>
@@ -264,7 +266,8 @@
         <mat-icon class="icon-warn">warning</mat-icon>
         <div>
           <h4>¿Eliminar Estimativo de {{ mesNombre }} {{ year }}?</h4>
-          <p>Esta acción eliminará de forma irreversible el ciclo de estimativo y todas las filas diarias configuradas para este mes.</p>
+          <p>Esta acción eliminará de forma irreversible el ciclo de estimativo y todas las filas diarias configuradas
+            para este mes.</p>
         </div>
       </div>
       <div class="confirm-delete-actions">
@@ -281,14 +284,8 @@
     <!-- Footer -->
     <div class="modal-footer" *ngIf="!confirmandoEliminar()">
       <div class="footer-left">
-        <button
-          type="button"
-          class="btn-eliminar-estimativo"
-          *ngIf="existeConfigPrevia()"
-          (click)="solicitarEliminar()"
-          [disabled]="guardando() || eliminando()"
-          title="Eliminar este ciclo de estimativo"
-        >
+        <button type="button" class="btn-eliminar-estimativo" *ngIf="existeConfigPrevia()" (click)="solicitarEliminar()"
+          [disabled]="guardando() || eliminando()" title="Eliminar este ciclo de estimativo">
           <mat-icon>delete_forever</mat-icon>
           <span>Eliminar Estimativo</span>
         </button>
@@ -299,15 +296,12 @@
           Cancelar
         </button>
 
-        <button
-          type="button"
-          class="btn-guardar"
-          (click)="guardar()"
-          [disabled]="guardando() || cargando() || totalDiasCalculados <= 0"
-        >
+        <button type="button" class="btn-guardar" (click)="guardar()"
+          [disabled]="guardando() || cargando() || totalDiasCalculados <= 0">
           <mat-spinner diameter="18" *ngIf="guardando()"></mat-spinner>
           <mat-icon *ngIf="!guardando()">save</mat-icon>
-          <span>{{ guardando() ? 'Generando ciclo...' : (existeConfigPrevia() ? 'Actualizar Ciclo' : 'Guardar y Generar Ciclo') }}</span>
+          <span>{{ guardando() ? 'Generando ciclo...' : (existeConfigPrevia() ? 'Actualizar Ciclo' : 'Guardar y Generar
+            Ciclo') }}</span>
         </button>
       </div>
     </div>

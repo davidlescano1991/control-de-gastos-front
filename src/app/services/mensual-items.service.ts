@@ -2,6 +2,9 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../config/environment';
+import { evaluarFormula, ResultadoFormula } from '../utils/formula.util';
+
+export type { ResultadoFormula };
 
 export interface MonthlyItemBackend {
   id: string;
@@ -138,6 +141,48 @@ export class MensualItemsService {
   }
 
   /**
+   * Registra múltiples ítems en lote para una entidad mensual.
+   */
+  createItemsBatch(payload: {
+    year: number;
+    mes: number;
+    entidad: string;
+    items: Array<{
+      concepto: string;
+      montoOFormula: string | number;
+      notas?: string;
+      autoPropagarCuotas?: boolean;
+    }>;
+  }): Observable<{ message: string; items: MonthlyItemBackend[] }> {
+    return this.http.post<{ message: string; items: MonthlyItemBackend[] }>(`${this.apiUrl}/items/batch`, payload);
+  }
+
+  /**
+   * Obtiene la vista previa de ítems sugeridos desde el mes anterior para una entidad específica,
+   * indicando si el mes actual ya cuenta con registros cargados y descartando cuotas finalizadas.
+   */
+  getPreviewAnterior(year: number, mes: number, entidad: string): Observable<{
+    tieneItemsActuales: boolean;
+    sourceYear?: number;
+    sourceMes?: number;
+    items: Array<{
+      concepto: string;
+      montoOFormula: string;
+      montoCalculado: number;
+      esCuota?: boolean;
+      cuotaActual?: number;
+      totalCuotas?: number;
+      notas?: string;
+    }>;
+  }> {
+    const params = new HttpParams()
+      .set('year', year.toString())
+      .set('mes', mes.toString())
+      .set('entidad', entidad);
+    return this.http.get<any>(`${this.apiUrl}/items/preview-anterior`, { params });
+  }
+
+  /**
    * Actualiza un ítem existente.
    */
   updateItem(id: string, payload: UpdateMonthlyItemPayload): Observable<{ message: string; item: MonthlyItemBackend }> {
@@ -157,112 +202,8 @@ export class MensualItemsService {
   /**
    * Evalúa de forma interactiva una fórmula en cliente para feedback en vivo.
    */
-  evaluarFormulaLocal(input: string | number): { esFormula: boolean; monto: number; error?: string } {
-    if (input === null || input === undefined || input === '') {
-      return { esFormula: false, monto: 0 };
-    }
-    if (typeof input === 'number') {
-      return { esFormula: false, monto: isNaN(input) ? 0 : input };
-    }
-
-    const str = input.trim();
-    const esFormula = str.startsWith('=');
-    let exp = esFormula ? str.substring(1).trim() : str;
-
-    // Si es un número directo
-    if (!esFormula && !/[+\-*/()]/.test(exp)) {
-      const limpio = exp.replace(/\./g, '').replace(',', '.');
-      const num = parseFloat(limpio);
-      return { esFormula: false, monto: isNaN(num) ? 0 : num };
-    }
-
-    // Normalizar comas decimales
-    exp = exp.replace(/(\d+),(\d+)/g, '$1.$2');
-
-    // Validar caracteres seguros
-    if (!/^[\d\s+\-*/().]+$/.test(exp)) {
-      return { esFormula, monto: 0, error: 'Caracteres no permitidos (solo números y +, -, *, /)' };
-    }
-
-    try {
-      // Parser aritmético seguro
-      const resultado = this.evaluarExpresionSegura(exp);
-      const redondeado = Math.round((resultado + Number.EPSILON) * 100) / 100;
-      return { esFormula: true, monto: isNaN(redondeado) ? 0 : redondeado };
-    } catch (e: any) {
-      return { esFormula: true, monto: 0, error: e?.message || 'Expresión aritmética incompleta' };
-    }
-  }
-
-  private evaluarExpresionSegura(expr: string): number {
-    let pos = 0;
-    const peek = () => expr[pos] || '';
-    const consume = () => expr[pos++];
-    const skipWs = () => {
-      while (pos < expr.length && /\s/.test(expr[pos])) pos++;
-    };
-
-    const parseNum = (): number => {
-      skipWs();
-      let s = '';
-      while (pos < expr.length && /[\d.]/.test(expr[pos])) s += consume();
-      if (!s) throw new Error('Número esperado');
-      return parseFloat(s);
-    };
-
-    const parseFactor = (): number => {
-      skipWs();
-      if (peek() === '+') {
-        consume();
-        return parseFactor();
-      }
-      if (peek() === '-') {
-        consume();
-        return -parseFactor();
-      }
-      if (peek() === '(') {
-        consume();
-        const r = parseExp();
-        skipWs();
-        if (peek() !== ')') throw new Error('Falta paréntesis ")"');
-        consume();
-        return r;
-      }
-      return parseNum();
-    };
-
-    const parseTerm = (): number => {
-      let r = parseFactor();
-      skipWs();
-      while (peek() === '*' || peek() === '/') {
-        const op = consume();
-        const next = parseFactor();
-        if (op === '*') r *= next;
-        else {
-          if (next === 0) throw new Error('División por cero');
-          r /= next;
-        }
-        skipWs();
-      }
-      return r;
-    };
-
-    const parseExp = (): number => {
-      let r = parseTerm();
-      skipWs();
-      while (peek() === '+' || peek() === '-') {
-        const op = consume();
-        const next = parseTerm();
-        if (op === '+') r += next;
-        else r -= next;
-        skipWs();
-      }
-      return r;
-    };
-
-    const res = parseExp();
-    skipWs();
-    if (pos < expr.length) throw new Error('Expresión incompleta');
-    return res;
+  evaluarFormulaLocal(input: string | number): ResultadoFormula {
+    return evaluarFormula(input);
   }
 }
+

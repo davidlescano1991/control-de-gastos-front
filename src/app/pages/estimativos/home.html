@@ -79,6 +79,63 @@
                 [isColDerechaContraida]="colDerechaContraida()"
                 (toggleHorizontalCollapse)="toggleColDerechaHorizontal()"
               ></app-grafico-estimativo>
+
+              <!-- Parámetros clave del estimativo (Fila 1 Google Sheets / Config BD: I, J, L) -->
+              <mat-card class="tabla-resumen-card parametros-estimativo-card" [class.is-collapsed]="parametrosCollapsed()">
+                <mat-card-header class="card-header-wrapper">
+                  <mat-card-title>Parámetros del estimativo</mat-card-title>
+                  <button
+                    type="button"
+                    class="btn-collapse-card"
+                    [class.collapsed]="parametrosCollapsed()"
+                    (click)="toggleParametrosCollapse()"
+                    [title]="parametrosCollapsed() ? 'Expandir parámetros' : 'Contraer parámetros'"
+                  >
+                    <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
+                      <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+                    </svg>
+                  </button>
+                </mat-card-header>
+                <mat-card-content *ngIf="!parametrosCollapsed()">
+                  <div class="parametros-chips-grid">
+                    <!-- Gasto Diario Estimado (I) -->
+                    <div class="parametro-chip chip-gasto-diario" title="Gasto diario estimado (Columna I en Google Sheets)">
+                      <div class="chip-icon-box">
+                        <mat-icon>trending_down</mat-icon>
+                      </div>
+                      <div class="chip-body">
+                        <span class="chip-label">Gasto diario est. (I)</span>
+                        <span class="chip-val">{{ gastoDiarioEstimado() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+                      </div>
+                    </div>
+
+                    <!-- Interés Diario Billeteras (J) -->
+                    <div class="parametro-chip chip-interes-diario" title="Interés diario de billeteras (Columna J en Google Sheets)">
+                      <div class="chip-icon-box">
+                        <mat-icon>savings</mat-icon>
+                      </div>
+                      <div class="chip-body">
+                        <span class="chip-label">Interés billeteras (J)</span>
+                        <span class="chip-val">{{ interesDiarioBilleteras() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+                      </div>
+                    </div>
+
+                    <!-- Gasto Estimado en el Mes (L) -->
+                    <div
+                      class="parametro-chip chip-gasto-mes"
+                      title="Gasto estimado en el mes - sumatoria de gastos día a día fuera de pagos iniciales (Columna L en Google Sheets)"
+                    >
+                      <div class="chip-icon-box">
+                        <mat-icon>receipt_long</mat-icon>
+                      </div>
+                      <div class="chip-body">
+                        <span class="chip-label">Gasto est. mes (L)</span>
+                        <span class="chip-val">{{ gastoEstimadoMes() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </mat-card-content>
+              </mat-card>
             </div>
           } @else {
             <div class="franja-colapsada" (click)="toggleColDerechaHorizontal()" title="Expandir columna derecha">

@@ -71,10 +71,18 @@ export interface PreviewExpensesResponse {
   }>;
   deudaTotalAnual?: number;
   deudaSugerida?: number;
+  gastoFijoDiarioSugerido?: number;
+  ingresoInteresDiarioSugerido?: number;
   remanenteSaldoAnterior: number;
   deudaMesAnterior: number;
   itemsCount: number;
   cuotasPrestamosCount?: number;
+  itemsDetalle?: Array<{
+    entidad: string;
+    concepto: string;
+    monto: number;
+    esCompensacion?: boolean;
+  }>;
 }
 
 export interface UpsertEstimateConfigDTO {

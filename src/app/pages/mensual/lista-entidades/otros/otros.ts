@@ -57,7 +57,22 @@ export class Otros {
     return 'cancel';
   }
 
-  
+  esMesFuturo(): boolean {
+    const hoy = new Date();
+    const hoyYear = hoy.getFullYear();
+    const hoyMes = hoy.getMonth() + 1;
+    const mesNum = this.getMesNumero();
+    return this.anio > hoyYear || (this.anio === hoyYear && mesNum > hoyMes);
+  }
+
+  esIntencionPago(): boolean {
+    if (!this.esMesFuturo()) return false;
+    const mesNum = this.getMesNumero();
+    const key = `${this.anio}::${mesNum}`;
+    const pagos = this.paymentService.pagosMesSignal().get(key) || [];
+    const pagosOtros = pagos.filter((p) => p.entidad.toLowerCase() === 'otros');
+    return pagosOtros.some((p) => !p.movimientoId);
+  }
 
   totalIntencionPago = computed(() => {
     let sum = 0;
@@ -139,10 +154,16 @@ export class Otros {
   public authService = inject(AuthService);
   @Output() eliminarEntidad = new EventEmitter<string>();
   @Output() editarFila = new EventEmitter<any>();
+  @Output() eliminarFila = new EventEmitter<any>();
 
   onEditarFila(fila: any, event: MouseEvent): void {
     event.stopPropagation();
     this.editarFila.emit(fila);
+  }
+
+  onEliminarFila(fila: any, event: MouseEvent): void {
+    event.stopPropagation();
+    this.eliminarFila.emit(fila);
   }
 
   private overlayService = inject(ProyeccionOverlayService);

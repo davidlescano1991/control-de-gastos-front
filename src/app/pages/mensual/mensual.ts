@@ -82,7 +82,6 @@ import { ProyeccionOverlayService } from '../../services/proyeccion-overlay.serv
     ModalProyeccionEntidad,
     ModalCargarItemComponent,
     ModalPagarEntidadComponent,
-    CurrencyPipe,
   ],
 })
 export class Mensual implements OnInit, OnDestroy {
@@ -103,6 +102,7 @@ export class Mensual implements OnInit, OnDestroy {
   });
   mostrarModalCargar = signal(false);
   itemParaEditar = signal<any>(null);
+  modoEliminarDirecto = signal<boolean>(false);
 
   // 🏛️ Gestión Dinámica de Entidades con Vigencia Temporal
   entidadesVigentes = signal<FinancialEntityFront[]>([]);
@@ -175,11 +175,17 @@ export class Mensual implements OnInit, OnDestroy {
     return map[nombre]?.subtotal || 0;
   }
 
-  abrirModalBajaEntidad(entidadOString: FinancialEntityFront | string): void {
+  async abrirModalBajaEntidad(entidadOString: FinancialEntityFront | string): Promise<void> {
+    if (this.entidadesVigentes().length === 0) {
+      await this.cargarEntidadesVigentes(this.anioSeleccionado(), this.mesSeleccionado());
+    }
     let entObj: FinancialEntityFront | undefined;
     if (typeof entidadOString === 'string') {
       const norm = entidadOString.toLowerCase().trim();
-      entObj = this.entidadesVigentes().find((e) => e.nombre.toLowerCase().trim() === norm);
+      entObj = this.entidadesVigentes().find((e) => {
+        const eNorm = e.nombre.toLowerCase().trim();
+        return eNorm === norm || eNorm.includes(norm) || norm.includes(eNorm);
+      });
       if (!entObj) {
         entObj = {
           id: entidadOString,
@@ -226,6 +232,7 @@ export class Mensual implements OnInit, OnDestroy {
       setTimeout(async () => {
         this.cerrarModalBajaEntidad();
         await this.seleccionarMes(this.mesSeleccionado(), true);
+        await this.cargarTotalesTotales(false, true);
       }, 1200);
     } catch (err: any) {
       this.isProcesandoBaja.set(false);
@@ -234,24 +241,66 @@ export class Mensual implements OnInit, OnDestroy {
   }
 
   abrirModalCarga(): void {
+    this.modoEliminarDirecto.set(false);
     this.itemParaEditar.set(null);
     this.mostrarModalCargar.set(true);
   }
 
   abrirModalEditar(fila: any): void {
+    this.modoEliminarDirecto.set(false);
     this.itemParaEditar.set(fila);
+    this.mostrarModalCargar.set(true);
+  }
+
+  abrirModalEliminarItem(fila: any): void {
+    this.itemParaEditar.set(fila);
+    this.modoEliminarDirecto.set(true);
     this.mostrarModalCargar.set(true);
   }
 
   cerrarModalCargar(): void {
     this.mostrarModalCargar.set(false);
     this.itemParaEditar.set(null);
+    this.modoEliminarDirecto.set(false);
   }
 
   async onItemCreado(event: any): Promise<void> {
     this.cerrarModalCargar();
     await this.seleccionarMes(this.mesSeleccionado(), true);
     await this.cargarTotalesTotales(false, true);
+  }
+
+  async onPagoConfirmado(): Promise<void> {
+    this.entityPaymentService.cerrarModalPago();
+    await this.seleccionarMes(this.mesSeleccionado(), true);
+    await this.cargarTotalesTotales(false, true);
+  }
+
+  async onAbonoEliminado(): Promise<void> {
+    await this.seleccionarMes(this.mesSeleccionado(), true);
+    await this.cargarTotalesTotales(false, true);
+  }
+
+  /**
+   * Sincroniza dinámicamente el total de un mes específico en el histórico mensual (resultados).
+   * Si ya existía el año y mes, actualiza su total. Si es un nuevo mes o año, lo agrega y ordena cronológicamente.
+   */
+  private actualizarMesEnResultados(anio: number, mesNombre: string, total: number): void {
+    const mesesDelAnio = this.storeGoogle.base;
+    this.resultados.update((actuales) => {
+      const idx = actuales.findIndex((r) => r.anio === anio && r.mes.toLowerCase() === mesNombre.toLowerCase());
+      let copia = [...actuales];
+      if (idx >= 0) {
+        copia[idx] = { anio, mes: mesNombre, total };
+      } else {
+        copia.push({ anio, mes: mesNombre, total });
+      }
+      copia.sort((a, b) => {
+        if (a.anio !== b.anio) return a.anio - b.anio;
+        return mesesDelAnio.indexOf(a.mes) - mesesDelAnio.indexOf(b.mes);
+      });
+      return copia;
+    });
   }
 
   async cargarEntidadesDesdeBD(anio: number, mesNombre: string): Promise<boolean> {
@@ -283,23 +332,27 @@ export class Mensual implements OnInit, OnDestroy {
           mes: it.mes,
         }));
 
-      this.setSignalIfChanged(this.visaDatos, formatItems(res.porEntidad['Visa Galicia']?.items));
+      this.setSignalIfChanged(this.visaDatos, formatItems(res.porEntidad['Visa Galicia']?.items || res.porEntidad['Visa']?.items));
       this.setSignalIfChanged(this.visaEntidad, 'Visa Galicia');
 
-      this.setSignalIfChanged(this.masterDatos, formatItems(res.porEntidad['Master Card Galicia']?.items));
+      this.setSignalIfChanged(this.masterDatos, formatItems(res.porEntidad['Master Card Galicia']?.items || res.porEntidad['Master Card']?.items || res.porEntidad['Mastercard']?.items));
       this.setSignalIfChanged(this.masterEntidad, 'Master Card Galicia');
 
-      this.setSignalIfChanged(this.naranjaDatos, formatItems(res.porEntidad['Naranja']?.items));
+      this.setSignalIfChanged(this.naranjaDatos, formatItems(res.porEntidad['Naranja X']?.items || res.porEntidad['Naranja']?.items));
       this.setSignalIfChanged(this.naranjaEntidad, anio <= 2023 ? 'Naranja' : 'Naranja X');
 
       this.setSignalIfChanged(this.bancorDatos, formatItems(res.porEntidad['Bancor']?.items));
       this.setSignalIfChanged(this.bancorEntidad, 'Bancor');
 
-      this.setSignalIfChanged(this.mLDatos, formatItems(res.porEntidad['Mercado Libre']?.items));
+      this.setSignalIfChanged(this.mLDatos, formatItems(res.porEntidad['Mercado Libre']?.items || res.porEntidad['Mercado Pago']?.items || res.porEntidad['Mercado Libre / Pago']?.items));
       this.setSignalIfChanged(this.mLEntidad, 'Mercado Libre');
 
       this.setSignalIfChanged(this.otrosDatos, formatItems(res.porEntidad['Otros']?.items));
       this.setSignalIfChanged(this.otrosEntidad, 'Otros');
+
+      if (res?.resumen) {
+        this.actualizarMesEnResultados(anio, mesNombre, Number(res.resumen.totalGeneral || 0));
+      }
 
       return true;
     } catch (err) {
@@ -359,6 +412,27 @@ export class Mensual implements OnInit, OnDestroy {
     this.setSignalIfChanged(this.otrosDatos, registrosOtros ?? []);
     this.setSignalIfChanged(this.otrosEntidad, headOtros);
     this.ultimaClaveOtros = claveOtros;
+
+    const calcularTotalLista = (lista: Entidad[] | null | undefined) =>
+      (lista || []).reduce((acc, it: any) => {
+        const mc = it?.montoCrudo;
+        if (mc !== undefined && mc !== null) {
+          return acc + Number(mc);
+        }
+        return acc + this.parseMoneda(String(it?.monto ?? ''));
+      }, 0);
+
+    const totalMes =
+      calcularTotalLista(registrosVisa) +
+      calcularTotalLista(registrosMaster) +
+      calcularTotalLista(registrosNaranja) +
+      calcularTotalLista(registrosBancor) +
+      calcularTotalLista(registrosML) +
+      calcularTotalLista(registrosOtros);
+
+    if (totalMes > 0) {
+      this.actualizarMesEnResultados(anio, mes, totalMes);
+    }
   }
   isMobile = false;
   sidebarCollapsed = signal(false);
@@ -494,9 +568,10 @@ export class Mensual implements OnInit, OnDestroy {
 
     // 📡 Suscripción reactiva en tiempo real al canal SSE
     this.sseSub = this.sseService.getEvents$().subscribe((msg) => {
-      if (msg.event === 'DATA_UPDATED') {
+      if (msg.event === 'DATA_UPDATED' || msg.event === 'MONTHLY_UPDATED') {
         console.log('⚡ [Mensual] Actualización en tiempo real recibida vía SSE. Recargando...', msg.data);
         void this.refrescarAutomaticamente();
+        void this.cargarTotalesTotales(false, true);
       }
     });
   }
@@ -572,8 +647,14 @@ export class Mensual implements OnInit, OnDestroy {
     }
 
     try {
+      const configuredYears = this.appConfig.yearsMensual || [];
+      if (configuredYears.length > 0) {
+        this.anios = [...new Set([...configuredYears, ...this.anios, this.anioSeleccionado()])].sort((a, b) => b - a);
+      }
+
       const mesesDelAnio = this.storeGoogle.base;
       const resultados: { anio: number; mes: string; total: number }[] = [];
+      const anioActual = new Date().getFullYear();
 
       for (const anio of this.anios) {
         if (!this.appConfig.isSheetsActivo(anio)) {
@@ -584,8 +665,15 @@ export class Mensual implements OnInit, OnDestroy {
               for (const it of resAnio.items) {
                 totalesPorMes[it.mes] = (totalesPorMes[it.mes] || 0) + Number(it.monto);
               }
+              const mesesConDatos = Object.keys(totalesPorMes).map(Number);
+              const maxMesConDatos = mesesConDatos.length > 0 ? Math.max(...mesesConDatos) : 0;
+
               mesesDelAnio.forEach((mesNombre, idx) => {
                 const mesNum = idx + 1;
+                // Si el año es futuro respecto al actual, no agregar meses futuros vacíos que todavía no tienen datos cargados
+                if (anio > anioActual && mesNum > maxMesConDatos && !totalesPorMes[mesNum]) {
+                  return;
+                }
                 resultados.push({ anio, mes: mesNombre, total: totalesPorMes[mesNum] || 0 });
               });
               continue;
