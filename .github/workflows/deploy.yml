@@ -31,7 +31,7 @@ jobs:
           corepack enable
           corepack prepare pnpm@latest --activate
           pnpm install --frozen-lockfile
-          sed -i "s/__APP_VERSION_VALUE__/V1.0.${{ github.run_number }}/g" src/index.html
+          sed -i "s/__APP_VERSION_VALUE__/V1.1.${{ github.run_number }}/g" src/index.html
           pnpm exec -- ng build --configuration production --base-href "/"
 
       - name: Deploy a Firebase Hosting
