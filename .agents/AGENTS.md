@@ -6,6 +6,15 @@
 - **ANCHO HOMOGÉNEO (100%)**: Todos los componentes de gráficos y tablas dentro de columnas deben mantener el ancho igualado al 100% (`width: 100%`, `box-sizing: border-box`).
 - **PROHIBICIÓN EXPRESA**: Bajo ninguna circunstancia alterar o remover estas estructuras visuales salvo solicitud explícita del usuario.
 
+## Regla de Oro: Paleta de Colores Institucional del Logo
+
+- **COLORES PRIMARIOS OFICIALES**: El color primario del sistema DEBE ser estrictamente el tono Slate Indigo corporativo del logo (`assets/9346204.png`), compuesto por:
+  - **Primario Dominante**: `#4b5896` (Azul Pizarra / Slate Indigo principal).
+  - **Secundario / Acento Luminoso**: `#706cd6` (o `#7e79d6` para bordes/resaltes en modo oscuro; versión viva, agradable y no apagada de la misma familia de color).
+  - **Degradado Oficial**: `linear-gradient(135deg, #706cd6 0%, #4b5896 100%)`.
+  - **Fondos de Píldoras / Badges Suaves**: `#eaecf4` con borde `#c4c8df` y texto `#4b5896`.
+- **PROHIBICIÓN EXPRESA DE AZULES O TURQUESAS AJENOS**: Bajo ninguna circunstancia utilizar tonos turquesa/cyan (`#0284c7`, `#38bdf8`, `#0ea5e9`) ni azules eléctricos genéricos (`#1565c0`, `#1e88e5`, `#2563eb`) en botones primarios, cabeceras o indicadores. Todo debe responder a la paleta armónica del logo `#4b5896` / `#706cd6`.
+
 ## Plan Maestro Único y Sincronizado
 
 - **ARCHIVO COMPARTIDO**: El archivo `PLAN_MIGRACION_CLOUD_API.md` es el plan maestro centralizado tanto para la API como para el Frontend. Está enlazado a nivel de sistema de archivos (`hardlink`) con `control-de-gastos-api/PLAN_MIGRACION_CLOUD_API.md`.
@@ -15,4 +24,10 @@
 
 - **ACTUALIZACIÓN CONTINUA**: En cada sesión de trabajo, cualquier nueva funcionalidad, corrección de bugs, refactorización o ajuste visual en el Frontend DEBE registrarse inmediatamente en `REGISTRO_ACCIONES_FRONT.md`.
 - **CONTENIDO**: Indicar fecha/hora, resumen del cambio, problemas detectados, causa raíz, solución técnica y archivos afectados.
+
+## Regla de Oro: Validación y Compilación Obligatoria al Final de Cada Tarea
+
+- **COMPILACIÓN LIMPIA OBLIGATORIA (CÓDIGO 0)**: Antes de responder o dar por concluido cualquier cambio, refactorización o subpaso, es MANDATORIO ejecutar `npx ng build --configuration development` y comprobar que la compilación sea 100% exitosa con CERO errores y CERO advertencias.
+- **PROHIBIDO FINALIZAR CON ERRORES O ROTO**: Si el compilador detecta cualquier error de tipos de TypeScript (`TSxxxx`), errores de plantillas de Angular (`NGxxxx`) o advertencias, el agente TIENE LA OBLIGACIÓN ESTRICTA de corregirlos inmediatamente y volver a compilar hasta obtener éxito total antes de entregar la respuesta al usuario.
+- **PREVENCIÓN DE OVERLAYS EN NAVEGADOR**: Verificar que no queden errores en runtime ni en la consola de red (ej. 404/500 innecesarios) que activen el cartel o modal rojo de error en el navegador.
 

@@ -23,7 +23,7 @@ export class GraficoHistorico {
   @Input() isCargando = false;
 
   isBrowser = false;
-  chartPlugins = [yearBackgroundPlugin];
+  chartPlugins: any[] = [yearBackgroundPlugin];
 
   @Input() set datosHistoricosEstimativos(value: EstimativoRow[]) {
     if (value && value.length > 0) {

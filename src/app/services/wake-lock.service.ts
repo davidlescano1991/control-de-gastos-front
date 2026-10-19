@@ -1,36 +1,56 @@
-// wake-lock.service.ts
-import { Injectable } from '@angular/core';
+import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 
 @Injectable({
-    providedIn: 'root'
+  providedIn: 'root',
 })
 export class WakeLockService {
-    private wakeLock: any = null;
+  private wakeLock: any = null;
+  private isBrowser: boolean;
+  private autoMaintain = true;
 
-    async requestWakeLock() {
-        try {
-            if ('wakeLock' in navigator) {
-                this.wakeLock = await (navigator as any).wakeLock.request('screen');
-                this.wakeLock.addEventListener('release', () => {
-                    console.log('Wake Lock liberado');
-                });
-                console.log('Wake Lock activado');
-            } else {
-                console.warn('Wake Lock API no está disponible en este navegador');
-            }
-        } catch (err) {
-            if (err instanceof Error) {
-                console.error(`${err.name}, ${err.message}`);
-            } else {
-                console.error('Error desconocido', err);
-            }
+  constructor(@Inject(PLATFORM_ID) platformId: Object) {
+    this.isBrowser = isPlatformBrowser(platformId);
+
+    if (this.isBrowser) {
+      // Re-adquirir WakeLock automáticamente cuando el usuario regresa a la pestaña
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && this.autoMaintain && !this.wakeLock) {
+          this.requestWakeLock();
         }
+      });
     }
+  }
 
-    async releaseWakeLock() {
-        if (this.wakeLock) {
-            await this.wakeLock.release();
+  async requestWakeLock() {
+    if (!this.isBrowser) return;
+
+    try {
+      if ('wakeLock' in navigator) {
+        if (!this.wakeLock) {
+          this.wakeLock = await (navigator as any).wakeLock.request('screen');
+          this.wakeLock.addEventListener('release', () => {
             this.wakeLock = null;
+            console.log('⚡ [WakeLock] Liberado temporalmente');
+          });
+          console.log('⚡ [WakeLock] Pantalla activa y prevenida de apagado');
         }
+      } else {
+        console.warn('⚠️ [WakeLock] API no soportada en este navegador');
+      }
+    } catch (err) {
+      if (err instanceof Error) {
+        console.warn(`[WakeLock] No se pudo activar: ${err.message}`);
+      }
     }
+  }
+
+  async releaseWakeLock() {
+    if (this.wakeLock) {
+      try {
+        await this.wakeLock.release();
+      } catch {}
+      this.wakeLock = null;
+    }
+  }
 }

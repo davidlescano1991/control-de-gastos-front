@@ -170,6 +170,6 @@
     [visible]="modalEditarDiaVisible()"
     [fila]="diaParaEditar()"
     (cerrar)="cerrarEditarDia()"
-    (guardado)="onDiaGuardado()"
+    (guardado)="onDiaGuardado($event)"
   ></app-modal-editar-dia>
 </ng-container>

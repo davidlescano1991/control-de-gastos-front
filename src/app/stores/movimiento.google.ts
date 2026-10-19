@@ -25,12 +25,15 @@ interface GoogleSheetResponse {
  * Representa una fila procesada de la hoja mensual de estimativos diarios.
  */
 export interface EstimativoRow {
+  id?: string;
   fecha: string;
   saldoPesos: number;
   saldoUSD: number;
   deuda: number;
   real: number | null;
   deudaReal: number;
+  evento?: string | null;
+  color?: string | null;
 }
 
 /**
@@ -123,8 +126,6 @@ export const todosLosMeses = [
   'Octubre',
   'Noviembre',
   'Diciembre',
-  'Enero_2026',
-  'Febrero_2026',
 ];
 
 /**
@@ -414,14 +415,7 @@ export class MovimientosStoreGoogle {
    * Devuelve la lista de meses aplicable para un año (incorporando extensiones configuradas).
    */
   getMesesParaResumen(anio: number): string[] {
-    const base = this.base;
-    try {
-      return this.appConfig.getMesesForYear
-        ? this.appConfig.getMesesForYear(anio, base)
-        : [...base, ...(this.appConfig.raw?.mesesExtraPorAnio?.[String(anio)] ?? [])];
-    } catch {
-      return base;
-    }
+    return this.base;
   }
 
   /**
@@ -685,7 +679,7 @@ export class MovimientosStoreGoogle {
       console.log(`📦 [${caller ?? 'desconocido'}] cargando desde API: ${hojaReal} (${anio})`);
       try {
         const res = (await firstValueFrom(
-          this.sheets.obtenerMensualAnio(anio, hojaReal, 'A1:K500'),
+          this.sheets.obtenerMensualAnio(anio, hojaReal, 'A1:R500'),
         )) as { values: string[][] };
         this.mensualPorMes.set(clave, signal(res));
       } catch (err) {
@@ -730,7 +724,7 @@ export class MovimientosStoreGoogle {
       console.log(`📦 [${caller ?? 'desconocido'}] cargando desde API: ${rangoHojas} (${anio})`);
       try {
         const res: any = await firstValueFrom(
-          this.sheets.obtenerMensualBatch(anio, meses, 'A1:K500'),
+          this.sheets.obtenerMensualBatch(anio, meses, 'A1:R500'),
         );
 
         res.valueRanges?.forEach((vr: { values: string[][] }, i: number) => {
@@ -749,7 +743,7 @@ export class MovimientosStoreGoogle {
         for (const mes of meses) {
           try {
             const hojaRes: any = await firstValueFrom(
-              this.sheets.obtenerMensualAnio(anio, mes, 'A1:K500'),
+              this.sheets.obtenerMensualAnio(anio, mes, 'A1:R500'),
             );
             const valores = hojaRes?.values ?? [];
             const clave = `${anio}::${mes}`;

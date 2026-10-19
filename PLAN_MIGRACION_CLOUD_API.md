@@ -1137,36 +1137,73 @@ gantt
         8. **Termómetro de Días Positivos en Estimativos**: Segundo gráfico tipo termómetro en `/estimativo` que refleja el porcentaje de días con rendimiento positivo del mes, obtenido de la tabla *Rendimientos positivos mensuales* de Anual (celda `H53` de cada mes).
         9. **Explorador y Generador de Reportes Multicriterio con Gráficos Dinámicos (Exclusivo Administradores)**: Submenú exclusivo para usuarios administradores que permite consultar la base de datos mediante filtros visuales avanzados (fechas, entidades múltiples, estados de pago, tipos de ítems, montos) generando al vuelo tablas de resultados consolidados y gráficos interactivos (barras, líneas, torta) sin necesidad de escribir sentencias SQL complejas (`SELECT`, `JOIN`, `GROUP BY`).
     * **Subpasos de Ejecución**:
-      * **6.17.1**: Frontend & Routing: Creación de la Nueva Vista de Reportes (`/reportes`) con Arquitectura de Submenús:
+      * **6.17.1**: Frontend & Routing: Creación de la Nueva Vista de Reportes (`/reportes`) con Arquitectura de Submenús *(Completado)*:
         - Crear el módulo/componente `ReportesComponent` en `src/app/pages/reportes/` con barra de navegación por pestañas/submenús interactivos:
           1. *Evolución de Saldo* (`Saldo [Año]`).
           2. *Cortes Bimonetarios* (`Saldo!K47:R60`).
           3. *Análisis Anual* (Saldos, Gastos Condicionales Rojo/Azul y Préstamos).
           4. *Consultas y Reportes Dinámicos* (Protegido por `RoleGuard` para administradores).
-        - Integrar la ruta `/reportes` en el Navbar principal de la aplicación con icono analítico (`query_stats` / `analytics`), respetando la Regla de Oro (`AGENTS.md`) con `.movimientos-wrapper`, tarjetas con bordes suaves y soporte completo de Modo Claro y Modo Oscuro.
-      * **6.17.2**: Submenú 1 en Reportes: Gráficos de Evolución de Saldo del Año (`Saldo 2026` / Saldo):
+      * **6.17.2**: Submenú 1 en Reportes: Gráficos de Evolución de Saldo del Año (`Saldo 2026` / Saldo) *(Completado)*:
         - Implementar en el primer submenú de Reportes la visualización exclusiva de los gráficos de evolución de saldos en el tiempo (pesos y dólares) según el año seleccionado, prescindiendo de las tablas de datos crudos para una visualización ejecutiva limpia y ágil.
-      * **6.17.3**: Submenú 2 en Reportes: Tabla de Cortes Bimonetarios y Gráfico Asociado (`Saldo!K47:R60`):
-        - Backend: Endpoint para suministrar la serie de cortes bimonetarios de saldo de la tabla `K47:R60` (`Fecha`, `Saldo $`, `Saldo U$`, `Deuda/bitcoin`, `Saldo $ a U$`, `Total Saldo U$`, `Variación $`, `Variación U$`).
-        - Frontend: Renderizar la tabla con formateo monetario elegante y el gráfico nativo asociado que compara saldos y variaciones.
-      * **6.17.4**: Submenú 3 en Reportes: Análisis Anual Reorganizado (Saldos, Gastos Condicionales Rojo/Azul y Préstamos):
-        - Retirar el gráfico de saldos de la vista `/anual` (dejando `/anual` enfocada exclusivamente en la matriz contable y balance) y trasladarlo a este submenú de Reportes.
-        - Desarrollar el gráfico independiente de Gastos Anuales con coloración reactiva condicional:
-          - **Rojo (#EF4444)**: Cuando el gasto del mes superó al del mes anterior (aumento).
-          - **Azul (#3B82F6)**: Cuando el gasto del mes disminuyó o fue igual a cero.
-        - Desarrollar el gráfico con el total acumulado de montos de cuotas/amortizaciones de préstamos para cada mes del año.
-      * **6.17.5**: Módulo Mensual (`/mensual`): Gráfico de Gastos Proyectados de Próximos Meses:
-        - Incorporar en la vista `/mensual`, junto al gráfico de proyección de saldo existente, el gráfico interactivo de gastos proyectados (`H36`), cubriendo los mismos rangos de meses futuros según el ciclo consultado (ej. para Octubre, proyectando Noviembre, Diciembre, Enero, etc.).
-      * **6.17.6**: Módulo Mensual (`/mensual`): Gastos a Devolver / Reembolsables (`Saldo!S45:W57`):
-        - Backend: Modelo o extensión para registrar gastos compartidos/reembolsables con campos de concepto, importe pagado, entidad/cuenta de egreso, estado (`PENDIENTE`, `REINTEGRADO_PARCIAL`, `REINTEGRADO_TOTAL`), fecha de reintegro y cuenta receptora.
-        - Frontend: Sección en `/mensual` (o integración configurable en "Otros") para conceptos a devolver (luz, agua, claro, mamá, etc.):
-          - Al abonarse a inicio de mes: se resta del saldo disponible.
-          - Al registrar la devolución: genera automáticamente un asiento de movimiento a favor (`INGRESO`) con fecha y cuenta seleccionada.
-      * **6.17.7**: Módulo de Estimativos (`/estimativo`): Feriados y Eventos con Color Personalizado:
+        - Backend: Implementación de `ReportesService` (`GET /api/reportes/saldo-anual?year=:year`) con soporte híbrido automático (Google Sheets `Saldo [Año]` para años activos y PostgreSQL `MonthlyEstimateConfig` / `DailyEstimate` para años en BD), métricas consolidadas y caché en memoria.
+        - Frontend: Dashboard ejecutivo en `ReportesComponent` con 4 KPI cards (Último Saldo en Pesos con indicador de descubierto/a favor, Saldo en USD, Rango Anual de Volatilidad Mín/Máx y Deuda Actual), selector de series (Pesos, Dólares, Deuda, Comparativa), filtro rápido por mes con chips interactivos, gráfico responsivo con Chart.js (línea spline suave, puntos coloreados, línea de tendencia) y adaptación a Modo Oscuro. *(Completado)*
+      * **6.17.3**: Submenú 2 en Reportes: Tabla de Cortes Bimonetarios y Gráfico Asociado (`Saldo!K47:R60`) *(Completado)*:
+        - Backend: Endpoint `GET /api/reportes/cortes-bimonetarios?year=:year` en `reportes.service.ts` con extracción dinámica y resiliente multi-origen (Google Sheets `Saldo!J40:S85`, plantillas históricas `templates/Cuentas claras_[Año].xlsx` o checkpoints en PostgreSQL `MonthlyEstimateConfig`/`DailyEstimate`), cálculo de métricas patrimoniales agregadas y caché en memoria. *(Completado)*
+        - Frontend: Renderizado del segundo submenú en `ReportesComponent` con 4 KPI cards (Total Saldo U$S, Saldo en Pesos al Corte con badge A Favor/En Descubierto, Deuda Registrada y Variación Neta Acumulada), selector interactivo de series (Total Saldo U$S, Saldo $ vs Deuda $, Variación U$S y Vista Integral), gráfico spline/barras responsivo con Chart.js y tabla detallada con formateo monetario bimonetario dual, pills de variación y adaptación completa a Modo Oscuro (`body.dark-mode`). *(Completado)*
+      * **6.17.4**: Submenú 3 en Reportes: Análisis Anual Reorganizado (Saldos, Gastos Estilo Google Sheets y Préstamos Reactivo) *(Completado)*:
+        - **Desacople Visual en `/anual`**: Se retiró el gráfico de saldos anuales (`app-grafico-saldo-anual`) de la vista `/anual`, dejándola enfocada exclusivamente en la matriz contable de préstamos, tablas y balances anuales.
+        - **Backend (API)**:
+          - Endpoint `GET /api/reportes/analisis-anual?year=:year` en `reportes.service.ts`, `reportes.controller.ts` y `reportes.routes.ts` con soporte dual (Google Sheets `Anual [Año]!A32:L43` para años online y plantillas/PostgreSQL `monthly_estimate_configs`/`loans` para años en BD).
+          - Captura automática de saldos (fila 34), gastos mensuales (fila 38), consumos de combustible Nafta (fila 42), amortizaciones de préstamos en PostgreSQL por mes y métricas analíticas.
+        - **Frontend (`ReportesComponent`)**:
+          - Integración de `getAnalisisAnual` en `ReportesService` con interfaz tipada (`ReporteAnalisisAnualResponse`).
+          - Renderizado de Submenú 3 con 4 KPI cards (Saldo Promedio Mensual, Total Gastos del Año con mes pico, Comportamiento Mensual con píldoras de aumentos/reducciones, y Amortización Total de Préstamos).
+          - Barra de sub-tabs interna: "Todos los Gráficos", "Saldo Anual ($)", "Gastos Anuales" y "Préstamos Mensuales".
+          - **Gráfico de Saldo Anual**: Línea suave con área translúcida índigo `#706cd6`, puntos coloreados (verde/rojo) y línea de tendencia.
+          - **Gráfico de Gastos Anuales (Estilo Google Sheets)**:
+            - Gráfico de líneas (`type: 'line'`) con título centrado `Enero - Diciembre [Año]`.
+            - Eje Y con título `Gastos` en color rojo institucional `#dc2626` y formateo monetario `$X.XXX.XXX,XX`.
+            - Eje X con título `Meses`.
+            - Serie de gastos devengados en azul sólido `#2563eb` con puntos circulares y plugin personalizado de etiquetas monetarias (`googleSheetsDataLabelsPlugin`) sobre cada punto.
+            - Línea de referencia horizontal de promedio mensual en celeste suave.
+            - Serie violeta `#9333ea` de combustible (Nafta) con etiquetas de valor en los meses con consumos.
+          - **Gráfico de Préstamos Mensuales (Coloración Reactiva de 3 Estados)**:
+            - **Azul (#3B82F6)**: Para el **mes próximo a pagar** (detección dinámica automática del primer mes con cuotas impagas en el año; ej. Noviembre 2026, y al registrar el pago se actualiza automáticamente a Diciembre).
+            - **Rojo (#EF4444)**: Para aquellos meses donde el total de cuotas aumentó respecto al mes anterior.
+            - **Violeta (#8B5CF6)**: Para los demás meses normales, en descenso o ya abonados.
+            - Barra de leyendas interactiva con 3 chips indicadores (`chip-optimo-azul`, `chip-alerta-rojo`, `chip-neutral-purple`).
+          - Cumplimiento estricto de la Regla de Oro (`AGENTS.md`) y soporte completo para Modo Claro y Modo Oscuro. *(Completado)*
+      * **6.17.5**: Módulo Mensual (`/mensual`): Gráfico de Gastos y Saldo Proyectados de Próximos Meses *(Completado)*:
+        - **Reubicación Estratégica**: Promovido a la primera posición de la columna derecha (justo debajo de "Novedades de cuotas"), reemplazando de forma definitiva al gráfico obsoleto "Total mensual $" (`GraficoVisa`), centralizando toda la proyección y totales en un único componente moderno.
+        - **Diseño Ergonómico sin Saturación Visual**: Integración de selector interactivo tipo pestañas/pills en la cabecera de la tarjeta del componente (`app-grafico-proyeccion-totales`) permitiendo alternar entre 3 modos:
+          1. **"Gastos Proyectados"**: Curva de compromisos en sombreado suave coral/rojo (`#ef4444`, `rgba(239, 68, 68, 0.12)`).
+          2. **"Saldo Proyectado"**: Curva de balance proyectado en índigo corporativo (`#706cd6`) con marcadores condicionales bicolor (verde positivo, rojo negativo).
+          3. **"Saldo vs gastos"**: Vista comparativa directa que dibuja simultáneamente ambas curvas en el mismo canvas con fondos translúcidos independientes, leyenda interactiva y tooltips duales.
+        - **Extracción Dinámica y Precisa**:
+          - En Google Sheets (`MovimientosStoreGoogle`): Extensión del rango de consulta mensual a `A1:R500` (abarcando las columnas I a R de la matriz de proyección).
+          - Detección reactiva de filas: fila 23 para nombres de los meses (`I23:R23`), fila 36 para Gastos Proyectados (`I36:R36`) y fila 38 para Saldo Remanente Proyectado (`I38:R38`).
+          - Fallback resiliente para base de datos/offline mediante agregación en memoria de cuotas activas de `MonthlyItem` proyectadas hacia meses futuros.
+        - **Cumplimiento de Regla de Oro (`AGENTS.md`)**: Preservación íntegra del contenedor `.tabla-resumen-card`, bordes redondeados (`12px`), sombras sutiles, compatibilidad total con Modo Oscuro (`body.dark-mode`) y botón de colapso de tarjeta. *(Completado)*
+      * **6.17.6**: Módulo Mensual (`/mensual`): Gastos a Devolver / Reembolsables (`Saldo!S45:W57`) *(Completado)*:
+        - **Ubicación e Integración Visual**: Tarjeta independiente colapsable `.tabla-reembolsables-card` ubicada en la columna izquierda de `/mensual` justo debajo de "Otros", con cabecera Slate Indigo (`#4b5896`), badge dinámico de estado (`REINTEGRADO`, `PARCIAL`, `PENDIENTE`), botón de colapso y botón `[+ Nuevo]` para agregar servicios en cualquier momento.
+        - **Extracción Híbrida y Persistencia en PostgreSQL**:
+          - En Google Sheets (`ReembolsablesService`): Lectura dinámica de la matriz `Saldo!S45:Z58` para el año y mes activo, parseando servicios compartidos (`luz`, `agua`, `claro`, `afip`, `GMS`, `internet`, `inst alarma`), total servicios, aporte a reintegrar (`Mamá`) y saldo neto personal.
+          - En Base de Datos: Persistencia integral mediante `MonthlyItem` (`entidad: 'Reembolsables'`, `notas: 'SERVICIO' | 'APORTE'`), permitiendo almacenar fórmulas aritméticas (`formula`) y montos evaluados.
+        - **Administración Completa de Conceptos (CRUD Interactivo)**:
+          - **Creación / Edición (`ModalItemReembolsableComponent`)**: Permite dar de alta nuevos conceptos de servicios, editar montos o fórmulas (ej. `=23943.80/2` evaluado en tiempo real con `evaluarFormula`), cambiar nombres y modificar el aporte del tercero (ej. Mamá).
+          - **Eliminación**: Botón 🗑️ por cada fila de servicio con confirmación para dar de baja conceptos obsoletos.
+          - **Badges de Fórmula**: Indicador visual `formula-badge` monoespaciado en cada fila donde se haya usado una expresión de cálculo.
+        - **Cruce y Sincronización Contable con Movimientos**:
+          - Consulta reactiva de movimientos de tipo `INGRESO` y categoría `Reintegro` para el mes y año en curso, computando el total devuelto y el saldo pendiente.
+        - **Modal Interactivo de Devolución / Reintegro (`ModalReintegroComponent`)**:
+          - **Renderizado a Nivel Raíz**: Ubicado en la raíz de `mensual.html` (junto al modal de pagos de entidades) para superar de forma definitiva el contexto de apilamiento (`stacking context`) de la columna izquierda y centrarse en el viewport.
+          - Formulario con evaluación de expresiones aritméticas (`evaluarFormula`), precarga del saldo sugerido, selector de cuenta receptora (`Galicia`, `Santander`, `Mercado Pago`, `Bancor`, `Naranja X`, `Efectivo`), fecha y detalle contable.
+          - Al confirmar: genera automáticamente un asiento de movimiento a favor (`INGRESO`) vía `POST /api/movimientos`, emite evento SSE en tiempo real y refresca de inmediato saldos y totales en la interfaz. *(Completado)*
+      * **6.17.7**: Módulo de Estimativos (`/estimativo`): Feriados y Eventos con Color Personalizado *(Completado)*:
         - Permitir al usuario hacer clic o seleccionar cualquier día en la grilla de seguimiento diario de `/estimativo` para:
-          - Asignar una etiqueta o tipo de evento (ej. "Feriado", "Cobro", "Vencimiento", "Viaje").
-          - Seleccionar un color personalizado (paleta predefinida y color picker).
-        - Persistir la configuración en base de datos (`DailyEstimate.evento` / `color`) y pintar dinámicamente la fila o badge del día con el color elegido.
+          - Asignar una etiqueta o tipo de evento (presets: "Feriado", "Cobro", "Vencimiento", "Viaje", "Cumpleaños", "Ajuste" o texto libre).
+          - Seleccionar un color personalizado (paleta armónica de muestras y color picker nativo HTML).
+        - Persistir la configuración en base de datos (`DailyEstimate.evento` y `color`), retornarla en la API y pintar dinámicamente la fila con acento izquierdo y badge píldora `.badge-evento-dia` junto a la fecha en modo Claro y Oscuro. *(Completado)*
       * **6.17.8**: Módulo de Estimativos (`/estimativo`): Termómetro de Porcentaje de Días Positivos:
         - Incorporar en `/estimativo` un segundo indicador tipo termómetro/gauge visual (junto al termómetro de días transcurridos existente).
         - El termómetro calculará y mostrará el **porcentaje de días con rendimiento positivo del mes**, tomando los datos de la tabla de *Rendimientos positivos mensuales* de la vista Anual (celda `H53` de cada mes en Excel).

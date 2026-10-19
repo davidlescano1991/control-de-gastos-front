@@ -34,7 +34,7 @@ export class GraficoMovimientosHistoricosUsd implements OnChanges {
 
   @Input() isCargando = false;
   @Input() datosHistoricosDiarios: { fecha: string; total: number; deuda: number }[] = [];
-  chartPlugins = [yearBackgroundPlugin];
+  chartPlugins: any[] = [yearBackgroundPlugin];
 
   private cotizacionStore = inject(CotizacionStore);
   private cdr = inject(ChangeDetectorRef);
@@ -54,7 +54,8 @@ export class GraficoMovimientosHistoricosUsd implements OnChanges {
     scales: {
       x: {},
       y: {
-        beginAtZero: false,
+        beginAtZero: true,
+        suggestedMin: 0,
         border: { display: true },
         grid: {
           color: (ctx) => getGridColor(ctx),

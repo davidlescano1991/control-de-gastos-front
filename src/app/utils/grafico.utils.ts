@@ -266,9 +266,9 @@ export function getLineWidth(ctx: any): number {
 
 import type { Plugin } from 'chart.js';
 
-export const yearBackgroundPlugin: Plugin<'line' | 'bar'> = {
+export const yearBackgroundPlugin: Plugin = {
   id: 'yearBackgroundPlugin',
-  beforeDraw: (chart) => {
+  beforeDraw: (chart: any) => {
     const { ctx, chartArea, scales } = chart;
     if (!chartArea || !scales['x']) return;
 

@@ -62,8 +62,6 @@
               <mat-icon>{{ colDerechaContraida() ? 'chevron_left' : 'chevron_right' }}</mat-icon>
             </button>
           </div>
-          <app-grafico-saldo-anual [datosAnuales]="graficoAnual()"
-            [isCargando]="isCargando()"></app-grafico-saldo-anual>
           <app-grafico-rendimientos-positivos-mensuales
             [datosAnuales]="resumenPositivo()"></app-grafico-rendimientos-positivos-mensuales>
           <app-grafico-gasto-anual [datosAnuales]="gastosMensuales()"

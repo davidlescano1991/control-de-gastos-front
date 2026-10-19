@@ -114,6 +114,86 @@
         </div>
       </div>
 
+      <!-- Etiqueta / Evento del Día -->
+      <div class="form-dia-group seccion-evento">
+        <div class="label-con-accion">
+          <label for="editEvento">
+            <mat-icon class="icon-inline">label</mat-icon> Etiqueta / Evento <small>(opcional)</small>
+          </label>
+          <button
+            type="button"
+            class="btn-limpiar-evento"
+            *ngIf="editEvento() || editColor()"
+            (click)="limpiarEvento()"
+            title="Quitar evento y color"
+          >
+            <mat-icon>clear</mat-icon> Quitar
+          </button>
+        </div>
+
+        <!-- Presets rápidos de eventos -->
+        <div class="presets-chips">
+          <button
+            type="button"
+            *ngFor="let p of eventosPreset"
+            class="chip-evento"
+            [class.active]="editEvento() === p.label"
+            (click)="seleccionarPresetEvento(p.label, p.color)"
+            [style.--chip-accent]="p.color"
+          >
+            <mat-icon>{{ p.icon }}</mat-icon>
+            <span>{{ p.label }}</span>
+          </button>
+        </div>
+
+        <input
+          type="text"
+          id="editEvento"
+          [ngModel]="editEvento()"
+          (ngModelChange)="editEvento.set($event)"
+          placeholder="O escribe una etiqueta personalizada (ej: Cobro Aguinaldo, Cumpleaños)"
+          class="input-dia-control input-evento"
+          maxlength="60"
+        />
+      </div>
+
+      <!-- Color de Resalte del Día -->
+      <div class="form-dia-group seccion-color">
+        <label>
+          <mat-icon class="icon-inline">palette</mat-icon> Color del Día
+        </label>
+        <div class="paleta-colores-wrapper">
+          <div class="paleta-swatches">
+            <button
+              type="button"
+              *ngFor="let c of coloresPreset"
+              class="swatch-btn"
+              [style.backgroundColor]="c"
+              [class.selected]="editColor() === c"
+              (click)="seleccionarColor(c)"
+              [title]="c"
+            >
+              <mat-icon *ngIf="editColor() === c">check</mat-icon>
+            </button>
+          </div>
+
+          <!-- Color picker personalizado nativo -->
+          <div class="custom-color-picker">
+            <input
+              type="color"
+              id="colorPickerNativo"
+              [ngModel]="editColor() || '#706cd6'"
+              (ngModelChange)="editColor.set($event)"
+              title="Elegir otro color"
+            />
+            <label for="colorPickerNativo" class="picker-label" [style.borderColor]="editColor() || '#cbd5e1'">
+              <span class="preview-mini-dot" [style.backgroundColor]="editColor() || '#cbd5e1'"></span>
+              <span>{{ editColor() || 'Elegir' }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
       <!-- Casilla de propagación -->
       <div class="propagar-check">
         <label class="checkbox-label">

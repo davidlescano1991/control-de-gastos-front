@@ -29,7 +29,10 @@
     box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
     border: 1px solid #e2e8f0;
     width: 100%;
-    max-width: 480px;
+    max-width: 490px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
     animation: fadeInScale 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
@@ -41,6 +44,7 @@
     padding: 14px 18px;
     border-bottom: 1px solid #edf2f7;
     background: #f8fafc;
+    flex-shrink: 0;
 
     .titulo-dia {
       display: flex;
@@ -86,6 +90,8 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
+    overflow-y: auto;
+    flex: 1;
 
     .form-dia-group {
       display: flex;
@@ -254,6 +260,179 @@
           }
         }
       }
+
+      .icon-inline {
+        font-size: 15px;
+        width: 15px;
+        height: 15px;
+        vertical-align: -2px;
+        margin-right: 4px;
+        color: #706cd6;
+      }
+
+      .btn-limpiar-evento {
+        background: transparent;
+        border: none;
+        color: #ef4444;
+        font-size: 0.72rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        padding: 2px 6px;
+        border-radius: 4px;
+
+        mat-icon {
+          font-size: 12px;
+          width: 12px;
+          height: 12px;
+        }
+
+        &:hover {
+          background: #fee2e2;
+        }
+      }
+
+      .presets-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 6px;
+
+        .chip-evento {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 3px 9px;
+          border-radius: 14px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          cursor: pointer;
+          border: 1px solid #e2e8f0;
+          background: #f8fafc;
+          color: #475569;
+          transition: all 0.15s ease-in-out;
+
+          mat-icon {
+            font-size: 13px;
+            width: 13px;
+            height: 13px;
+            color: var(--chip-accent, #706cd6);
+          }
+
+          &:hover {
+            border-color: var(--chip-accent, #706cd6);
+            background: #ffffff;
+            transform: translateY(-1px);
+          }
+
+          &.active {
+            background: var(--chip-accent, #706cd6);
+            border-color: var(--chip-accent, #706cd6);
+            color: #ffffff;
+
+            mat-icon {
+              color: #ffffff;
+            }
+          }
+        }
+      }
+
+      .paleta-colores-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+
+        .paleta-swatches {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          flex-wrap: wrap;
+
+          .swatch-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            transition: all 0.15s;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+
+            mat-icon {
+              font-size: 14px;
+              width: 14px;
+              height: 14px;
+              color: #ffffff;
+              font-weight: 700;
+            }
+
+            &:hover {
+              transform: scale(1.15);
+            }
+
+            &.selected {
+              border-color: #0f172a;
+              transform: scale(1.15);
+              box-shadow: 0 0 0 2px rgba(112, 108, 214, 0.4);
+            }
+          }
+        }
+
+        .custom-color-picker {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+
+          input[type="color"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+            inset: 0;
+          }
+
+          .picker-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.15s;
+
+            .preview-mini-dot {
+              width: 12px;
+              height: 12px;
+              border-radius: 50%;
+              display: inline-block;
+            }
+
+            mat-icon {
+              font-size: 13px;
+              width: 13px;
+              height: 13px;
+              color: #706cd6;
+            }
+
+            &:hover {
+              background: #f8fafc;
+            }
+          }
+        }
+      }
     }
 
     .propagar-check {
@@ -290,6 +469,7 @@
     padding: 12px 18px;
     border-top: 1px solid #edf2f7;
     background: #f8fafc;
+    flex-shrink: 0;
 
     .btn-cancelar-dia {
       background: #ffffff;
@@ -444,6 +624,37 @@
           background: rgba(239, 68, 68, 0.2);
           color: #fca5a5;
           border-color: rgba(239, 68, 68, 0.35);
+        }
+      }
+
+      .btn-limpiar-evento:hover {
+        background: rgba(239, 68, 68, 0.2);
+      }
+
+      .presets-chips .chip-evento {
+        background: #0f172a;
+        border-color: #334155;
+        color: #cbd5e1;
+
+        &:hover {
+          background: #1e293b;
+        }
+
+        &.active {
+          background: var(--chip-accent, #706cd6);
+          border-color: var(--chip-accent, #706cd6);
+          color: #ffffff;
+        }
+      }
+
+      .paleta-colores-wrapper {
+        .custom-color-picker .picker-label {
+          background: #0f172a;
+          color: #cbd5e1;
+        }
+
+        .swatch-btn.selected {
+          border-color: #ffffff;
         }
       }
     }

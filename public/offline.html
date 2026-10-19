@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sin Conexión - Control de Gastos DML</title>
+  <style>
+    :root {
+      --primary: #1565c0;
+      --primary-light: #1e88e5;
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --green: #22c55e;
+      --red: #ef4444;
+      --gold: #facc15;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.5rem 1rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 640px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .header-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .badge-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .status-badge.online {
+      background: rgba(34, 197, 94, 0.15);
+      color: #4ade80;
+      border-color: rgba(34, 197, 94, 0.3);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 6px var(--red);
+    }
+
+    .status-badge.online .status-dot {
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+    }
+
+    .title {
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    button {
+      cursor: pointer;
+      font-family: inherit;
+      border: none;
+      outline: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      padding: 0.55rem 1rem;
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary-light), var(--primary));
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(21, 101, 192, 0.35);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 6px 16px rgba(21, 101, 192, 0.45);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: #334155;
+      color: #f8fafc;
+      border: 1px solid #475569;
+    }
+
+    .btn-secondary:hover {
+      background: #475569;
+    }
+
+    /* CONSOLA DE JUEGO */
+    .game-console {
+      background: #020617;
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .console-bar {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 0.75rem;
+    }
+
+    .console-title {
+      font-family: monospace;
+      font-size: 0.85rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      color: var(--green);
+    }
+
+    .scores {
+      display: flex;
+      gap: 0.65rem;
+    }
+
+    .score-chip {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    .score-chip strong {
+      color: var(--green);
+      font-family: monospace;
+      font-size: 0.9rem;
+    }
+
+    .score-chip.gold strong {
+      color: var(--gold);
+    }
+
+    .canvas-frame {
+      border: 2px solid #1e293b;
+      border-radius: 10px;
+      box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.9);
+      background: #0f172a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    canvas {
+      width: 380px;
+      height: 380px;
+      max-width: 100%;
+      border-radius: 8px;
+      display: block;
+    }
+
+    @media (max-width: 440px) {
+      canvas {
+        width: 300px;
+        height: 300px;
+      }
+    }
+
+    .dpad {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      margin-top: 0.5rem;
+    }
+
+    .dpad-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .dpad-btn {
+      width: 50px;
+      height: 50px;
+      border-radius: 12px;
+      background: #1e293b;
+      border: 2px solid #334155;
+      color: #f8fafc;
+      font-size: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .dpad-btn:active {
+      background: #334155;
+      transform: translateY(2px);
+    }
+
+    .dpad-btn.center {
+      border-color: var(--green);
+      color: var(--green);
+      font-size: 0.85rem;
+      font-weight: 800;
+    }
+
+    .instructions {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    kbd {
+      background: #1e293b;
+      border: 1px solid #475569;
+      border-radius: 4px;
+      padding: 1px 5px;
+      color: #ffffff;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header-card">
+      <div class="badge-row">
+        <div class="status-badge" id="statusBadge">
+          <span class="status-dot"></span>
+          <span id="statusText">Sin Conexión a Internet</span>
+        </div>
+        <div class="btn-row">
+          <button class="btn-primary" onclick="reintentar()">Reintentar Conexión</button>
+          <button class="btn-secondary" onclick="volver()">Ir al Sistema</button>
+        </div>
+      </div>
+      <h1 class="title" id="pageTitle">¡Te has quedado sin conexión!</h1>
+      <p class="subtitle">
+        Tus datos están protegidos localmente. Mientras esperamos a que se restablezca el acceso a la red, puedes divertirte con este clásico de la <strong>Viborita estilo Nokia 1100</strong>.
+      </p>
+    </div>
+
+    <div class="game-console">
+      <div class="console-bar">
+        <span class="console-title">NOKIA 1100 MODERN • SNAKE</span>
+        <div class="scores">
+          <div class="score-chip">PUNTOS: <strong id="scoreVal">0</strong></div>
+          <div class="score-chip gold">RÉCORD: <strong id="highVal">0</strong></div>
+        </div>
+      </div>
+
+      <div class="canvas-frame">
+        <canvas id="canvas" width="400" height="400"></canvas>
+      </div>
+
+      <div class="dpad">
+        <div class="dpad-row">
+          <button class="dpad-btn" onclick="setDir('UP')">▲</button>
+        </div>
+        <div class="dpad-row">
+          <button class="dpad-btn" onclick="setDir('LEFT')">◀</button>
+          <button class="dpad-btn center" onclick="togglePause()">⏸</button>
+          <button class="dpad-btn" onclick="setDir('RIGHT')">▶</button>
+        </div>
+        <div class="dpad-row">
+          <button class="dpad-btn" onclick="setDir('DOWN')">▼</button>
+        </div>
+      </div>
+
+      <p class="instructions">
+        Controles: <kbd>&uarr;&darr;&larr;&rarr;</kbd> o <kbd>WASD</kbd> para moverte &bull; <kbd>Espacio</kbd> Pausa &bull; <kbd>Enter</kbd> Reiniciar
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // Conectividad
+    function updateOnlineStatus() {
+      const isOnline = navigator.onLine;
+      const badge = document.getElementById('statusBadge');
+      const text = document.getElementById('statusText');
+      const title = document.getElementById('pageTitle');
+
+      if (isOnline) {
+        badge.classList.add('online');
+        text.innerText = 'Conexión Restablecida';
+        title.innerText = '¡Conexión a Internet Restablecida!';
+      } else {
+        badge.classList.remove('online');
+        text.innerText = 'Sin Conexión a Internet';
+        title.innerText = '¡Te has quedado sin conexión!';
+      }
+    }
+
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    updateOnlineStatus();
+
+    function reintentar() {
+      fetch('/api/health', { cache: 'no-store' })
+        .then(() => {
+          alert('¡Conexión verificada con éxito! Redirigiendo...');
+          window.location.href = '/';
+        })
+        .catch(() => {
+          alert('Aún sin conexión a Internet. ¡Sigue jugando a la Viborita!');
+        });
+    }
+
+    function volver() {
+      window.location.href = '/';
+    }
+
+    // Minijuego Viborita Nokia 1100 Modern
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const GRID = 20;
+    const CELL = canvas.width / GRID;
+
+    let snake = [{x: 8, y: 10}, {x: 7, y: 10}, {x: 6, y: 10}];
+    let dir = 'RIGHT';
+    let nextDir = 'RIGHT';
+    let food = {x: 14, y: 10};
+    let score = 0;
+    let high = parseInt(localStorage.getItem('viborita_high_score') || '0', 10);
+    let paused = false;
+    let gameOver = false;
+    let loop = null;
+
+    document.getElementById('highVal').innerText = high;
+
+    function spawnFood() {
+      while (true) {
+        const fx = Math.floor(Math.random() * GRID);
+        const fy = Math.floor(Math.random() * GRID);
+        if (!snake.some(s => s.x === fx && s.y === fy)) {
+          food = {x: fx, y: fy};
+          break;
+        }
+      }
+    }
+
+    function setDir(d) {
+      if (gameOver) { restart(); return; }
+      if (paused) paused = false;
+      if (d === 'UP' && dir !== 'DOWN') nextDir = 'UP';
+      if (d === 'DOWN' && dir !== 'UP') nextDir = 'DOWN';
+      if (d === 'LEFT' && dir !== 'RIGHT') nextDir = 'LEFT';
+      if (d === 'RIGHT' && dir !== 'LEFT') nextDir = 'RIGHT';
+    }
+
+    function togglePause() {
+      if (gameOver) return;
+      paused = !paused;
+    }
+
+    function restart() {
+      snake = [{x: 8, y: 10}, {x: 7, y: 10}, {x: 6, y: 10}];
+      dir = 'RIGHT';
+      nextDir = 'RIGHT';
+      score = 0;
+      document.getElementById('scoreVal').innerText = score;
+      gameOver = false;
+      paused = false;
+      spawnFood();
+    }
+
+    window.addEventListener('keydown', e => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+        e.preventDefault();
+      }
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') setDir('UP');
+      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') setDir('DOWN');
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') setDir('LEFT');
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') setDir('RIGHT');
+      if (e.key === ' ') togglePause();
+      if (e.key === 'Enter' && gameOver) restart();
+    });
+
+    function step() {
+      if (!paused && !gameOver) {
+        dir = nextDir;
+        const head = { ...snake[0] };
+        if (dir === 'UP') head.y--;
+        if (dir === 'DOWN') head.y++;
+        if (dir === 'LEFT') head.x--;
+        if (dir === 'RIGHT') head.x++;
+
+        if (head.x < 0 || head.x >= GRID || head.y < 0 || head.y >= GRID ||
+            snake.some(s => s.x === head.x && s.y === head.y)) {
+          gameOver = true;
+        } else {
+          snake.unshift(head);
+          if (head.x === food.x && head.y === food.y) {
+            score += 10;
+            document.getElementById('scoreVal').innerText = score;
+            if (score > high) {
+              high = score;
+              document.getElementById('highVal').innerText = high;
+              localStorage.setItem('viborita_high_score', String(high));
+            }
+            spawnFood();
+          } else {
+            snake.pop();
+          }
+        }
+      }
+
+      // Render
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Grid dots
+      ctx.fillStyle = 'rgba(51, 65, 85, 0.4)';
+      for (let x = 0; x < GRID; x++) {
+        for (let y = 0; y < GRID; y++) {
+          ctx.fillRect(x * CELL + CELL / 2, y * CELL + CELL / 2, 1.5, 1.5);
+        }
+      }
+
+      // Food
+      ctx.fillStyle = '#facc15';
+      ctx.shadowColor = '#eab308';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.roundRect(food.x * CELL + 2, food.y * CELL + 2, CELL - 4, CELL - 4, 4);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Snake
+      snake.forEach((s, i) => {
+        if (i === 0) {
+          ctx.fillStyle = '#22c55e';
+          ctx.shadowColor = '#16a34a';
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.roundRect(s.x * CELL + 1, s.y * CELL + 1, CELL - 2, CELL - 2, 5);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          // Eyes
+          ctx.fillStyle = '#0f172a';
+          const er = CELL * 0.12;
+          ctx.beginPath();
+          ctx.arc(s.x * CELL + CELL * 0.35, s.y * CELL + CELL * 0.35, er, 0, Math.PI * 2);
+          ctx.arc(s.x * CELL + CELL * 0.65, s.y * CELL + CELL * 0.35, er, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = '#10b981';
+          ctx.beginPath();
+          ctx.roundRect(s.x * CELL + 2, s.y * CELL + 2, CELL - 4, CELL - 4, 3);
+          ctx.fill();
+        }
+      });
+
+      if (paused && !gameOver) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 22px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('PAUSA', canvas.width / 2, canvas.height / 2);
+      }
+
+      if (gameOver) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ef4444';
+        ctx.font = 'bold 22px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('¡GAME OVER!', canvas.width / 2, canvas.height / 2 - 10);
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '14px sans-serif';
+        ctx.fillText(`Puntos: ${score} - Toca Reiniciar`, canvas.width / 2, canvas.height / 2 + 25);
+      }
+    }
+
+    loop = setInterval(step, 95);
+  </script>
+</body>
+</html>

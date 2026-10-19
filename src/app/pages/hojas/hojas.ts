@@ -145,7 +145,7 @@ export class HojasComponent implements OnInit {
       rango_ml_header: [103, [Validators.required]],
 
       // Configuración anual
-      mesesExtra: ['Enero, Febrero'],
+      mesesExtra: [''],
       filasTablaAnual: [84, [Validators.required]],
       celdaIngresoNeto: ['K21', [Validators.required]],
     });
@@ -186,7 +186,7 @@ export class HojasComponent implements OnInit {
     this.sheetForm.patchValue({
       year: nextYear,
       descripcion: `Planilla de Control ${nextYear}`,
-      mesesExtra: `Enero_${nextYear + 1}, Febrero_${nextYear + 1}`,
+      mesesExtra: '',
     });
     this.errorMessage.set('');
     this.successMessage.set('');
@@ -198,7 +198,7 @@ export class HojasComponent implements OnInit {
     this.errorMessage.set('');
     this.successMessage.set('');
 
-    const meta = sheet.metadata;
+    const meta = sheet.metadata || {};
     const extraMonthsStr = meta.mesesExtra ? meta.mesesExtra.join(', ') : '';
 
     this.sheetForm.patchValue({

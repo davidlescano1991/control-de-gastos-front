@@ -14,6 +14,8 @@ import { ThemeService } from './services/theme.service';
 import { MovimientosStoreGoogle } from './stores/movimiento.google';
 import { SseService } from './services/sse.service';
 import { AuthService } from './services/auth.service';
+import { ConnectivityService } from './services/connectivity.service';
+import { WakeLockService } from './services/wake-lock.service';
 import { ModalExportarExcelComponent } from './common/modal-exportar-excel/modal-exportar-excel.component';
 
 type AppWindow = Window & { __APP_VERSION__?: string };
@@ -51,8 +53,11 @@ export class AppComponent {
   private storeGoogle = inject(MovimientosStoreGoogle);
   public sseService = inject(SseService);
   public authService = inject(AuthService);
+  public connectivityService = inject(ConnectivityService);
+  private wakeLockService = inject(WakeLockService);
 
   constructor() {
+    this.wakeLockService.requestWakeLock();
     this.breakpointObserver.observe([Breakpoints.Handset]).subscribe((result) => {
       this.isMobile = result.matches;
       console.log('¿Es móvil?', this.isMobile);
@@ -85,10 +90,10 @@ export class AppComponent {
   }
 
   private obtenerVersionApp(): string {
-    if (typeof window === 'undefined') return 'V1.0.dev';
+    if (typeof window === 'undefined') return 'V1.1.dev';
 
     const version = (window as AppWindow).__APP_VERSION__;
-    if (!version || version === '__APP_VERSION__') return 'V1.0.dev';
+    if (!version || version === '__APP_VERSION__') return 'V1.1.dev';
 
     return version;
   }

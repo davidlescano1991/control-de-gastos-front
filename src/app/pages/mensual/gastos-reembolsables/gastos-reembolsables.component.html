@@ -1,0 +1,210 @@
+<mat-card class="tabla-reembolsables-card" appearance="outlined" [class.is-collapsed]="isCollapsed()">
+  <!-- Cabecera de la tarjeta -->
+  <mat-card-header class="card-header-wrapper">
+    <div class="header-left">
+      <mat-icon class="card-icon">volunteer_activism</mat-icon>
+      <mat-card-title>Gastos Reembolsables</mat-card-title>
+    </div>
+
+    <div class="header-right">
+      <!-- Botón Agregar Concepto -->
+      <button type="button" class="btn-nuevo-concepto" (click)="abrirModalNuevoConcepto()"
+        title="Agregar nuevo servicio o concepto reembolsable">
+        <mat-icon>add</mat-icon>
+        <span>Nuevo</span>
+      </button>
+
+      <!-- Badge de Estado de Reintegro -->
+      <ng-container *ngIf="data() && !isCargando()">
+        <span *ngIf="data()?.estadoReintegro === 'REINTEGRADO_TOTAL'" class="badge-estado badge-total"
+          title="El aporte previsto ha sido reintegrado y acreditado">
+          <mat-icon>check_circle</mat-icon>
+          Reintegrado
+        </span>
+        <span *ngIf="data()?.estadoReintegro === 'REINTEGRADO_PARCIAL'" class="badge-estado badge-parcial"
+          title="Se registró una devolución parcial">
+          <mat-icon>timelapse</mat-icon>
+          Parcial
+        </span>
+        <span *ngIf="data()?.estadoReintegro === 'PENDIENTE' && (data()?.montoAporteTercero ?? 0) > 0"
+          class="badge-estado badge-pendiente" title="Pendiente de cobro / reintegro">
+          <mat-icon>schedule</mat-icon>
+          Pendiente
+        </span>
+      </ng-container>
+
+      <button type="button" class="btn-collapse-card" [class.collapsed]="isCollapsed()" (click)="toggleCollapse()"
+        [title]="isCollapsed() ? 'Expandir Gastos Reembolsables' : 'Contraer Gastos Reembolsables'">
+        <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
+          <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+        </svg>
+      </button>
+    </div>
+  </mat-card-header>
+
+  <!-- Contenido Principal -->
+  <ng-container *ngIf="!isCollapsed()">
+    <mat-card-content>
+      <div class="spinner" *ngIf="isCargando(); else contenido">
+        <mat-spinner diameter="40"></mat-spinner>
+      </div>
+
+      <ng-template #contenido>
+        <div *ngIf="data() as d" class="reembolsables-content">
+          <!-- KPI Summary Strip -->
+          <div class="kpi-strip">
+            <div class="kpi-card total-servicios">
+              <span class="kpi-title">Total Servicios</span>
+              <span class="kpi-amount">{{ d.totalServicios | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</span>
+              <span class="kpi-subtitle">Luz, agua, claro, otros</span>
+            </div>
+
+            <div class="kpi-card aporte-tercero">
+              <span class="kpi-title">Aporte {{ d.nombreAporteTercero }}</span>
+              <span class="kpi-amount">{{ d.montoAporteTercero | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</span>
+              <span class="kpi-subtitle">A reintegrar</span>
+            </div>
+
+            <div class="kpi-card saldo-neto">
+              <span class="kpi-title">Gasto Neto Personal</span>
+              <span class="kpi-amount">{{ d.saldoNetoDevolver | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</span>
+              <span class="kpi-subtitle">Costo propio</span>
+            </div>
+          </div>
+
+          <!-- Tabla de Conceptos Detallados -->
+          <div class="tabla-wrapper" *ngIf="d.items.length > 0">
+            <table class="tabla-movimientos">
+              <thead>
+                <tr class="header-excel">
+                  <th class="th-concepto">Concepto / Servicio</th>
+                  <th class="th-monto">Monto Pagado ($)</th>
+                  <th class="th-acciones">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let it of d.items" [class.fila-sin-monto]="it.monto === 0">
+                  <td class="td-concepto">
+                    <div class="concepto-info">
+                      <span class="concepto-nombre">{{ it.concepto }}</span>
+                      <span class="formula-badge" *ngIf="it.formula" [title]="'Fórmula: ' + it.formula">
+                        {{ it.formula }}
+                      </span>
+                    </div>
+                  </td>
+                  <td class="td-monto">
+                    {{ it.monto > 0 ? (it.monto | currency:'ARS':'symbol':'1.2-2':'es-AR') : '-' }}
+                  </td>
+                  <td class="td-acciones">
+                    <div class="acciones-fila">
+                      <button type="button" class="btn-row-action btn-edit" (click)="abrirModalEditarConcepto(it)"
+                        title="Modificar concepto o monto">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                      <button type="button" class="btn-row-action btn-delete" (click)="eliminarConcepto(it)"
+                        title="Eliminar este concepto">
+                        <mat-icon>delete_outline</mat-icon>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Fila Subtotal Servicios -->
+                <tr class="fila-subtotal">
+                  <td class="td-concepto">
+                    <strong>Total Servicios</strong>
+                  </td>
+                  <td class="td-monto">
+                    <strong>{{ d.totalServicios | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>
+                  </td>
+                  <td class="td-acciones"></td>
+                </tr>
+
+                <!-- Fila Aporte Mamá / Tercero -->
+                <tr class="fila-aporte-tercero">
+                  <td class="td-concepto">
+                    <div class="aporte-td-content">
+                      <span class="tag-aporte">Aporte</span>
+                      <strong>{{ d.nombreAporteTercero }}</strong>
+                      <span class="formula-badge" *ngIf="d.itemAporte?.formula"
+                        [title]="'Fórmula: ' + d.itemAporte?.formula">
+                        {{ d.itemAporte?.formula }}
+                      </span>
+                    </div>
+                  </td>
+                  <td class="td-monto">
+                    <strong>{{ d.montoAporteTercero | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>
+                  </td>
+                  <td class="td-acciones">
+                    <div class="acciones-fila">
+                      <button type="button" class="btn-row-action btn-edit" (click)="abrirModalEditarAporte()"
+                        title="Modificar aporte o persona (ej. Mamá)">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Fila Remanente Neto Propio -->
+                <tr class="fila-neto-propio">
+                  <td class="td-concepto">
+                    <strong>Neto a Cargo (Diferencia)</strong>
+                  </td>
+                  <td class="td-monto">
+                    <strong>{{ d.saldoNetoDevolver | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>
+                  </td>
+                  <td class="td-acciones"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div *ngIf="d.items.length === 0" class="sin-datos-msg">
+            <p>Sin servicios reembolsables registrados para este mes.</p>
+            <button type="button" class="btn-nuevo-concepto-empty" (click)="abrirModalNuevoConcepto()">
+              <mat-icon>add</mat-icon>
+              <span>Agregar primer servicio</span>
+            </button>
+          </div>
+
+          <!-- Historial de Reintegros Acreditados (si existen) -->
+          <div *ngIf="d.reintegrosRegistrados && d.reintegrosRegistrados.length > 0" class="historial-reintegros">
+            <h4 class="historial-titulo">
+              <mat-icon>history</mat-icon>
+              Devoluciones Registradas en Cuenta
+            </h4>
+            <div class="reintegros-lista">
+              <div *ngFor="let r of d.reintegrosRegistrados" class="reintegro-item">
+                <div class="reintegro-info">
+                  <span class="reintegro-fecha">{{ r.fecha | date:'dd/MM/yyyy' }}</span>
+                  <span class="reintegro-cuenta">{{ r.entidad || 'Cuenta' }}</span>
+                  <span class="reintegro-desc" *ngIf="r.descripcion">{{ r.descripcion }}</span>
+                </div>
+                <span class="reintegro-monto">+ {{ r.monto | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Barra de Acciones Inferior -->
+          <div class="acciones-bar">
+            <div class="info-remanente">
+              <span *ngIf="d.saldoPendienteReintegro > 0">
+                Pendiente por devolver: <strong>{{ d.saldoPendienteReintegro | currency:'ARS':'symbol':'1.2-2':'es-AR'
+                  }}</strong>
+              </span>
+              <span *ngIf="d.saldoPendienteReintegro <= 0 && d.montoAporteTercero > 0" class="texto-completado">
+                <mat-icon>check</mat-icon> Aporte 100% devuelto y acreditado en movimientos.
+              </span>
+            </div>
+
+            <button type="button" class="btn-registrar" (click)="abrirModalReintegro()"
+              title="Registrar devolución de dinero y generar asiento de ingreso contable">
+              <mat-icon>volunteer_activism</mat-icon>
+              <span>Registrar Devolución</span>
+            </button>
+          </div>
+        </div>
+      </ng-template>
+    </mat-card-content>
+  </ng-container>
+</mat-card>

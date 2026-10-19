@@ -19,6 +19,789 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-19 19:54] - Fondo Pastel Traslúcido con Columnas Alternadas al Tono de la Etiqueta
+- **Problema Detectado / Requerimiento**:
+  - El usuario solicitó no utilizar bordes duros/perimetrales y en su lugar replicar la misma lógica cromática de los feriados (fondo pastel suave/traslúcido), pero generado a partir del color de la etiqueta del evento (ej. verde `#10b981`), alternando a un tono del mismo color ligeramente más oscuro para las columnas destacadas de Saldo Estimado y Deuda.
+- **Causa Raíz / Necesidad**:
+  - Los bordes perimetrales generaban un quiebre visual abrupto con las demás filas, mientras que el sombreado homogéneo de los feriados ofrece una lectura mucho más integrada, armónica y agradable.
+- **Solución Técnica Aplicada**:
+  - En `mensual.scss`, se reescribió `tr.fila-personalizada` utilizando `color-mix`:
+    - **Celdas base**: Tono pastel suave del color del evento (`color-mix(in srgb, var(--fila-custom-color) 10%, #ffffff)` en claro / `15%` en oscuro).
+    - **Columnas alternadas (`td.columna-resaltada`)**: Tono de la misma familia de color un poco más saturado/oscuro (`color-mix(in srgb, var(--fila-custom-color) 22%, #ffffff)` en claro / `26%` en oscuro), manteniendo la alternancia perfecta de columnas Saldo Pesos y Deuda.
+    - **Hover**: Intensificación proporcional suave (`16%` y `28%`).
+    - Borde inferior integrado (`1px solid color-mix(...)`).
+  - **Compilación**: Verificada obligatoriamente con `npx ng build --configuration development` (Código `0`, 0 errores, 0 advertencias en 11.2s).
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/mensual/mensual.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-19 19:48] - Corrección de Borde Superior Visible en Fila con Evento
+- **Problema Detectado / Requerimiento**:
+  - En la tabla de estimativos mensuales, la fila personalizada del día con evento mostraba los bordes lateral e inferior pero el borde superior quedaba oculto o tapado por el colapso de bordes de la fila precedente.
+- **Causa Raíz**:
+  - En modelos de tabla con `border-collapse: collapse;`, el borde inferior de la fila anterior (`04/11`) y el renderizado subpixel de las celdas contiguas se superponían al `border-top` de la fila actual.
+- **Solución Técnica Aplicada**:
+  - Se asignó `position: relative; z-index: 2;` en `tr.fila-personalizada` elevando el contexto de apilamiento por encima de las filas adyacentes.
+  - Se reforzó con `border-top: 2px solid var(--fila-custom-color) !important` y una sombra interior `box-shadow: inset 0 2px 0 0 var(--fila-custom-color)` en todas las celdas `td`, garantizando que la línea superior se pinte nítida y visiblemente sin importar el colapso de bordes ni los fondos de las columnas adyacentes.
+  - **Compilación**: Verificada obligatoriamente con `npx ng build --configuration development` (Código `0`, 0 errores, 0 advertencias en 13.1s).
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/mensual/mensual.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-19 19:44] - Borde Suave y Moderno de Fila Personalizada y Ampliación del Icono de Nota
+- **Problema Detectado / Requerimiento**:
+  - El usuario solicitó destacar más la fila del día con evento dándole un borde suave, moderno y agradable del mismo color de la etiqueta, sin perder la alternancia de columnas.
+  - Asimismo, solicitó agrandar un poco el icono de la anotación para una presencia visual más clara.
+- **Causa Raíz / Necesidad**:
+  - Tras quitar el fondo invasivo anterior, faltaba un encuadre perimetral suave del color del evento (`var(--fila-custom-color)`).
+  - El SVG medía 18px y podía ampliarse para una lectura óptima de los detalles de la hoja y la chincheta.
+- **Solución Técnica Aplicada**:
+  - **Borde Suave Perimetral (`mensual.scss`, `mensual.ts`)**:
+    - Se aplicó en `tr.fila-personalizada td` un borde superior e inferior de `1.5px solid var(--fila-custom-color)`, un acento izquierdo en `td:first-child` de `4px solid var(--fila-custom-color)` y un cierre derecho en `td:last-child` de `1.5px solid var(--fila-custom-color)`.
+    - Al NO alterar los fondos de las celdas (`background-color`), las columnas alternadas (`columna-resaltada` lavanda y fondos blancos) se conservan al 100%.
+    - Compatible con tema claro y modo oscuro.
+  - **Ampliación de Icono (`mensual.html`, `mensual.scss`)**:
+    - Se incrementó el tamaño del SVG de `18×18px` a `22×22px`.
+    - Se ajustó el ancho de la primera columna a `135px` para albergar con espacio holgado el botón de edición, la fecha y el icono ampliado.
+  - **Compilación**: Verificada obligatoriamente con `npx ng build --configuration development` (Código `0`, 0 errores, 0 advertencias en 16.2s).
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/mensual/mensual.ts`
+  - `src/app/pages/estimativos/mensual/mensual.html`
+  - `src/app/pages/estimativos/mensual/mensual.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-19 19:36] - Preservación de Columnas Alternadas y Limpieza de Fondo en Fila con Evento
+- **Problema Detectado / Requerimiento**:
+  - Al marcar un día con evento, la fila adquiría un fondo grisáceo plano uniforme y un borde izquierdo grueso (`border-left: 4px solid ...`) que borraba el sombreado lavanda de las columnas alternadas (`columna-resaltada`), quebrando la continuidad visual de la tabla respecto a los demás registros.
+- **Causa Raíz**:
+  - La clase `.fila-personalizada` aplicaba `background-color` a nivel de `<tr>` y `td { background-color: transparent; }`, anulando el fondo de `td.columna-resaltada` de las columnas de Saldo Pesos y Deuda.
+- **Solución Técnica Aplicada**:
+  - Se eliminaron las reglas de fondo y borde de `.fila-personalizada` en `mensual.scss` (tanto en tema claro como oscuro) y la asignación de clase en `mensual.ts`.
+  - La fila del día con evento conserva 100% sus fondos naturales alternados de columnas (`columna-resaltada` y franjas cebra), manteniéndose perfectamente alineada e indistinguible en su estructura con las filas adyacentes, destacándose únicamente por el icono de nota coloreado con tooltip en la columna de fecha.
+  - **Compilación**: Verificada obligatoriamente con `npx ng build --configuration development` (Código `0`, 0 errores, 0 advertencias en 11.6s).
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/mensual/mensual.ts`
+  - `src/app/pages/estimativos/mensual/mensual.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-19 19:30] - Icono de Anotación / Nota Vectorial con Tooltip en Fila de Estimativos
+- **Problema Detectado / Requerimiento**:
+  - La etiqueta de texto completa en la celda de fecha ocupaba demasiado espacio horizontal, desalineando y expandiendo de forma despareja las columnas de la tabla.
+  - El usuario solicitó sustituir el texto por un icono estilizado de anotación (hojas de notas con chincheta, idéntico a la imagen provista), con fondo transparente, coloreado con el color asignado a la etiqueta/feriado, de tamaño proporcional a la fila (18px) y con un tooltip flotante que muestre la descripción completa al pasar el cursor.
+- **Causa Raíz**:
+  - Se estaba renderizando el texto completo dentro de un `<span class="badge-evento-dia">` que ocupaba hasta 220px.
+- **Solución Técnica Aplicada**:
+  - **Icono Vectorial SVG Personalizado (`mensual.html`)**:
+    - Se reemplazó el badge de texto por un `<span class="icono-evento-dia">` con un SVG vectorial fiel a la imagen de referencia: hoja frontal con líneas blancas de texto, hoja posterior transparente al 38% y chincheta superior con aguja y cabeza esférica.
+    - El icono adopta dinámicamente el color configurado (`[style.color]="fila.color || '#4b5896'"` con `currentColor`).
+    - Se incorporó `[matTooltip]="fila.evento" matTooltipPosition="above"` (con fallback nativo `[title]`) mostrando la descripción en una burbuja flotante al posar el ratón.
+  - **Módulo y Estilos (`mensual.ts`, `mensual.scss`)**:
+    - Se importó `MatTooltipModule` en `EstimativoMensual`.
+    - En `mensual.scss`, se ajustó el ancho de la primera columna a un tamaño fijo y homogéneo de `125px` (`min-width: 125px; width: 125px;`), restaurando la simetría perfecta de todas las filas.
+    - Se añadió efecto hover interactivo (`transform: scale(1.22)` y drop-shadow sutil) con soporte nativo para tema claro y tema oscuro.
+  - **Compilación**: Verificada obligatoriamente con `npx ng build --configuration development` (Código `0`, 0 errores, 0 advertencias en 23.4s).
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/mensual/mensual.ts`
+  - `src/app/pages/estimativos/mensual/mensual.html`
+  - `src/app/pages/estimativos/mensual/mensual.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-19 19:10] - Persistencia y Renderizado de Eventos y Colores en Fila Diaria de Estimativos
+- **Problema Detectado / Requerimiento**:
+  - Al modificar un día desde el modal de estimativos (`ModalEditarDiaComponent`) e intentar asignar una etiqueta de evento o color (ej. "Liquidacion final kinetc", color verde `#10b981`), el backend fallaba con: `Invalid prisma.dailyEstimate.update() ... Unknown argument 'evento'`.
+  - En consecuencia, el modal mostraba un toast de error, el cambio no persistía en la base de datos PostgreSQL y la fila del día 5 (o cualquier otro día) no reflejaba el badge del evento ni el color correspondiente.
+- **Causa Raíz**:
+  - En `control-de-gastos-api/src/services/estimate.service.ts`, `prisma.dailyEstimate.update` incluía `evento` y `color` en `dataToUpdate`. Debido a que el proceso Node en caliente mantenía bloqueada la librería nativa del query engine de Prisma en Windows impidiendo regenerar el cliente en runtime, la validación en memoria del cliente de Prisma rechazaba los argumentos con `Unknown argument 'evento'`.
+  - En la lectura (`getMonthlyEstimate`), las filas no enriquecían los campos `evento` y `color` con consultas directas de SQL, omitiéndose también en modo Google Sheets.
+  - En el frontend (`home.ts`), al guardar un día se esperaba la respuesta completa de red sin actualización optimista inmediata, y el mapeo de fechas no contemplaba diferencias de formateo con/sin ceros a la izquierda.
+- **Solución Técnica Aplicada**:
+  - **Backend API (`estimate.service.ts`)**:
+    - Se desacopló la actualización de `evento` y `color` del schema en memoria de Prisma, ejecutándolas mediante SQL nativo (`prisma.$executeRawUnsafe`) directamente sobre la tabla `daily_estimates`.
+    - En `getMonthlyEstimate`, se implementó la lectura de `evento` y `color` vía `prisma.$queryRawUnsafe` tanto en modo Google Sheets como en modo Base de Datos.
+    - Se enriqueció la notificación de eventos SSE (`DATA_UPDATED`) y el objeto de retorno con `evento` y `color`.
+  - **Frontend Angular (`home.ts`, `modal-editar-dia.ts`, `mensual.ts`, `mensual.scss`)**:
+    - En `modal-editar-dia.ts`, se emite la carga útil completa del día en `guardado.emit({ id, fecha, real, deudaReal, saldoPesos, deuda, evento, color })`.
+    - En `home.ts`, `onDiaGuardado($event)` aplica actualización optimista inmediata (0ms) en la señal reactiva `estimativoFilas` y en el histórico, sincronizando luego de forma resiliente con la API asociando por `id` y por fecha normalizada (`d/m/yyyy` y `dd/mm/yyyy`).
+    - En `mensual.ts`, `obtenerClaseFila` agrega la clase `fila-personalizada` si el día tiene color o evento asignado, y expone `--fila-custom-color` en `obtenerEstiloFila`.
+    - En `mensual.scss`, se agregó un borde distintivo izquierdo en `td:first-child`, se amplió el ancho mínimo de la columna de fecha a 150px y se aumentó el `max-width` del badge a 220px para una lectura clara de nombres de eventos extensos, manteniendo compatibilidad total con tema claro y modo oscuro.
+  - **Compilación**: Verificada obligatoriamente con `npx ng build --configuration development` (Código `0`, 0 errores, 0 advertencias).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/estimate.service.ts`
+  - `src/app/pages/estimativos/modal-editar-dia/modal-editar-dia.ts`
+  - `src/app/pages/estimativos/home.html`
+  - `src/app/pages/estimativos/home.ts`
+  - `src/app/pages/estimativos/mensual/mensual.ts`
+  - `src/app/pages/estimativos/mensual/mensual.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-19 18:25] - Corrección de Error TS2322 en Plugins de Chart.js y Nueva Regla de Oro
+- **Problema Detectado / Requerimiento**:
+  - Al recargar la vista `/estimativo`, el navegador mostró una pantalla de error roja con el overlay de Angular: `TS2322: Type 'Plugin<"line" | "bar", AnyObject>[]' is not assignable to type 'Plugin<"line", AnyObject>[]'`.
+  - El usuario instruyó establecer como **Regla de Oro** la obligación estricta de validar y compilar el proyecto al final de cada tarea, garantizando que jamás se entregue código roto.
+- **Causa Raíz**:
+  - `yearBackgroundPlugin` en `src/app/utils/grafico.utils.ts` estaba tipado restrictivamente como `Plugin<'line' | 'bar'>`. Al pasarlo a un componente con `type="line"`, el verificador de tipos de Angular consideraba incompatibles los parámetros de métodos del plugin (`Chart<'line' | 'bar'>` vs `Chart<'line'>`).
+- **Solución Técnica Aplicada**:
+  - **Flexibilización de Tipado del Plugin**: Se actualizó la firma a `Plugin<any>` en `src/app/utils/grafico.utils.ts` y se especificó `chartPlugins: any[]` en `grafico-historico.ts`, haciéndolo compatible de forma universal con cualquier tipo de gráfico (`line`, `bar`, etc.) sin incompatibilidad de tipos.
+  - **Nueva Regla de Oro en `AGENTS.md`**: Se incorporó la sección *"Regla de Oro: Validación y Compilación Obligatoria al Final de Cada Tarea"* en `.agents/AGENTS.md`, exigiendo compilación limpia con `npx ng build --configuration development` (código `0`, 0 errores, 0 advertencias) previo a cualquier entrega.
+  - **Compilación**: Verificada exitosamente con `npx ng build --configuration development` (Código `0`, 0 errores, 0 advertencias en 11s).
+- **Archivos Afectados**:
+  - `src/app/utils/grafico.utils.ts`
+  - `src/app/pages/estimativos/grafico-historico/grafico-historico.ts`
+  - `.agents/AGENTS.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-19 17:20] - Limpieza de Compilación Angular y Errores 404 de Estimativos en Consola
+- **Problema Detectado / Requerimiento**:
+  - En la terminal del usuario el compilador de Angular mostraba advertencias y errores de compilación (`duplicate member listPeriods`, múltiples advertencias de template `NG8107` en `hojas.html`).
+  - En la consola del navegador se registraban múltiples errores HTTP 404 (`Failed to load resource: 404 (Not Found)` para `:3000/api/estimaciones?year=2027&mes=4..12`) y un aviso rojo generado por un `console.error` de depuración en `mensual.ts`.
+- **Causa Raíz**:
+  - En `estimates.service.ts` se había duplicado la declaración del método `listPeriods()`.
+  - En `hojas.html` se empleaba encadenamiento opcional redundante (`?.`) en propiedades no nulas de `s.metadata.pantallas`.
+  - En `home.ts`, `cargaInicial()` iteraba forzosamente los 12 meses para años en modo base de datos (como 2027), disparando peticiones a meses que aún no tienen configuración en la BD.
+  - En el backend API (`estimate.controller.ts`), cuando un período no tenía configuración, la API respondía `404 Not Found` en lugar de una respuesta limpia `200` con `{ config: null, filas: [] }`.
+- **Solución Técnica Aplicada**:
+  - **Eliminación de Miembro Duplicado**: Se quitó la firma duplicada de `listPeriods()` en `estimates.service.ts`.
+  - **Limpieza de Warnings de Template**: Se corrigieron las expresiones en `hojas.html` eliminando los operadores opcionales redundantes.
+  - **Optimización de Carga Inicial en `home.ts`**: Se consulta primero `listPeriods()` y únicamente se solicitan a la API los períodos que efectivamente existen en la BD para ese año, evitando peticiones innecesarias.
+  - **Manejo Amigable en Backend API (`estimate.controller.ts`)**: Se modificó `getMonthly` para responder HTTP 200 con `{ config: null, filas: [] }` cuando un período no tiene estimativo cargado.
+  - **Sustitución de Log**: Se cambió el `console.error` de depuración en `mensual.ts` por `console.log`.
+  - **Compilación**: Verificada exitosamente con `npx ng build --configuration development` (Código `0`, 0 errores, 0 advertencias).
+- **Archivos Afectados**:
+  - `src/app/services/estimates.service.ts`
+  - `src/app/pages/hojas/hojas.html`
+  - `src/app/pages/estimativos/home.ts`
+  - `src/app/pages/estimativos/mensual/mensual.ts`
+  - `control-de-gastos-api/src/controllers/estimate.controller.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-19 15:30] - Subpaso 6.17.7: Feriados y Eventos con Color Personalizado en Módulo de Estimativos (/estimativo)
+- **Problema Detectado / Requerimiento**:
+  - En la grilla de seguimiento diario del módulo `/estimativo`, los usuarios necesitaban poder marcar días específicos con etiquetas y eventos (ej: Feriados, Cobros, Vencimientos, Viajes, Cumpleaños) y asignarles colores personalizados para una identificación visual inmediata.
+  - La información debía persistirse en la base de datos PostgreSQL (`daily_estimates`) y reflejarse de forma armónica tanto en modo Sheets sincronizado como en modo BD.
+- **Causa Raíz**:
+  - La tabla `daily_estimates` y los servicios del backend/frontend únicamente contemplaban importes numéricos (`real`, `deudaReal`, `saldoPesos`, `deuda`), sin soporte de metadatos de eventos ni estilizado personalizado.
+- **Solución Técnica Aplicada**:
+  - **Base de Datos & Backend API**:
+    - Se ejecutó migración DDL agregando las columnas `evento VARCHAR(100)` y `color VARCHAR(30)` a la tabla `daily_estimates`.
+    - En `estimate.controller.ts` y `estimate.service.ts`: se actualizaron `updateDailyReal`, `getMonthlyEstimate` y `syncSheetsEstimateToDb` para persistir y retornar `evento` y `color` en ambos modos de ejecución.
+  - **Frontend Services & Types**:
+    - `estimates.service.ts`, `models/estimativo.ts`, `stores/movimiento.google.ts` y `home.ts`: se actualizaron interfaces agregando `evento?: string | null` y `color?: string | null`.
+  - **Modal de Edición de Día (`modal-editar-dia.*`)**:
+    - Se incorporaron chips interactivos con presets rápidos: "Feriado", "Cobro", "Vencimiento", "Viaje", "Cumpleaños", "Ajuste".
+    - Input de texto libre para etiquetas personalizadas con botón de limpieza ("Quitar").
+    - Paleta de muestras circulares predefinidas con indicador de selección activa y color picker nativo HTML (`<input type="color">`).
+    - Soporte completo para persistir y resetear color/evento.
+  - **Tabla de Estimativo Mensual (`estimativos/mensual.*`)**:
+    - Se implementó `obtenerEstiloFila` y `obtenerClaseFila` para destacar la fila con borde de acento en el color configurado y fondo suave.
+    - Se incorporó la píldora `.badge-evento-dia` junto a la fecha, estilizada con el color elegido.
+    - Se actualizó el tooltip dinámico de fecha para mostrar `📌 Evento: <nombre>` junto al motivo de feriados nacionales o fines de semana.
+    - Estilos y adaptaciones completas para Light Mode y Dark Mode (`body.dark-mode`).
+  - **Compilación**: Verificada con `npx ng build --configuration development` (código `0`, 0 errores).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/controllers/estimate.controller.ts`
+  - `control-de-gastos-api/src/services/estimate.service.ts`
+  - `src/app/services/estimates.service.ts`
+  - `src/app/models/estimativo.ts`
+  - `src/app/stores/movimiento.google.ts`
+  - `src/app/pages/estimativos/home.ts`
+  - `src/app/pages/estimativos/modal-editar-dia/modal-editar-dia.ts`
+  - `src/app/pages/estimativos/modal-editar-dia/modal-editar-dia.html`
+  - `src/app/pages/estimativos/modal-editar-dia/modal-editar-dia.scss`
+  - `src/app/pages/estimativos/mensual/mensual.ts`
+  - `src/app/pages/estimativos/mensual/mensual.html`
+  - `src/app/pages/estimativos/mensual/mensual.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+
+### [2026-10-19 13:00] - Proyección de Próximos Meses: Modo "Saldo vs gastos" y Reemplazo del Gráfico Antiguo
+- **Problema Detectado / Requerimiento**:
+  - El gráfico "Total mensual $" (`app-grafico-visa`) ubicado al inicio de la columna derecha contenía información redundante y menos completa que el nuevo componente de proyección (`app-grafico-proyeccion-totales`).
+  - El usuario solicitó:
+    1. Eliminar el gráfico anterior "Total mensual $" (`app-grafico-visa`).
+    2. Mover el nuevo gráfico de proyección (`app-grafico-proyeccion-totales`) a esa posición superior (justo debajo de "Novedades de cuotas").
+    3. Agregar una nueva sección/pestaña al gráfico de proyección llamada **"Saldo vs gastos"** para comparar en el mismo canvas la curva de Saldo Proyectado y la curva de Gastos Proyectados.
+- **Causa Raíz**:
+  - `GraficoVisa` mostraba una única curva de evolución histórica y de próximos meses con un diseño más antiguo, mientras que `GraficoProyeccionTotales` ya extrae las matrices de proyección de Gastos y Saldo de Google Sheets y BD con un diseño moderno.
+- **Solución Técnica Aplicada**:
+  - **Nueva Pestaña y Dataset Comparativo (`grafico-proyeccion-totales.*`)**:
+    - Se amplió el signal `serieActiva` a `'gastos' | 'saldo' | 'comparativa'`.
+    - En la barra de selector de series se incorporó el botón `[Saldo vs gastos]` con icono `compare_arrows`.
+    - En `renderizarGrafico()`, para el modo `'comparativa'`, se generan ambos datasets simultáneamente:
+      - **Saldo Proyectado ($)**: Línea en Slate Indigo (`#706cd6`), puntos condicionales bicolor (verde para positivo, rojo para negativo) y fondo translúcido.
+      - **Gastos Proyectados ($)**: Línea en Coral Red (`#ef4444`) con puntos destacados y fondo translúcido.
+    - Se adaptó el callback de tooltips para indicar dinámicamente el nombre de la serie y formatear importes en moneda argentina.
+  - **Reubicación y Limpieza en `/mensual` (`mensual.html` & `mensual.ts`)**:
+    - Se eliminó `<app-grafico-visa>` y su import `GraficoVisa` en `mensual.ts`.
+    - Se reubicó `<app-grafico-proyeccion-totales>` al primer lugar de los gráficos en la columna derecha, debajo de `<app-novedades-cuotas>` y antes de `<app-resumen>`.
+    - Se eliminó la instancia duplicada que estaba al fondo de la columna derecha.
+  - **Compilación**: Verificada con `npx ng build --configuration development` (código `0`, 0 errores).
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/proyeccion-totales/grafico-proyeccion-totales/grafico-proyeccion-totales.ts`
+  - `src/app/pages/mensual/proyeccion-totales/grafico-proyeccion-totales/grafico-proyeccion-totales.html`
+  - `src/app/pages/mensual/proyeccion-totales/grafico-proyeccion-totales/grafico-proyeccion-totales.scss`
+  - `src/app/pages/mensual/mensual.html`
+  - `src/app/pages/mensual/mensual.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+
+### [2026-10-19 12:45] - Corrección de Stacking Context de Modal y Administración Completa de Conceptos Reembolsables
+- **Problema Detectado / Requerimiento**:
+  - Al hacer clic en "Registrar Devolución", la pantalla se oscurecía pero el cuadro del modal quedaba atrapado o cortado dentro del contexto de apilamiento (`stacking context`) y scroll de `.col-izquierda-scroll`.
+  - El usuario solicitó además que todos los ítems de gastos reembolsables puedan administrarse libremente: agregar nuevos servicios/conceptos, editar montos o nombres existentes (incluyendo soporte de fórmulas aritméticas como `=23943.80/2`), modificar el aporte de terceros (ej. Mamá) y eliminar conceptos obsoletos.
+- **Causa Raíz**:
+  - `ModalReintegroComponent` estaba declarado dentro de la plantilla hija `gastos-reembolsables.component.html`, la cual se renderiza dentro del contenedor con scroll `.col-izquierda-scroll`. Las propiedades CSS de dicho contenedor creaban un stacking context local que impedía al backdrop `fixed` ocupar la ventana completa (`viewport`).
+  - Los ítems de servicios reembolsables eran leídos únicamente como filas fijas desde la planilla sin una interfaz de edición ni mutación persistente en base de datos.
+- **Solución Técnica Aplicada**:
+  - **Reubicación de Modales a Nivel Raíz (`mensual.html` & `mensual.ts`)**:
+    - Se trasladaron tanto `<app-modal-reintegro>` como el nuevo `<app-modal-item-reembolsable>` al nivel raíz de `mensual.html`, al mismo nivel de `<app-modal-pagar-entidad>`.
+    - Se gestionan reactivamente mediante signals en `ReembolsablesService` (`modalReintegroData` y `modalItemData`).
+    - Al emitir `confirmado` o `guardado`, el componente `Mensual` cierra el modal y refresca reactivamente los datos del componente y los balances generales.
+  - **Componente `ModalItemReembolsableComponent` (`modal-item-reembolsable.component.*`)**:
+    - Creado en `src/app/pages/mensual/gastos-reembolsables/modal-item-reembolsable/`.
+    - Formulario reactivo que permite:
+      - Nombre del concepto / servicio o persona que aporta (ej. "Luz", "Agua", "Mamá").
+      - Monto o fórmula aritmética (ej. `=15000+5000` o `3500.50`), evaluado en tiempo real con `evaluarFormula` mostrando vista previa de cálculo o errores sintácticos.
+      - Selección de tipo: `SERVICIO` (suma al costo total de servicios) o `APORTE` (resta del neto personal).
+  - **Administración Directa en la Tabla (`gastos-reembolsables.component.*`)**:
+    - **Cabecera**: Botón `[+ Nuevo]` para crear conceptos en cualquier momento.
+    - **Filas de servicios**: Botón de edición ✏️ (`abrirModalEditarConcepto`) y botón de eliminación 🗑️ (`eliminarConcepto` con confirmación de seguridad).
+    - **Fila de aporte**: Botón de edición ✏️ (`abrirModalEditarAporte`) para ajustar el monto o nombre de la persona que realiza el reintegro.
+    - **Badges de Fórmula**: Indicador visual `formula-badge` con estilo monoespaciado en la fila si el monto fue ingresado mediante cálculo.
+    - **Estado Vacío**: Botón `[+ Agregar primer servicio]` si no hay ítems registrados.
+  - **Persistencia en Base de Datos PostgreSQL (`reembolsables.service.ts`)**:
+    - Métodos `guardarItem` y `eliminarItem` integrados con `MensualItemsService` utilizando la entidad `'Reembolsables'`.
+    - Soporte de migración transparente: si los ítems provenían de Google Sheets (sin `id` en BD), al modificar o crear uno se realiza el seed inicial a la tabla `monthly_items` para preservar la integridad de datos histórica.
+  - **Compilación**: Verificada con `npx ng build --configuration development` (código `0`, 0 errores).
+- **Archivos Afectados**:
+  - `src/app/services/reembolsables.service.ts`
+  - `src/app/pages/mensual/gastos-reembolsables/modal-item-reembolsable/modal-item-reembolsable.component.ts`
+  - `src/app/pages/mensual/gastos-reembolsables/modal-item-reembolsable/modal-item-reembolsable.component.html`
+  - `src/app/pages/mensual/gastos-reembolsables/modal-item-reembolsable/modal-item-reembolsable.component.scss`
+  - `src/app/pages/mensual/gastos-reembolsables/gastos-reembolsables.component.ts`
+  - `src/app/pages/mensual/gastos-reembolsables/gastos-reembolsables.component.html`
+  - `src/app/pages/mensual/gastos-reembolsables/gastos-reembolsables.component.scss`
+  - `src/app/pages/mensual/mensual.ts`
+  - `src/app/pages/mensual/mensual.html`
+  - `REGISTRO_ACCIONES_FRONT.md`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+
+### [2026-10-19 12:20] - Módulo de Gastos a Devolver / Reembolsables en Mensual (Subpaso 6.17.6)
+- **Problema Detectado / Requerimiento**:
+  - En la vista `/mensual`, no existía una sección para visualizar ni gestionar los gastos compartidos que el usuario abona a inicio de mes y que posteriormente le son reintegrados (matriz `Saldo!S45:W58`: luz, agua, claro, afip, GMS, internet, inst alarma y el aporte de Mamá).
+  - Se requería incorporar esta gestión en una tarjeta colapsable en la columna izquierda (justo debajo de "Otros"), mostrando el total pagado de servicios, el aporte a devolver, el neto a cargo y un botón para registrar devoluciones que genere automáticamente un asiento contable de `INGRESO` en la cuenta bancaria/billetera elegida.
+- **Causa Raíz**:
+  - La planilla Google Sheets `Saldo` contiene la matriz en `S45:W58` sin estar mapeada en ningún componente del Frontend ni vinculada a los movimientos contables de la base de datos.
+- **Solución Técnica Aplicada**:
+  - **Servicio `ReembolsablesService` (`reembolsables.service.ts`)**:
+    - Extracción híbrida: lectura de `Saldo!S45:Z58` en años activos en Sheets (`GoogleSheetsService.obtenerMensualAnio`), mapeando filas 45 (meses), 48 (luz), 49 (agua), 51 (claro), 53 (total servicios), 56 (Mamá) y 57 (diferencia neta).
+    - Cruce contable en tiempo real: consulta reactiva a `MovimientosService.listarMovimientos` buscando asientos de tipo `INGRESO` y categoría `Reintegro` para el mes y año consultados.
+    - Computa dinámicamente el monto total devuelto, el saldo restante por reintegrar y el estado (`PENDIENTE`, `REINTEGRADO_PARCIAL` o `REINTEGRADO_TOTAL`).
+  - **Componente Principal `GastosReembolsablesComponent` (`gastos-reembolsables.component.*`)**:
+    - Estructura `.tabla-reembolsables-card` cumpliendo con la Regla de Oro (`AGENTS.md`) con cabecera Slate Indigo (`#4b5896`), botón de colapso y badge reactivo de estado.
+    - Franja superior con 3 mini KPI cards: `Total Servicios`, `Aporte Mamá (A reintegrar)` y `Gasto Neto Personal`.
+    - Tabla detallada de conceptos con filas destacadas para subtotal, aporte de terceros y neto propio.
+    - Historial desplegable de devoluciones registradas con fecha, cuenta receptora y monto.
+    - Soporte completo para Modo Claro y Modo Oscuro (`body.dark-mode`).
+  - **Modal Interactivo `ModalReintegroComponent` (`modal-reintegro.component.*`)**:
+    - Formulario con soporte para fórmulas aritméticas (`evaluarFormula`), precarga del saldo sugerido, selector de cuenta de ingreso (`Galicia`, `Santander`, `Mercado Pago`, `Bancor`, `Naranja X`, `Efectivo`), fecha de acreditación y descripción.
+    - Al confirmar, invoca `reembolsablesService.registrarReintegro`, impactando de inmediato en los movimientos de la cuenta seleccionada y refrescando reactivamente los saldos de la pantalla mensual.
+  - **Integración en `/mensual` (`mensual.html` y `mensual.ts`)**:
+    - Colocado en la columna izquierda entre "Otros" y la "Tabla de Cuotas Coincidentes", integrando la leyenda de origen de datos y conectando el evento `reintegroRegistrado`.
+  - **Compilación**: Verificada con `npx ng build --configuration development` (código `0`, 0 errores).
+- **Archivos Afectados**:
+  - `src/app/services/reembolsables.service.ts`
+  - `src/app/pages/mensual/gastos-reembolsables/modal-reintegro/modal-reintegro.component.ts`
+  - `src/app/pages/mensual/gastos-reembolsables/modal-reintegro/modal-reintegro.component.html`
+  - `src/app/pages/mensual/gastos-reembolsables/modal-reintegro/modal-reintegro.component.scss`
+  - `src/app/pages/mensual/gastos-reembolsables/gastos-reembolsables.component.ts`
+  - `src/app/pages/mensual/gastos-reembolsables/gastos-reembolsables.component.html`
+  - `src/app/pages/mensual/gastos-reembolsables/gastos-reembolsables.component.scss`
+  - `src/app/pages/mensual/mensual.ts`
+  - `src/app/pages/mensual/mensual.html`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-19 11:10] - Gráficos de Gastos Proyectados y Saldo Proyectado en Módulo Mensual (Subpaso 6.17.5)
+- **Problema Detectado / Requerimiento**:
+  - En la vista `/mensual` (columna derecha de "Resumen gráfico"), el componente `app-grafico-proyeccion-totales` calculaba una proyección heurística basada en cuotas restantes que no coincidía con las fórmulas ni con la matriz real de proyección de Google Sheets (filas 23, 36 y 38).
+  - Además, se requería incorporar la visualización interactiva de **Gastos Proyectados** (`I36:R36`) junto al **Saldo Proyectado** (`I38:R38`), permitiendo alternar entre ambas series sin saturar la columna derecha con dos tarjetas separadas.
+- **Causa Raíz**:
+  - El frontend limitaba las consultas por lotes a `A1:K500`, dejando fuera las columnas I a R donde la planilla calcula las proyecciones a futuro.
+  - El componente carecía de un selector de series interactivo y de la lógica de extracción exacta de filas 23, 36 y 38.
+- **Solución Técnica Aplicada**:
+  - **Ampliación de Rango Google Sheets (`movimiento.google.ts`)**:
+    - Se extendieron las consultas de hojas mensuales a `A1:R500` en los métodos de carga por lotes y peticiones individuales.
+  - **Selector de Series Tipo Tabs/Pills en Cabecera (`grafico-proyeccion-totales.html` y `.scss`)**:
+    - Se integraron dos botones con estilo píldora: **"Gastos Proyectados"** (`trending_down`) y **"Saldo Proyectado"** (`account_balance_wallet`), con transición suave y paleta institucional Slate Indigo (`linear-gradient(135deg, #706cd6 0%, #4b5896 100%)`).
+    - Soporte completo para Modo Claro y Modo Oscuro (`body.dark-mode`), adaptando fondos, bordes y contrastes.
+  - **Lógica de Extracción y Resiliencia (`grafico-proyeccion-totales.ts`)**:
+    - Detección reactiva de la cabecera de meses en fila 23 (`I23:R23`), fila 36 para Gastos Proyectados y fila 38 para Saldo Proyectado.
+    - Fallback resiliente para PostgreSQL / offline mediante agregación de cuotas activas de `MonthlyItem` proyectadas en los meses venideros.
+    - Configuración con Chart.js para renderizar:
+      - Gastos Proyectados: Curva coral/rojo (`#ef4444`) con sombreado translúcido `rgba(239, 68, 68, 0.12)`.
+      - Saldo Proyectado: Curva en azul/índigo (`#706cd6`) con marcadores de puntos condicionales verde/rojo según si el balance es positivo o negativo.
+  - **Compilación**: Verificada con éxito (`npx ng build --configuration development` sin errores).
+- **Archivos Afectados**:
+  - `src/app/stores/movimiento.google.ts`
+  - `src/app/pages/mensual/proyeccion-totales/grafico-proyeccion-totales/grafico-proyeccion-totales.ts`
+  - `src/app/pages/mensual/proyeccion-totales/grafico-proyeccion-totales/grafico-proyeccion-totales.html`
+  - `src/app/pages/mensual/proyeccion-totales/grafico-proyeccion-totales/grafico-proyeccion-totales.scss`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-19 00:35] - Soporte Integral de Préstamos Históricos (2025, 2024, 2023) en Análisis Anual
+- **Problema Detectado**:
+  - En el gráfico "Compromisos y Cuotas de Préstamos Mensuales" (`/reportes`), únicamente se graficaban barras con datos para los años 2026 y 2027. Al seleccionar años anteriores (ej. 2025, 2024, 2023), el gráfico aparecía en cero y con la leyenda "Sin préstamos".
+- **Causa Raíz**:
+  - El backend (`control-de-gastos-api`) consultaba los préstamos exclusivamente en la tabla `Loan` / `LoanInstallment` de PostgreSQL. Dado que el módulo interactivo de préstamos se diseñó para la operatoria actual de 2026/2027, la base de datos no contenía préstamos históricos de años anteriores.
+  - Sin embargo, las hojas Google Sheets y las plantillas locales de Excel (`Anual 2025`, `Anual 2024`, `Anual 2023`) conservan en el rango `L83:Z96` la matriz completa de préstamos: nombres de créditos en la fila 83, totales mensuales en la columna `L` y el desglose de cuotas individuales por mes en las columnas `O` a `Z`.
+- **Solución Técnica Aplicada**:
+  - **Backend (`reportes.service.ts`)**:
+    - Se implementó el método `parsePrestamosFromSheetValues(values, year)` para extraer de Google Sheets (`Anual [Año]!L83:Z96`) los nombres de préstamos (fila 83), el total mensual amortizado (columna L) y los importes de cada cuota individual.
+    - Se implementó el método `extractLoansFromWorksheet(ws, year)` para extraer la misma matriz desde plantillas Excel en caso de consulta en base de datos/offline.
+    - En `fetchAnalisisFromGoogleSheets` y `fetchAnalisisFromDatabase`, si la consulta en Prisma `loansList` no arroja préstamos registrados, se activa el fallback a la matriz de préstamos de la hoja o plantilla del año en cuestión.
+    - Se adaptó `buildAnalisisResponse` para recibir `prestamosOverride` y alimentar las métricas y la serie mensual sin alterar la funcionalidad de 2026/2027.
+  - **Resultado**:
+    - **2025**: $9.902.537,52 anuales con sus 12 meses graficados (ej. Enero $898k, Diciembre $1.15M con 11 cuotas detalladas).
+    - **2024**: $8.104.884,82 anuales graficados mes a mes.
+    - **2023**: $1.766.317,37 anuales graficados mes a mes.
+    - **2022**: $0 (año sin compromisos crediticios en planilla).
+    - **2026 / 2027**: Conserva la consulta reactiva a la base de datos de préstamos de la aplicación.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+  - `control-de-gastos-front/PLAN_MIGRACION_CLOUD_API.md`
+
+### [2026-10-19 00:15] - Corrección de Reactividad al Cambiar de Año en Pestaña "Análisis Anual" (`/reportes`)
+- **Problema Detectado**:
+  - Al cambiar de año en la línea de tiempo (selector DeLorean) mientras se visualizaba la pestaña "Análisis Anual" (Submenú 3), los gráficos y tarjetas ejecutivas mantenían los montos y datos del año 2026 (indicando erróneamente `* Información obtenida desde la hoja Google Sheets (Anual 2026)` a pesar de haber seleccionado 2025 o 2022).
+- **Causa Raíz**:
+  - En `reportes.ts`, el método `seleccionarAnio(index)` únicamente reseteaba y recargaba las pestañas `'saldo'` y `'bimonetario'`, omitiendo la condición `this.tabActiva() === 'anual'` y no limpiando el signal `this.reporteAnalisis.set(null)`.
+  - Adicionalmente, en `cambiarTab(id)`, si el usuario cambiaba de pestaña a `'anual'` habiendo seleccionado previamente otro año, faltaba la comprobación reactiva `id === 'anual' && !this.reporteAnalisis()` para invocar `cargarReporteAnalisis()`.
+- **Solución Técnica Aplicada**:
+  - En `reportes.ts`:
+    - En `seleccionarAnio(index)`: Se agregó `this.reporteAnalisis.set(null)` y el bloque condicional `else if (this.tabActiva() === 'anual') { this.cargarReporteAnalisis(); }`.
+    - En `cambiarTab(id)`: Se añadió `else if (id === 'anual' && !this.reporteAnalisis()) { this.cargarReporteAnalisis(); }`.
+    - En `actualizarGraficosAnalisis()`: Se contempló el caso donde un año no tenga préstamos registrados (como 2022 o 2025 con totalCuotas en 0), mostrando en la leyenda "Sin préstamos" en lugar de "Completado" cuando no existen créditos en el ejercicio.
+- **Archivos Afectados**:
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.ts`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-18 23:59] - Gráfico de Gastos Anuales: Rediseño Elegante en Rojo (Similar a Saldo Anual), Eliminación de Nafta y Erradicación de Superposiciones
+- **Problema / Requerimiento**:
+  - En el gráfico de Gastos Anuales del Submenú 3 (`/reportes`):
+    1. Las etiquetas de moneda sobre cada punto colisionaban directamente con la barra superior de leyenda (especialmente en el pico de Julio de $3.965.191,48), dificultando la lectura y generando saturación visual.
+    2. El rango vertical arrancaba desde $0 para acomodar la línea de Nafta ($0 - $23.000), aplanando artificialmente la curva de gastos reales (que oscilan entre $2.9M y $4.0M) en la parte superior.
+    3. El usuario solicitó unificar el estilo con el gráfico de Saldo Anual:
+       - Color **Rojo (#EF4444)** en lugar de azul.
+       - Curva suave (spline) con sombreado de área translúcida bajo la curva (`fill: true`, `tension: 0.25`).
+       - Puntos destacados con borde blanco y tooltips informativos con monto exacto y variaciones mes a mes.
+       - Línea de tendencia punteada.
+       - Escala dinámica del eje Y (`beginAtZero: false`) con formateo `M` y `k` para que la curva tenga respiro y amplitud visual.
+       - Eliminación de la serie de Nafta (no requerida ya que se podrá consultar a demanda en "Consultas y Reportes").
+- **Solución Técnica Aplicada**:
+  - **Frontend (`control-de-gastos-front`)**:
+    - **`reportes.ts`**:
+      - Se reconfiguró `chartOptionsAnalisisGastos` sin el plugin de etiquetas superpuestas y con `beginAtZero: false`, ticks limpios con callback de abreviación (`M` / `k`) y tooltip enriquecido en rojo (`#fca5a5`) con variación y alerta de aumento/descenso.
+      - En `actualizarGraficosAnalisis()`, se configuró la serie de gastos en color rojo `#ef4444`, fondo suave translúcido `rgba(239, 68, 68, 0.12)`, puntos con borde blanco y línea de tendencia punteada `#94a3b8`.
+      - Se eliminó el dataset de combustible (Nafta).
+    - **`reportes.html`**:
+      - Se actualizó el encabezado de la tarjeta: ícono `trending_down` color coral, título *"Evolución Anual de Gastos (Pesos $)"* y subtítulo indicando curva con área sombreada y línea de tendencia.
+      - Se removió `[plugins]="gastosPlugins"` del `<canvas>` evitando colisiones con leyendas.
+- **Archivos Afectados**:
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.html`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+  - `control-de-gastos-front/PLAN_MIGRACION_CLOUD_API.md`
+
+### [2026-10-18 23:45] - Gráfico de Gastos Estilo Google Sheets y Gráfico de Préstamos Reactivo (3 Colores)
+- **Problema / Requerimiento**:
+  - En el Submenú 3 (Análisis Anual) de `/reportes`:
+    1. **Gráfico de Gastos**: Reemplazar las barras por el diseño idéntico al de las hojas de Google Sheets:
+       - Gráfico de líneas (`type: 'line'`).
+       - Título centrado: `Enero - Diciembre [Año]`.
+       - Eje Y etiquetado con `Gastos` en color rojo `#dc2626` y valores de moneda `$X.XXX.XXX,XX`.
+       - Eje X etiquetado con `Meses`.
+       - Serie de Gastos: Línea azul brillante `#2563eb` con puntos circulares y etiquetas numéricas de moneda arriba de cada punto (`$3.383.437,79`, etc.).
+       - Línea de referencia horizontal de promedio mensual en celeste suave `rgba(147, 197, 253, 0.85)`.
+       - Serie de combustible (Nafta): Línea violeta `#9333ea` con puntos y etiquetas monetarias en los meses con consumos (`$20.000,00`, `$10.000,00`, `$23.030,25`, etc.).
+    2. **Gráfico de Préstamos**:
+       - Conservar el formato de barras que le gusta al usuario, pero implementar la lógica reactiva condicional:
+         - **Azul (#3B82F6 / #2563EB)**: Para el **mes próximo a pagar** (detección dinámica automática del primer mes del año con cuotas pendientes; actualmente Noviembre 2026, y al pagarse las cuotas de Noviembre se actualizará automáticamente a Diciembre).
+         - **Rojo (#EF4444 / #DC2626)**: Para aquellos meses donde el total de cuotas **aumentó** con respecto al mes anterior.
+         - **Violeta (#8B5CF6 / #7C3AED)**: Para los demás meses normales, en descenso o ya abonados.
+       - Barra de leyendas clara con 3 píldoras informativas (Azul, Rojo, Violeta).
+- **Solución Técnica Aplicada**:
+  - **Backend (`control-de-gastos-api`)**:
+    - Se amplió la lectura de filas en `fetchAnalisisFromGoogleSheets` y `fetchAnalisisFromDatabase` hasta la fila 42 para capturar la fila de consumos de `Nafta` (fila 42 de `Anual [Año]`), exponiéndola opcionalmente en `ReporteAnalisisAnualResponse` como `nafta?: number[]`.
+  - **Frontend (`control-de-gastos-front`)**:
+    - Se actualizó la interfaz `ReporteAnalisisAnualResponse` en `reportes.service.ts` con `nafta?: number[]`.
+    - Se creó el plugin personalizado `googleSheetsDataLabelsPlugin` para Chart.js que renderiza los valores de moneda encima de cada punto en azul/violeta sin dependencias externas pesadas.
+    - Se actualizó `chartOptionsAnalisisGastos` y `chartDataAnalisisGastos` en `reportes.ts` a `type: 'line'`, con el título superior, etiquetas de ejes roja `Gastos` y gris `Meses`, promedio de referencia y serie de nafta condicional.
+    - Se implementó la lógica de detección de `mesProximoNum` y coloración de 3 estados (Azul, Rojo, Violeta) en `chartDataAnalisisPrestamos` y `chartOptionsAnalisisPrestamos`.
+    - Se actualizaron las leyendas, chips y layout en `reportes.html` y `reportes.scss` con soporte dark mode.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - `control-de-gastos-front/src/app/services/reportes.service.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.html`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.scss`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-18 23:00] - Subpaso 6.17.4: Submenú 3 en Reportes (Análisis Anual Reorganizado) y Desacople de Gráfico de Saldo en /anual
+- **Problema / Requerimiento**:
+  - En cumplimiento con el subpaso 6.17.4 del Plan Maestro:
+    1. Descongestionar la vista `/anual` retirando el gráfico de saldos anuales (`app-grafico-saldo-anual`) para mantenerla enfocada con total claridad en la matriz contable de préstamos, tablas y balances anuales.
+    2. Desarrollar el Submenú 3 en el Centro de Reportes Financieros (`/reportes`): **Análisis Anual Reorganizado** con 3 visualizaciones clave:
+       - Gráfico de Saldo Anual trasladado de `/anual` (curva en pesos y tendencia).
+       - Gráfico independiente de Gastos Anuales con coloración reactiva condicional: **Rojo (#EF4444)** cuando el gasto del mes superó al anterior (aumento) y **Azul (#3B82F6)** cuando el gasto disminuyó o se mantuvo igual.
+       - Gráfico de Préstamos Mensuales con el total acumulado de cuotas y amortizaciones a cancelar por mes.
+- **Solución Técnica Aplicada**:
+  - **Backend (`control-de-gastos-api`)**:
+    - Se creó el endpoint `GET /api/reportes/analisis-anual?year=:year&force=:force` en `reportes.service.ts`, `reportes.controller.ts` y `reportes.routes.ts`.
+    - Soporte multi-origen dual transparente:
+      - Para años en Google Sheets: consulta la hoja `Anual [Año]!A32:L39` obteniendo saldos mensuales (fila 34) y gastos mensuales (fila 38).
+      - Para años en BD (ej. 2022 o interruptor apagado): extrae los datos de `templates/Cuentas claras_[Año].xlsx` o computa desde `monthly_estimate_configs` y `monthly_items`/`movements`.
+      - Préstamos: consulta relacional a PostgreSQL (`loans` y `loan_installments`) agrupando las cuotas mensuales de todos los préstamos vigentes con sus nombres y entidades.
+      - Métricas ejecutivas: saldo promedio, total anual de gastos, promedio mensual, mes con mayor y menor gasto, conteo de meses con aumento (rojo) y reducción (azul), y total anual de préstamos.
+  - **Frontend (`control-de-gastos-front`)**:
+    - **Servicio (`reportes.service.ts`)**: Se incorporaron las interfaces `ReporteAnalisisAnualResponse`, `MesSaldoItem`, `MesGastoItem`, `MesPrestamoItem` y el método `getAnalisisAnual(year, force)`.
+    - **Vista `/anual` (`anual.html` y `anual.ts`)**: Se retiró `<app-grafico-saldo-anual>` de la plantilla HTML y de los imports del componente.
+    - **Vista `/reportes` (`reportes.ts`, `reportes.html`, `reportes.scss`)**:
+      - 4 KPI cards ejecutivas superiores: Saldo Promedio Mensual, Total Gastos Anuales (con mes pico), Comportamiento Mensual (mini-pills roja de aumentos y azul de reducciones), y Total Amortización de Préstamos.
+      - Selector de sub-tabs: *Todos los Gráficos*, *Saldo Anual ($)*, *Gastos Condicionales (Rojo/Azul)* y *Préstamos Mensuales*.
+      - **Gráfico de Saldo Anual**: Línea spline índigo `#706cd6` con área sombreada y línea de tendencia.
+      - **Gráfico Condicional de Gastos Anuales**: Barras reactivas coloreadas en rojo `#ef4444` ante aumentos vs mes previo y azul `#3b82f6` ante reducciones o estabilidad, con chips de leyenda explicativa interactiva y tooltips informativos.
+      - **Gráfico de Préstamos Mensuales**: Barras moradas `#7c3aed` con el total de cuotas y tooltip detallando los préstamos de cada mes.
+      - Estilos adaptados al 100% respetando la Regla de Oro (`AGENTS.md`) y compatibilidad completa con Modo Oscuro (`body.dark-mode`).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - `control-de-gastos-api/src/controllers/reportes.controller.ts`
+  - `control-de-gastos-api/src/routes/reportes.routes.ts`
+  - `control-de-gastos-front/src/app/services/reportes.service.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.html`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.scss`
+  - `control-de-gastos-front/src/app/pages/anual/anual/anual.html`
+  - `control-de-gastos-front/src/app/pages/anual/anual/anual.ts`
+  - `control-de-gastos-front/PLAN_MIGRACION_CLOUD_API.md`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-18 22:30] - Control de Redirección Offline: Permanencia en el Sistema tras "Volver al Sistema"
+- **Problema / Requerimiento**:
+  - Al perder la conexión a internet, la redirección automática inicial al minijuego de la Viborita (`/offline`) funcionaba bien, pero al pulsar "Volver al Sistema", el usuario volvía a ser redirigido inmediatamente al juego cada 6 segundos debido a que el sondeo periódico de conectividad volvía a invocar `triggerOffline()`.
+  - El usuario solicitó que tras pulsar "Volver al Sistema", se le permita permanecer en la aplicación navegando datos locales/en caché sin ser forzado a regresar al juego repetidamente.
+- **Solución Técnica Aplicada**:
+  - **`ConnectivityService` (`connectivity.service.ts`)**:
+    - Se agregó el flag de sesión `hasAutoRedirectedForCurrentOfflineSession` y el método `allowSystemAccessWhileOffline()`.
+    - La redirección automática a `/offline` ahora solo se ejecuta en la transición inicial de `online -> offline` (o simulación forzada), evitando redirecciones cíclicas durante los chequeos periódicos de conexión mientras se esté sin internet.
+    - Al restablecerse la conexión a internet real (`probe` exitoso o evento `online`), la bandera se reinicia a `false` para que futuras caídas vuelvan a activar la redirección automática una vez.
+  - **`OfflineComponent` (`offline.component.ts`)**:
+    - En `volverAlSistema()` se invoca `this.connectivityService.allowSystemAccessWhileOffline()`, registrando la decisión del usuario de trabajar offline antes de navegar a la URL de origen.
+    - El banner rojo superior permanece visible para que el usuario pueda volver a jugar en cualquier momento de forma voluntaria.
+- **Archivos Afectados**:
+  - `control-de-gastos-front/src/app/services/connectivity.service.ts`
+  - `control-de-gastos-front/src/app/pages/offline/offline.component.ts`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-18 21:45] - Restauración de Metadatos de Hojas (Pantallas Habilitadas) y Safe Navigation en Vista de Hojas
+- **Problema / Requerimiento**:
+  - Tras la limpieza de `mesesExtra`, los metadatos de las hojas en PostgreSQL (2023, 2024, 2025, 2026) perdieron su objeto `pantallas`.
+  - Como consecuencia:
+    1. En `Inicio`, al no haber años configurados para la pantalla de inicio (`yearsInicio` vacío), el componente no renderizaba (`*ngIf="anios.length > 0"` quedaba en falso mostrando pantalla en blanco).
+    2. En `Mensual` y `Estimativos`, el circuito de tiempo solo mostraba 2022 y 2027 (los únicos con `pantallas` persistidas).
+    3. En `Hojas`, el template de tarjetas intentaba acceder a `s.metadata.pantallas.inicio` sin navegación segura, provocando excepciones que corrompían visualmente las tarjetas.
+- **Solución Técnica Aplicada**:
+  - **Base de Datos PostgreSQL**: Se restauró la estructura completa de `metadata` para todos los años (2022 a 2027), asegurando `pantallas` (`inicio`, `mensual`, `estimativos`, `anual`) y rangos para cada año.
+  - **API (`sheet-config.service.ts`)**: Se implementó fusión segura en `listAll()` combinando `rawMeta` con `defaultMeta.pantallas`, garantizando que `pantallas` siempre tenga valores válidos aún si algún registro en BD tuviese campos incompletos.
+  - **Frontend (`hojas.html` y `hojas.ts`)**: Añadido operador de navegación segura (`s.metadata?.pantallas?.inicio`, etc.) en la plantilla de tarjetas y en el método `editarHoja()`.
+  - **Frontend Assets**: Incorporado el año 2027 a los archivos locales de respaldo (`years-mensual.json`, `years-estimativos.json`, `years-anual.json`).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/sheet-config.service.ts`
+  - `control-de-gastos-front/src/app/pages/hojas/hojas.html`
+  - `control-de-gastos-front/src/app/pages/hojas/hojas.ts`
+  - `control-de-gastos-front/src/assets/years-mensual.json`
+  - `control-de-gastos-front/src/assets/years-estimativos.json`
+  - `control-de-gastos-front/src/assets/years-anual.json`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-18 21:25] - Extracción Multianual Homogénea por Año Calendario y Eliminación Global de `Mes_[Año + 1]`
+- **Problema / Requerimiento**:
+  - En la vista anual de reportes (ej. ejercicio 2026), los datos de octubre a diciembre de 2025 estaban siendo leídos de la hoja `Saldo 2026` en lugar de la hoja oficial `Saldo 2025` o la base de datos de 2025 según el interruptor de cada año.
+  - Además, se identificó que la convención `Mes_[Año + 1]` (como `Enero_2026`, `Febrero_2026`, `Enero_2027`) era una estimación temporal que se utilizaba exclusivamente en Google Sheets, pero con la carga de 2027 en base de datos PostgreSQL ya no es necesaria y debía ser erradicada en todas las pantallas y modelos.
+- **Solución Técnica Aplicada**:
+  - **API (`control-de-gastos-api/src/services/reportes.service.ts`)**:
+    - Implementada arquitectura de stitching multianual por año calendario:
+      - Los puntos de $Y-1$ (Oct, Nov, Dic) se consultan de la fuente oficial de $Y-1$ (`Saldo ${Y-1}` si está activo, o PostgreSQL si está inactivo).
+      - Los puntos del año $Y$ (Enero a Octubre) se consultan de la fuente oficial de $Y$ (`Saldo ${Y}` si está activo, o PostgreSQL si está inactivo).
+      - Los puntos se combinan cronológicamente y la cabecera describe fielmente el origen: ej. "Saldo 2025 y Saldo 2026" o "Híbrido (Saldo 2026 / BD 2027)".
+    - Corregido tipado estricto en `prevYearData` y restaurado método `getCortesBimonetarios`.
+  - **Limpieza Completa de `Mes_[Año + 1]`**:
+    - **API (`sheet-config.service.ts`)**: `mesesExtra: []` en todas las configuraciones por defecto.
+    - **Frontend (`years-and-ranges.json`)**: Vaciado de `mesesExtraPorAnio` a arrays vacíos para todos los años (`2027`, `2026`, `2025`, `2024`, `2023`, `2022`) e incorporación de `2027` en `filasTablaAnualPorAnio` y `celdaIngresoNetoPorAnio`.
+    - **Frontend (`movimiento.google.ts`)**: Removidos `Enero_2026` y `Febrero_2026` de `todosLosMeses` y simplificado `getMesesParaResumen(anio)` para retornar siempre los 12 meses limpios del año.
+    - **Frontend (`anual.ts`)**: Reducido array `meses` a los 12 meses estándar de Enero a Diciembre.
+    - **Frontend (`estimativos/home.ts`)**: Eliminado bloque legado comentado de `Enero_2026` a `Abril_2026`.
+    - **Frontend (`proyeccion-entidad.service.ts`)**: Eliminadas las ramas condicionales `colMes.startsWith('Enero_')` y `Febrero_` en `getColMesNum`.
+    - **Frontend (`hojas.ts` y `hojas.html`)**: Valor por defecto de `mesesExtra` reseteado a vacío y placeholder actualizado a `Ej: Ninguno`.
+    - **Base de Datos PostgreSQL**: Actualizado `google_sheet_configs.metadata.mesesExtra = []` en todas las filas registradas (2022 a 2027).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - `control-de-gastos-api/src/services/sheet-config.service.ts`
+  - `control-de-gastos-front/src/app/stores/movimiento.google.ts`
+  - `control-de-gastos-front/src/app/pages/anual/anual/anual.ts`
+  - `control-de-gastos-front/src/app/pages/estimativos/home.ts`
+  - `control-de-gastos-front/src/app/services/proyeccion-entidad.service.ts`
+  - `control-de-gastos-front/src/assets/years-and-ranges.json`
+  - `control-de-gastos-front/src/app/pages/hojas/hojas.ts`
+  - `control-de-gastos-front/src/app/pages/hojas/hojas.html`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-18 20:30] - Regla de Escala Y en Todos los Gráficos: Línea Base Cero o Negativa (Nunca Mayor a Cero)
+- **Problema / Requerimiento**:
+  - El usuario observó en el gráfico de "Mes actual" (donde todos los saldos son positivos) que el eje Y comenzaba en `100k` en lugar de `0`, solicitando como regla general que en ningún gráfico la base sea mayor a cero: si todos los valores son positivos, la base debe ser cero como máximo (`min <= 0`), y si existen valores negativos debe descender para abarcarlos.
+- **Solución Técnica Aplicada**:
+  - Se configuró de forma uniforme `beginAtZero: true` y `suggestedMin: 0` en todas las escalas `y` de Chart.js del sistema:
+    - **Reportes (`reportes.ts`)**: Tanto en `chartOptions` (Evolución de Saldo) como en `chartOptionsBimonetario`.
+    - **Anual (`grafico-gasto-anual.ts`, `grafico-gastos-diario-promedio.ts`)**: Corregido `beginAtZero: false` por `beginAtZero: true` y `suggestedMin: 0`.
+    - **Inicio (`movimientos-historicos-usd.ts`)**: Corregido `beginAtZero: false` por `beginAtZero: true` y `suggestedMin: 0`.
+- **Archivos Afectados**:
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.ts`
+  - `control-de-gastos-front/src/app/pages/anual/grafico-gastos-diario-promedio/grafico-gastos-diario-promedio.ts`
+  - `control-de-gastos-front/src/app/pages/anual/grafico-gasto-anual/grafico-gasto-anual.ts`
+  - `control-de-gastos-front/src/app/pages/inicio/graficos/movimientos-historicos-usd/movimientos-historicos-usd.ts`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-18 20:20] - Separación de Octubre y Chip Dedicado "Mes actual" en Gráficos de Saldo
+- **Problema / Requerimiento**:
+  - En el ejercicio 2026, los datos abarcan desde octubre del año anterior (`01/10/2025` a `31/10/2025`) hasta el mes actual (`01/10/2026` a `16/10/2026`). Al filtrar por "Octubre", el sistema unificaba ambos períodos en un único gráfico y no permitía aislar el mes en curso, requiriendo un botón específico "Mes actual" tras Septiembre para visualizar exclusivamente octubre de este año.
+- **Solución Técnica Aplicada**:
+  - **API (`control-de-gastos-api/src/services/reportes.service.ts`)**:
+    - Ajustado el parser de hojas de cálculo: cuando se detecta un segundo bloque con encabezado del mismo mes en el transcurso del ejercicio (ej. el segundo 'Octubre'), se asigna automáticamente como `mes: 'Mes actual'`.
+    - `mesesDisponibles` expone ahora de forma limpia: `[..., 'Septiembre', 'Mes actual']`.
+  - **Frontend (`reportes.ts` y `reportes.html`)**:
+    - `puntosFiltrados`: actualizado para que al hacer clic en "Octubre" solo se devuelvan los puntos iniciales del ejercicio (`2025-10`), y al hacer clic en "Mes actual" se filtren exclusivamente los puntos del mes en curso (`2026-10`).
+    - Tooltips descriptivos en el chip del mes actual ("Filtrar visualización exclusivamente para el Mes actual en curso").
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.html`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-18 19:55] - Refinamiento Cromático: Acento Índigo Luminoso (#706cd6 / #7e79d6) y Aplicación en Gráficos y Selectores
+- **Problema / Requerimiento**:
+  - El usuario indicó que `#656faa` era un tono acertado pero se percibía un poco apagado / desaturado (29% de saturación), solicitando hacerlo más vivo y agradable sin llegar a saturar ni romper la estética del logo.
+  - Además, el usuario señaló mediante capturas que el tono vivo no se había reflejado en los botones de series (`Saldo en Pesos ($)`), el selector de meses (`Todo el Año`) ni en las líneas y puntos del gráfico principal de Chart.js, los cuales seguían en el tono oscuro/apagado `#4b5896`.
+- **Solución Técnica Aplicada**:
+  - Se elevó la vitalidad cromática manteniendo la misma familia de matiz (índigo / azul pizarra), adoptando:
+    - **Secundario / Acento Luminoso**: `#706cd6` (56% saturación, 63% luminosidad) para degradados `linear-gradient(135deg, #706cd6 0%, #4b5896 100%)`.
+    - **Bordes y Resaltes en Dark Mode**: `#7e79d6` (tono periwinkle/índigo suave probado por el usuario).
+  - **Aplicación en Gráficos (`reportes.ts`)**:
+    - Líneas de tendencia y datasets de 'pesos', 'comparativa', 'bimonetario' e 'integral' actualizados con `borderColor: '#706cd6'`, `backgroundColor: 'rgba(112, 108, 214, 0.12)'` y `pointBackgroundColor: '#706cd6'`.
+  - **Aplicación en Controles y Botones (`reportes.scss`)**:
+    - Botones de series `.pill-btn.active`: aplicados con `linear-gradient(135deg, #706cd6 0%, #4b5896 100%)`, borde `#706cd6` y sombra luminosa.
+    - Chips de filtro de mes `.chip-mes.active`: actualizados con el degradado vivo `#706cd6` -> `#4b5896`.
+    - Iconos de tarjeta, badges y botones de refrescar alineados al tono `#706cd6`.
+  - Actualizados `reportes.scss`, `reportes.ts`, `offline.component.scss` y la Regla de Oro en `AGENTS.md`.
+
+### [2026-10-18 19:40] - Regla de Oro: Paleta Oficial del Logo (#4b5896), WakeLock Global y Detección Offline Real con Redirección Automática
+- **Problema / Requerimiento**:
+  - **Detección y Redirección Offline**: Al desconectar el Wi-Fi en Windows, la aplicación no redirigía a la pantalla del juego y el simulador indicaba "Conectado" erróneamente porque el health check consultaba `localhost:3000` (el cual siempre responde en local sin importar el estado de la conexión a Internet).
+  - **Apagado de Pantalla (WakeLock)**: El usuario notó que la pantalla se le apagaba por inactividad en la vista de reportes y offline al faltar el servicio de prevención de suspensión que poseen otras vistas.
+  - **Alineación Cromática Institucional**: El usuario remarcó que en Reportes predominaban tonos azules genéricos ajenos al branding del sistema, exigiendo como Regla de Oro el uso de los colores corporativos extraídos del logo (`#4b5896`).
+- **Solución Técnica Aplicada**:
+  - **Regla de Oro en `AGENTS.md`**:
+    - Registrada oficialmente la *Regla de Oro: Paleta de Colores Institucional del Logo* prohibiendo turquesas y azules eléctricos genéricos, fijando `#4b5896` (Slate Indigo dominante), `#706cd6` / `#7e79d6` (acento vivo), degradado `linear-gradient(135deg, #706cd6 0%, #4b5896 100%)` y badges `#eaecf4`/`#c4c8df`.
+  - **WakeLock Global y Re-adquisición Inteligente (`WakeLockService`)**:
+    - Agregado listener de `document.visibilitychange` para re-adquirir el bloqueo de pantalla automáticamente cuando el usuario regresa a la pestaña.
+    - Inyectado y activado a nivel global en `AppComponent` para todas las vistas.
+    - Inyectado con ciclo de vida explícito en `ReportesComponent` (`ngOnInit` / `ngOnDestroy`) y en `OfflineComponent`.
+  - **Detección Real de Internet y Redirección Automática (`ConnectivityService`)**:
+    - Reemplazo de pings locales por probe HTTP hacia endpoints externos de alta disponibilidad (`google.com/generate_204` y fallback a `cloudflare.com/cdn-cgi/trace`) con timeout estricto de 2.2s y modo `no-cors`.
+    - Detección inmediata mediante listener nativo `window.addEventListener('offline')` y sondeo activo en segundo plano cada 6 segundos.
+    - Redirección automática inmediata al minijuego `/offline` ante cualquier desconexión real o simulada, reteniendo `lastActiveUrl` para que el botón "Volver al Sistema" restaure al usuario exactamente en la vista previa.
+  - **Alineación Visual Completa en Reportes y Offline (`reportes.scss`, `offline.component.scss`)**:
+    - Sustitución de todos los azules genéricos (`#1565c0`, `#1e88e5`, `#3b82f6`) por la paleta armónica del logo en botones de series, tabs activas, badges, tooltips, iconos y modo oscuro.
+- **Archivos Afectados**:
+  - `control-de-gastos-front/.agents/AGENTS.md`
+  - `control-de-gastos-front/src/app/services/wake-lock.service.ts`
+  - `control-de-gastos-front/src/app/app.component.ts`
+  - `control-de-gastos-front/src/app/services/connectivity.service.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.scss`
+  - `control-de-gastos-front/src/app/pages/offline/offline.component.ts`
+  - `control-de-gastos-front/src/app/pages/offline/offline.component.scss`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-18 19:15] - Tooltips Informativos Detallados en Reportes y Pantalla Offline con Minijuego Viborita (Nokia 1100 Modern)
+- **Problema / Requerimiento**:
+  - Comprensión de datos en Reportes: el usuario solicitó tooltips informativos explicativos para todos los indicadores y elementos de la vista de reportes, requiriendo específicamente que en el "Rango Anual de Volatilidad" se muestren las fechas exactas en que se alcanzaron los saldos máximo y mínimo.
+  - Gestión de errores y modo sin conexión: el usuario consultó cómo visualizar la pantalla de error (`public/404.html`) y solicitó que cuando no haya conexión a Internet se muestre una pantalla informativa dedicada con un minijuego interactivo de la Viborita ("como el del Nokia 1100 pero más moderno y actualizado").
+- **Solución Técnica Aplicada**:
+  - **Tooltips y Fechas en Reportes (`reportes.ts`, `html`, `scss`)**:
+    - Enriquecimiento de `metricsFiltradas` para calcular en tiempo real `fechaMaxPesos`, `fechaMinPesos`, `fechaMaxUSD`, `fechaMinUSD`, `fechaUltimo` y `fechaPrimero`.
+    - Tarjeta "Rango Anual de Volatilidad": inclusión de etiquetas visuales con las fechas exactas `(DD/MM/AAAA)` y tooltips detallados en las líneas de Máximo y Mínimo.
+    - `matTooltip` descriptivos en todas las tarjetas KPI, pills de estado, botones de selección de series, selector de meses, métricas de pie y los 10 encabezados de la tabla de cortes bimonetarios.
+  - **Servicio y Pantalla Offline (`ConnectivityService`, `OfflineComponent`)**:
+    - `ConnectivityService` (`src/app/services/connectivity.service.ts`): Monitoreo de eventos `online`/`offline` y ping a `/api/health`, con soporte para simular estado offline sin desconectar físicamente la red.
+    - `OfflineComponent` (`src/app/pages/offline/offline.component.*`):
+      - Ruta `/offline` accesible en cualquier momento (`http://localhost:4200/offline`).
+      - Cumplimiento de regla de oro (`.movimientos-wrapper`, modo oscuro, paleta azul institucional).
+      - Minijuego de la Viborita Nokia 1100 Modern: Canvas HTML5 responsivo con marco neón biselado, velocidad progresiva/selectores (Fácil, Nokia 1100, Turbo), sonido 8-bit sintetizado vía Web Audio API (con botón mute), score actual y récord guardado en `localStorage`, controles de teclado (`WASD`, flechas, espacio, Enter) y D-Pad táctil en pantalla para celulares/tablets.
+      - Botones "Reintentar conexión", "Volver al sistema" y botón de alternancia de simulación para pruebas directas.
+    - Banner global reactivo en `app.html` que aparece automáticamente si se interrumpe la conexión, ofreciendo acceso inmediato a la Viborita.
+    - `public/offline.html`: Versión autónoma en HTML puro que funciona incluso si el servidor o bundle de Angular estuviera detenido.
+  - **Ajuste de Presupuesto en `angular.json`**:
+    - Ajustado `anyComponentStyle` a `35kB` warning y `45kB` error para permitir estilos visuales ricos sin fallos de compilación.
+  - **Verificación**:
+    - Compilación de Frontend exitosa (`npm run build`, código 0).
+- **Archivos Afectados**:
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.html`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.scss`
+  - `control-de-gastos-front/src/app/services/connectivity.service.ts`
+  - `control-de-gastos-front/src/app/pages/offline/offline.component.ts`
+  - `control-de-gastos-front/src/app/pages/offline/offline.component.html`
+  - `control-de-gastos-front/src/app/pages/offline/offline.component.scss`
+  - `control-de-gastos-front/src/app/app.routes.ts`
+  - `control-de-gastos-front/src/app/app.component.ts`
+  - `control-de-gastos-front/src/app/app.html`
+  - `control-de-gastos-front/src/app/app.scss`
+  - `control-de-gastos-front/public/offline.html`
+  - `control-de-gastos-front/angular.json`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-18 19:00] - Alineación de Paleta Primaria Oficial (#1565c0) y Regla Estricta de Origen por Interruptor
+- **Problema / Requerimiento**:
+  - Corrección visual solicitada por el usuario: eliminación de tonos turquesa residuales (`#0284c7`) para mantener estricta fidelidad con el color primario oficial del sistema (`#1565c0` / `#1e88e5`).
+  - Verificación y garantía de la regla de origen de datos: los reportes deben responder en estricta sincronía con el interruptor de hojas (`google_sheet_configs.activo`).
+- **Solución Técnica Aplicada**:
+  - **Frontend (`reportes.scss`)**:
+    - Reemplazo de los últimos 3 valores `#0284c7` residuales en `.footer-metric-item mat-icon`, `.metric-box .metric-icon` y `.placeholder-container .big-icon` por el azul primario institucional `#1565c0`.
+    - Verificación completa de ausencia de tonos turquesa/cyan (`#0284c7`, `#38bdf8`, `#0ea5e9`, `#00acc1`).
+  - **Backend (`reportes.service.ts`)**:
+    - Clave de caché atada al estado en tiempo real del interruptor: `cacheKey = ${year}_${sheetId || 'DB'}` tanto para `cacheSaldoAnual` como para `cacheCortes`. Si el usuario conmuta el interruptor en `/hojas`, la clave cambia inmediatamente sin servir datos cacheados obsoletos.
+    - Confirmación de endpoints:
+      - Año 2026 (activo = true): `origen: 'SHEETS'` (`Saldo!K47:R60`, 13 cortes).
+      - Año 2022 (activo = false): `origen: 'DATABASE'` (`Base de Datos (PostgreSQL)`, 12 cortes mensuales).
+  - **Verificación**:
+    - Compilación de Backend (`rimraf dist && tsc`) exitosa (código 0).
+    - Compilación de Frontend (`npm run build`) exitosa (código 0).
+- **Archivos Afectados**:
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.scss`
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-18 18:25] - Submenú 2 en Reportes: Tabla de Cortes Bimonetarios y Gráfico Asociado (Subpaso 6.17.3)
+- **Problema / Requerimiento**:
+  - Implementar el Subpaso 6.17.3 del plan maestro:
+    1. Endpoint en el Backend para suministrar la serie y tabla de cortes bimonetarios periódicos (`Saldo!K47:R60` o equivalentes en otros años): `Fecha`, `Saldo $`, `Saldo U$`, `Deuda/bitcoin`, `Saldo $ a U$`, `Total Saldo U$`, `Variación $`, `Variación U$`.
+    2. Soporte multi-origen resiliente: lectura dinámica desde Google Sheets (`Saldo!J40:S85`), extracción con `xlsx` desde plantillas históricas locales (`templates/Cuentas claras_[Año].xlsx`) o generación de checkpoints periódicos desde PostgreSQL (`MonthlyEstimateConfig` / `DailyEstimate`).
+    3. Frontend en `ReportesComponent` para el segundo submenú ("Cortes Bimonetarios"):
+       - 4 Tarjetas KPI ejecutivas (Total Saldo U$S con pill Patrimonio U$S, Saldo en Pesos al corte con badge A Favor/En Descubierto, Deuda Registrada con pill Compromiso, Variación Neta Acumulada con flecha reactiva).
+       - Selector de series con pills: `Total Saldo U$S`, `Saldo $ vs Deuda $`, `Variación U$S` y `Vista Integral`.
+       - Gráfico responsivo con Chart.js (curvas spline, barras de variación coloreadas según signo, línea de tendencia).
+       - Planilla detallada de cortes bimonetarios con diseño premium, formateo monetario en pesos y dólares, badges de mes/fecha, pills destacados para Total Saldo U$ y flechas visuales para variaciones.
+       - Cumplimiento estricto de la regla de oro (`AGENTS.md`) y soporte completo para Modo Oscuro (`body.dark-mode`).
+- **Solución Técnica Aplicada**:
+  - **Backend (`control-de-gastos-api`)**:
+    - `reportes.service.ts`: Método `getCortesBimonetarios(year, force)` con soporte para Sheets, plantillas xlsx y PostgreSQL, cálculo de métricas patrimoniales consolidadas y caché en memoria.
+    - `reportes.controller.ts` y `reportes.routes.ts`: Endpoint `GET /api/reportes/cortes-bimonetarios?year=:year&force=:force`.
+  - **Frontend (`control-de-gastos-front`)**:
+    - `ReportesService` (`src/app/services/reportes.service.ts`): Interfaces `CorteBimonetario`, `ReporteCortesBimonetariosResponse` y método `getCortesBimonetarios`.
+    - `ReportesComponent` (`src/app/pages/reportes/reportes.ts`, `html`, `scss`):
+      - Señales reactivas `isLoadingCortes`, `reporteCortes`, `serieBimonetariaActiva`.
+      - Carga reactiva de cortes al cambiar a la pestaña 'bimonetario' o al modificar el año en el DeLorean.
+      - 4 KPI cards de alto impacto visual.
+      - Selector de series (`totalUSD`, `saldoDeuda`, `variaciones`, `integral`).
+      - Gráfico interactivo Chart.js integrado con `BaseChartDirective`.
+      - Tabla HTML responsiva con encabezados fijos, formateo de importes, badges y diseño adaptado a tema oscuro.
+  - **Verificación**:
+    - Backend: Compilación exitosa con código 0 (`rimraf dist && tsc`), respuestas validadas para 2026 (Sheets, 13 cortes), 2025 (Sheets, 13 cortes) y 2022 (Template, 3 cortes).
+    - Frontend: Compilación exitosa con código 0 (`npm run build`).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - `control-de-gastos-api/src/controllers/reportes.controller.ts`
+  - `control-de-gastos-api/src/routes/reportes.routes.ts`
+  - `control-de-gastos-front/src/app/services/reportes.service.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.html`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.scss`
+  - `control-de-gastos-front/PLAN_MIGRACION_CLOUD_API.md`
+
+### [2026-10-18 17:45] - Dashboard Ejecutivo de Evolución de Saldo en Reportes (Subpaso 6.17.2)
+- **Problema / Requerimiento**:
+  - Implementar el Subpaso 6.17.2 del plan maestro:
+    1. Visualización gráfica ejecutiva de la evolución de saldos en el tiempo ($ y USD) según el año seleccionado.
+    2. Endpoint backend híbrido que consolide la serie temporal (`GET /api/reportes/saldo-anual?year=:year`) soportando tanto Google Sheets (`Saldo [Año]` / `Saldo!A1:D350`) como base de datos PostgreSQL (`MonthlyEstimateConfig` / `DailyEstimate`), con cálculo de KPIs agregados y caché en memoria.
+    3. Frontend en `ReportesComponent` con 4 KPI cards (Último Saldo en Pesos con badge dinámico En Descubierto / A Favor, Saldo en USD, Volatilidad Mín/Máx, Deuda Actual), selector de series ($ en Pesos, U$S en Dólares, Deuda, Comparativa), chips interactivos de filtro por mes, gráfico responsivo con Chart.js (línea spline suave, puntos destacados, línea de tendencia calculada) y pie con métricas de resumen.
+- **Solución Técnica Aplicada**:
+  - **Backend (`control-de-gastos-api`)**:
+    - `reportes.service.ts`: Método `getReporteSaldoAnual(year, force)` con soporte híbrido automático (Sheets vs Prisma BD), parsing de 241+ filas diarias, extracción de métricas ejecutivas consolidadas y caché en memoria.
+    - `reportes.controller.ts` y `reportes.routes.ts`: Exposición del endpoint protegido por token JWT.
+    - Registro en `src/routes/index.ts` bajo el prefijo `/api/reportes`.
+  - **Frontend (`control-de-gastos-front`)**:
+    - `ReportesService` (`src/app/services/reportes.service.ts`): Cliente HTTP tipado para consultar `/api/reportes/saldo-anual`.
+    - `ReportesComponent` (`src/app/pages/reportes/reportes.ts`, `html`, `scss`):
+      - Carga reactiva de datos al cambiar el año seleccionado en el DeLorean.
+      - 4 KPI cards ejecutivas con iconos dinámicos y formateo de divisas.
+      - Selector de series con pills (`pesos`, `dolares`, `deuda`, `comparativa`).
+      - Selector de rango mensual con chips dinámicos ("Todo el Año" + meses del dataset).
+      - Integración de `ng2-charts` con `ChartConfiguration`, tooltips con formato de moneda ARS/USD, línea cero destacada y curva de tendencia.
+      - Adaptación completa a modo oscuro (`body.dark-mode`) y cumplimiento estricto de la regla de oro (`AGENTS.md`).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/modules/reportes/reportes.service.ts`
+  - `control-de-gastos-api/src/modules/reportes/reportes.controller.ts`
+  - `control-de-gastos-api/src/modules/reportes/reportes.routes.ts`
+  - `control-de-gastos-api/src/routes/index.ts`
+  - `control-de-gastos-front/src/app/services/reportes.service.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.html`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.scss`
+  - `control-de-gastos-front/PLAN_MIGRACION_CLOUD_API.md`
+
+### [2026-10-18 17:35] - Creación de la Nueva Vista de Reportes (/reportes) con Arquitectura de Submenús (Subpaso 6.17.1)
+- **Problema / Requerimiento**:
+  - Implementar el primer subpaso pendiente del plan maestro (**6.17.1**):
+    1. Crear el componente `ReportesComponent` en `src/app/pages/reportes/` con barra de navegación por pestañas/submenús interactivos:
+       - *Evolución de Saldo* (`Saldo [Año]`).
+       - *Cortes Bimonetarios* (`Saldo!K47:R60`).
+       - *Análisis Anual* (Saldos, Gastos Condicionales Rojo/Azul y Préstamos).
+       - *Consultas y Reportes Dinámicos* (Exclusivo Administradores).
+    2. Integrar el selector de año DeLorean (`SelectorAnioDelorean`) para navegación temporal fluida.
+    3. Registrar la ruta `/reportes` en `app.routes.ts` protegida por `authGuard`.
+    4. Incorporar el acceso a "Reportes" en la barra de navegación superior (desktop) y en el menú desplegable móvil con el icono analítico `query_stats`.
+    5. Cumplir estrictamente con la Regla de Oro (`AGENTS.md`): estructura del contenedor `.movimientos-wrapper`, tarjetas `.sub-card` con bordes suaves, sombras y soporte completo para Modo Oscuro (`body.dark-mode`).
+- **Solución Técnica Aplicada**:
+  - **Componente (`src/app/pages/reportes/reportes.ts`)**:
+    - Componente standalone con inyección de `AuthService` y `AppConfigService`.
+    - Señales reactivas `aniosDisponibles`, `anioSeleccionado` y `tabActiva`.
+    - Definición tipada de la interfaz `ReporteSubmenu` y señal computada `submenusVisibles` para controlar la visibilidad del submenú de administración de consultas.
+  - **Plantilla HTML (`src/app/pages/reportes/reportes.html`)**:
+    - Integración de `<app-selector-anio-delorean>`.
+    - Contenedor `.movimientos-wrapper` con encabezado temático y badge del año seleccionado.
+    - Barra de submenús interactiva en grid responsivo con microinteracciones hover y selección activa.
+    - Secciones dedicadas para cada uno de los 4 submenús con métricas KPI, badges explicativos y estados visuales elegantes.
+  - **Estilos SCSS (`src/app/pages/reportes/reportes.scss`)**:
+    - Estricto cumplimiento de `AGENTS.md` (`.movimientos-wrapper` blanco con sombra y bordes redondeados, `.sub-card` con bordes sutiles y sombra suave).
+    - Grid adaptativo para tabs y métricas.
+    - Adaptación completa a tema oscuro (`:host-context(body.dark-mode)`).
+  - **Rutas (`src/app/app.routes.ts`)**:
+    - Ruta `{ path: 'reportes', component: ReportesComponent, canActivate: [authGuard] }`.
+  - **Navegación (`src/app/app.html`)**:
+    - Botón `Reportes` en el Navbar desktop junto a `Anual`.
+    - Botón con icono `query_stats` en el menú lateral móvil.
+  - **Verificación**:
+    - Compilación de Angular (`npm run build`) ejecutada con código 0 y 0 errores.
+- **Archivos Afectados**:
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.html`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.scss`
+  - `control-de-gastos-front/src/app/app.routes.ts`
+  - `control-de-gastos-front/src/app/app.html`
+  - `control-de-gastos-front/PLAN_MIGRACION_CLOUD_API.md`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-10-18 13:30] - Visualización de Parámetros Clave del Estimativo (Columnas I, J, L)
 - **Problema / Requerimiento**:
   - En la vista de Estimativos (`/estimativo`), el usuario requería visualizar de forma clara y destacada los 3 parámetros financieros fundamentales de la fila 1 de la hoja de Google Sheets para cada mes seleccionado:
