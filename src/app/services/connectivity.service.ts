@@ -14,6 +14,8 @@ export class ConnectivityService {
   public simulatedOffline = signal<boolean>(false);
   public lastActiveUrl = '/';
 
+  public hasAutoRedirectedForCurrentOfflineSession = false;
+
   private pingInterval: any = null;
 
   constructor(@Inject(PLATFORM_ID) platformId: Object) {
@@ -22,9 +24,14 @@ export class ConnectivityService {
     if (this.isBrowser) {
       // Estado inicial
       this.isOnline.set(navigator.onLine);
+      if (!navigator.onLine) {
+        // Si ya abre offline inicialmente, permitimos la primera redirección
+        this.triggerOffline();
+      }
 
       // Escuchar eventos nativos de red del navegador
       window.addEventListener('online', () => {
+        this.hasAutoRedirectedForCurrentOfflineSession = false;
         this.checkConnection();
       });
 
@@ -44,25 +51,39 @@ export class ConnectivityService {
     }
   }
 
+  public allowSystemAccessWhileOffline(): void {
+    this.hasAutoRedirectedForCurrentOfflineSession = true;
+  }
+
   public setSimulatedOffline(offline: boolean): void {
     this.simulatedOffline.set(offline);
     if (offline) {
-      this.triggerOffline();
+      this.hasAutoRedirectedForCurrentOfflineSession = false;
+      this.triggerOffline(true);
     } else {
+      this.hasAutoRedirectedForCurrentOfflineSession = false;
       this.checkConnection();
     }
   }
 
-  private triggerOffline(): void {
+  public triggerOffline(forceRedirect = false): void {
+    const wasOnline = this.isOnline();
     this.isOnline.set(false);
+
     if (this.isBrowser) {
       const currentUrl = this.router.url;
       if (currentUrl && !currentUrl.includes('/offline')) {
         this.lastActiveUrl = currentUrl;
       }
-      // Redirección automática inmediata al minijuego
-      if (this.router.url !== '/offline') {
-        this.router.navigate(['/offline']);
+
+      // Redirige automáticamente al minijuego sólo en la primera transición online -> offline
+      // de la sesión actual o si se fuerza explícitamente (ej: simulación).
+      // Si el usuario decide volver al sistema, NO se vuelve a forzar la redirección.
+      if (forceRedirect || (wasOnline && !this.hasAutoRedirectedForCurrentOfflineSession)) {
+        this.hasAutoRedirectedForCurrentOfflineSession = true;
+        if (this.router.url !== '/offline') {
+          this.router.navigate(['/offline']);
+        }
       }
     }
   }
@@ -105,6 +126,9 @@ export class ConnectivityService {
       // Si llegó aquí, hay conexión a Internet real
       const wasOffline = !this.isOnline();
       this.isOnline.set(true);
+      if (wasOffline) {
+        this.hasAutoRedirectedForCurrentOfflineSession = false;
+      }
       if (!silent) this.isChecking.set(false);
 
       return true;
@@ -119,7 +143,11 @@ export class ConnectivityService {
           signal: AbortSignal.timeout(2000),
         });
 
+        const wasOffline = !this.isOnline();
         this.isOnline.set(true);
+        if (wasOffline) {
+          this.hasAutoRedirectedForCurrentOfflineSession = false;
+        }
         if (!silent) this.isChecking.set(false);
         return true;
       } catch {

@@ -19,6 +19,23 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-18 22:30] - Control de Redirección Offline: Permanencia en el Sistema tras "Volver al Sistema"
+- **Problema / Requerimiento**:
+  - Al perder la conexión a internet, la redirección automática inicial al minijuego de la Viborita (`/offline`) funcionaba bien, pero al pulsar "Volver al Sistema", el usuario volvía a ser redirigido inmediatamente al juego cada 6 segundos debido a que el sondeo periódico de conectividad volvía a invocar `triggerOffline()`.
+  - El usuario solicitó que tras pulsar "Volver al Sistema", se le permita permanecer en la aplicación navegando datos locales/en caché sin ser forzado a regresar al juego repetidamente.
+- **Solución Técnica Aplicada**:
+  - **`ConnectivityService` (`connectivity.service.ts`)**:
+    - Se agregó el flag de sesión `hasAutoRedirectedForCurrentOfflineSession` y el método `allowSystemAccessWhileOffline()`.
+    - La redirección automática a `/offline` ahora solo se ejecuta en la transición inicial de `online -> offline` (o simulación forzada), evitando redirecciones cíclicas durante los chequeos periódicos de conexión mientras se esté sin internet.
+    - Al restablecerse la conexión a internet real (`probe` exitoso o evento `online`), la bandera se reinicia a `false` para que futuras caídas vuelvan a activar la redirección automática una vez.
+  - **`OfflineComponent` (`offline.component.ts`)**:
+    - En `volverAlSistema()` se invoca `this.connectivityService.allowSystemAccessWhileOffline()`, registrando la decisión del usuario de trabajar offline antes de navegar a la URL de origen.
+    - El banner rojo superior permanece visible para que el usuario pueda volver a jugar en cualquier momento de forma voluntaria.
+- **Archivos Afectados**:
+  - `control-de-gastos-front/src/app/services/connectivity.service.ts`
+  - `control-de-gastos-front/src/app/pages/offline/offline.component.ts`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-10-18 21:45] - Restauración de Metadatos de Hojas (Pantallas Habilitadas) y Safe Navigation en Vista de Hojas
 - **Problema / Requerimiento**:
   - Tras la limpieza de `mesesExtra`, los metadatos de las hojas en PostgreSQL (2023, 2024, 2025, 2026) perdieron su objeto `pantallas`.

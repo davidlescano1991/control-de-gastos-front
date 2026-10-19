@@ -118,6 +118,7 @@ export class OfflineComponent implements OnInit, OnDestroy {
   }
 
   public volverAlSistema(): void {
+    this.connectivityService.allowSystemAccessWhileOffline();
     const target = this.connectivityService.lastActiveUrl || '/';
     this.router.navigate([target === '/offline' ? '/' : target]);
   }
