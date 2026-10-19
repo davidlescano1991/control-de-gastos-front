@@ -676,7 +676,7 @@ export class MovimientosStoreGoogle {
       console.log(`📦 [${caller ?? 'desconocido'}] cargando desde API: ${hojaReal} (${anio})`);
       try {
         const res = (await firstValueFrom(
-          this.sheets.obtenerMensualAnio(anio, hojaReal, 'A1:K500'),
+          this.sheets.obtenerMensualAnio(anio, hojaReal, 'A1:R500'),
         )) as { values: string[][] };
         this.mensualPorMes.set(clave, signal(res));
       } catch (err) {
@@ -721,7 +721,7 @@ export class MovimientosStoreGoogle {
       console.log(`📦 [${caller ?? 'desconocido'}] cargando desde API: ${rangoHojas} (${anio})`);
       try {
         const res: any = await firstValueFrom(
-          this.sheets.obtenerMensualBatch(anio, meses, 'A1:K500'),
+          this.sheets.obtenerMensualBatch(anio, meses, 'A1:R500'),
         );
 
         res.valueRanges?.forEach((vr: { values: string[][] }, i: number) => {
@@ -740,7 +740,7 @@ export class MovimientosStoreGoogle {
         for (const mes of meses) {
           try {
             const hojaRes: any = await firstValueFrom(
-              this.sheets.obtenerMensualAnio(anio, mes, 'A1:K500'),
+              this.sheets.obtenerMensualAnio(anio, mes, 'A1:R500'),
             );
             const valores = hojaRes?.values ?? [];
             const clave = `${anio}::${mes}`;

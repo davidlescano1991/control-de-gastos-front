@@ -1,0 +1,128 @@
+<div class="modal-backdrop" (click)="cerrar.emit()">
+  <div class="modal-dialog" (click)="$event.stopPropagation()">
+    <!-- Cabecera -->
+    <header class="modal-header">
+      <div class="modal-title-box">
+        <mat-icon class="header-icon">volunteer_activism</mat-icon>
+        <div>
+          <h2 class="modal-title">Registrar Devolución / Reintegro</h2>
+          <p class="modal-subtitle">{{ concepto }} &bull; {{ mes }} {{ year }}</p>
+        </div>
+      </div>
+      <button type="button" class="btn-cerrar" (click)="cerrar.emit()" title="Cerrar">
+        <mat-icon>close</mat-icon>
+      </button>
+    </header>
+
+    <!-- Resumen visual rápido -->
+    <div class="kpi-mini-grid">
+      <div class="kpi-item esperado">
+        <span class="kpi-label">Aporte Esperado</span>
+        <span class="kpi-val">{{ montoSugerido | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</span>
+      </div>
+      <div class="kpi-item pendiente">
+        <span class="kpi-label">Saldo Pendiente</span>
+        <span class="kpi-val">{{ saldoPendiente | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</span>
+      </div>
+    </div>
+
+    <!-- Contenido del Formulario -->
+    <div class="modal-body">
+      <!-- Error Alert -->
+      <div *ngIf="errorMensaje()" class="alert-error">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ errorMensaje() }}</span>
+      </div>
+
+      <!-- Monto a reintegrar -->
+      <div class="form-group">
+        <label for="montoReintegro" class="form-label">
+          <span>Monto a Ingresar ($)</span>
+          <span class="label-hint">Admite fórmulas (ej: 24053.35 o 19053+5000)</span>
+        </label>
+        <div class="input-prefix-wrapper">
+          <span class="input-prefix">$</span>
+          <input
+            id="montoReintegro"
+            type="text"
+            class="form-control input-monto"
+            [ngModel]="montoInput()"
+            (ngModelChange)="onMontoChange($event)"
+            placeholder="0.00"
+            autocomplete="off"
+          />
+        </div>
+        <div *ngIf="resultadoFormula().esFormula && !resultadoFormula().error" class="formula-preview">
+          <mat-icon>functions</mat-icon>
+          <span>Resultado: <strong>{{ montoFinal() | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong></span>
+        </div>
+      </div>
+
+      <!-- Cuenta Receptora / Destino -->
+      <div class="form-group">
+        <label for="cuentaDestino" class="form-label">Cuenta Receptora (Donde ingresa el dinero)</label>
+        <div class="select-wrapper">
+          <select
+            id="cuentaDestino"
+            class="form-control"
+            [ngModel]="cuentaDestino()"
+            (ngModelChange)="cuentaDestino.set($event)"
+          >
+            <option *ngFor="let c of cuentasDisponibles" [value]="c">{{ c }}</option>
+          </select>
+          <mat-icon class="select-icon">expand_more</mat-icon>
+        </div>
+      </div>
+
+      <!-- Fecha de Acreditación -->
+      <div class="form-group">
+        <label for="fechaReintegro" class="form-label">Fecha de Devolución</label>
+        <input
+          id="fechaReintegro"
+          type="date"
+          class="form-control"
+          [ngModel]="fecha()"
+          (ngModelChange)="fecha.set($event)"
+        />
+      </div>
+
+      <!-- Descripción / Concepto Contable -->
+      <div class="form-group">
+        <label for="descReintegro" class="form-label">Concepto / Detalle Contable</label>
+        <input
+          id="descReintegro"
+          type="text"
+          class="form-control"
+          [ngModel]="descripcion()"
+          (ngModelChange)="descripcion.set($event)"
+          placeholder="Ej: Reintegro Mamá (Octubre 2026)"
+        />
+        <span class="input-info">
+          Se generará automáticamente un movimiento de tipo <strong>INGRESO</strong> a favor en la cuenta seleccionada.
+        </span>
+      </div>
+    </div>
+
+    <!-- Pie de acciones -->
+    <footer class="modal-footer">
+      <button
+        type="button"
+        class="btn-cancelar"
+        (click)="cerrar.emit()"
+        [disabled]="isGuardando()"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        class="btn-confirmar"
+        (click)="confirmar()"
+        [disabled]="isGuardando() || montoFinal() <= 0"
+      >
+        <mat-spinner *ngIf="isGuardando()" diameter="18"></mat-spinner>
+        <mat-icon *ngIf="!isGuardando()">check_circle</mat-icon>
+        <span>Confirmar Reintegro</span>
+      </button>
+    </footer>
+  </div>
+</div>

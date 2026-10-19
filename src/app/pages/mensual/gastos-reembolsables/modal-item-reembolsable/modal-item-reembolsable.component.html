@@ -1,0 +1,118 @@
+<div class="modal-backdrop" (click)="cerrar.emit()">
+  <div class="modal-dialog" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <header class="modal-header">
+      <div class="modal-title-box">
+        <mat-icon class="header-icon">{{ info.modo === 'EDITAR' ? 'edit' : 'add_circle' }}</mat-icon>
+        <div>
+          <h2 class="modal-title">
+            {{ info.modo === 'EDITAR' ? 'Modificar' : 'Agregar' }}
+            {{ tipo() === 'APORTE' ? 'Aporte de Tercero' : 'Gasto / Servicio' }}
+          </h2>
+          <p class="modal-subtitle">{{ info.mesNombre }} {{ info.year }}</p>
+        </div>
+      </div>
+      <button type="button" class="btn-cerrar" (click)="cerrar.emit()" title="Cerrar">
+        <mat-icon>close</mat-icon>
+      </button>
+    </header>
+
+    <!-- Body -->
+    <div class="modal-body">
+      <!-- Error Alert -->
+      <div *ngIf="errorMensaje()" class="alert-error">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ errorMensaje() }}</span>
+      </div>
+
+      <!-- Selector de Tipo (si está creando) -->
+      <div class="form-group" *ngIf="info.modo === 'CREAR'">
+        <label class="form-label">Tipo de Registro</label>
+        <div class="tipo-selector">
+          <button
+            type="button"
+            class="btn-tipo"
+            [class.active]="tipo() === 'SERVICIO'"
+            (click)="tipo.set('SERVICIO')"
+          >
+            <mat-icon>receipt_long</mat-icon>
+            <span>Servicio Compartido</span>
+          </button>
+          <button
+            type="button"
+            class="btn-tipo"
+            [class.active]="tipo() === 'APORTE'"
+            (click)="tipo.set('APORTE'); concepto.set('Mamá')"
+          >
+            <mat-icon>volunteer_activism</mat-icon>
+            <span>Aporte a Devolver</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Concepto / Nombre -->
+      <div class="form-group">
+        <label for="conceptoNombre" class="form-label">
+          <span>Nombre del Concepto</span>
+          <span class="label-hint" *ngIf="tipo() === 'SERVICIO'">(ej: luz, agua, claro, gas, internet)</span>
+          <span class="label-hint" *ngIf="tipo() === 'APORTE'">(ej: Mamá, Hermano, Inquilino)</span>
+        </label>
+        <input
+          id="conceptoNombre"
+          type="text"
+          class="form-control"
+          [ngModel]="concepto()"
+          (ngModelChange)="concepto.set($event)"
+          [placeholder]="tipo() === 'APORTE' ? 'Mamá' : 'Ej: Expensas, Gas, Alarma'"
+          autocomplete="off"
+        />
+      </div>
+
+      <!-- Monto o Fórmula -->
+      <div class="form-group">
+        <label for="montoOFormula" class="form-label">
+          <span>Monto o Fórmula ($)</span>
+          <span class="label-hint">Admite números (ej: 25000) o fórmulas (ej: =19053.35+5000)</span>
+        </label>
+        <div class="input-prefix-wrapper">
+          <span class="input-prefix">$</span>
+          <input
+            id="montoOFormula"
+            type="text"
+            class="form-control input-monto"
+            [ngModel]="montoOFormula()"
+            (ngModelChange)="onMontoChange($event)"
+            placeholder="0.00"
+            autocomplete="off"
+          />
+        </div>
+        <div *ngIf="resultadoFormula().esFormula && !resultadoFormula().error" class="formula-preview">
+          <mat-icon>functions</mat-icon>
+          <span>Resultado: <strong>{{ montoFinal() | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="modal-footer">
+      <button
+        type="button"
+        class="btn-cancelar"
+        (click)="cerrar.emit()"
+        [disabled]="isGuardando()"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        class="btn-confirmar"
+        (click)="confirmar()"
+        [disabled]="isGuardando() || !concepto().trim()"
+      >
+        <mat-spinner *ngIf="isGuardando()" diameter="18"></mat-spinner>
+        <mat-icon *ngIf="!isGuardando()">check_circle</mat-icon>
+        <span>{{ info.modo === 'EDITAR' ? 'Guardar Cambios' : 'Agregar Concepto' }}</span>
+      </button>
+    </footer>
+  </div>
+</div>

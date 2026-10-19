@@ -19,6 +19,142 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-19 13:00] - Proyección de Próximos Meses: Modo "Saldo vs gastos" y Reemplazo del Gráfico Antiguo
+- **Problema Detectado / Requerimiento**:
+  - El gráfico "Total mensual $" (`app-grafico-visa`) ubicado al inicio de la columna derecha contenía información redundante y menos completa que el nuevo componente de proyección (`app-grafico-proyeccion-totales`).
+  - El usuario solicitó:
+    1. Eliminar el gráfico anterior "Total mensual $" (`app-grafico-visa`).
+    2. Mover el nuevo gráfico de proyección (`app-grafico-proyeccion-totales`) a esa posición superior (justo debajo de "Novedades de cuotas").
+    3. Agregar una nueva sección/pestaña al gráfico de proyección llamada **"Saldo vs gastos"** para comparar en el mismo canvas la curva de Saldo Proyectado y la curva de Gastos Proyectados.
+- **Causa Raíz**:
+  - `GraficoVisa` mostraba una única curva de evolución histórica y de próximos meses con un diseño más antiguo, mientras que `GraficoProyeccionTotales` ya extrae las matrices de proyección de Gastos y Saldo de Google Sheets y BD con un diseño moderno.
+- **Solución Técnica Aplicada**:
+  - **Nueva Pestaña y Dataset Comparativo (`grafico-proyeccion-totales.*`)**:
+    - Se amplió el signal `serieActiva` a `'gastos' | 'saldo' | 'comparativa'`.
+    - En la barra de selector de series se incorporó el botón `[Saldo vs gastos]` con icono `compare_arrows`.
+    - En `renderizarGrafico()`, para el modo `'comparativa'`, se generan ambos datasets simultáneamente:
+      - **Saldo Proyectado ($)**: Línea en Slate Indigo (`#706cd6`), puntos condicionales bicolor (verde para positivo, rojo para negativo) y fondo translúcido.
+      - **Gastos Proyectados ($)**: Línea en Coral Red (`#ef4444`) con puntos destacados y fondo translúcido.
+    - Se adaptó el callback de tooltips para indicar dinámicamente el nombre de la serie y formatear importes en moneda argentina.
+  - **Reubicación y Limpieza en `/mensual` (`mensual.html` & `mensual.ts`)**:
+    - Se eliminó `<app-grafico-visa>` y su import `GraficoVisa` en `mensual.ts`.
+    - Se reubicó `<app-grafico-proyeccion-totales>` al primer lugar de los gráficos en la columna derecha, debajo de `<app-novedades-cuotas>` y antes de `<app-resumen>`.
+    - Se eliminó la instancia duplicada que estaba al fondo de la columna derecha.
+  - **Compilación**: Verificada con `npx ng build --configuration development` (código `0`, 0 errores).
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/proyeccion-totales/grafico-proyeccion-totales/grafico-proyeccion-totales.ts`
+  - `src/app/pages/mensual/proyeccion-totales/grafico-proyeccion-totales/grafico-proyeccion-totales.html`
+  - `src/app/pages/mensual/proyeccion-totales/grafico-proyeccion-totales/grafico-proyeccion-totales.scss`
+  - `src/app/pages/mensual/mensual.html`
+  - `src/app/pages/mensual/mensual.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+
+### [2026-10-19 12:45] - Corrección de Stacking Context de Modal y Administración Completa de Conceptos Reembolsables
+- **Problema Detectado / Requerimiento**:
+  - Al hacer clic en "Registrar Devolución", la pantalla se oscurecía pero el cuadro del modal quedaba atrapado o cortado dentro del contexto de apilamiento (`stacking context`) y scroll de `.col-izquierda-scroll`.
+  - El usuario solicitó además que todos los ítems de gastos reembolsables puedan administrarse libremente: agregar nuevos servicios/conceptos, editar montos o nombres existentes (incluyendo soporte de fórmulas aritméticas como `=23943.80/2`), modificar el aporte de terceros (ej. Mamá) y eliminar conceptos obsoletos.
+- **Causa Raíz**:
+  - `ModalReintegroComponent` estaba declarado dentro de la plantilla hija `gastos-reembolsables.component.html`, la cual se renderiza dentro del contenedor con scroll `.col-izquierda-scroll`. Las propiedades CSS de dicho contenedor creaban un stacking context local que impedía al backdrop `fixed` ocupar la ventana completa (`viewport`).
+  - Los ítems de servicios reembolsables eran leídos únicamente como filas fijas desde la planilla sin una interfaz de edición ni mutación persistente en base de datos.
+- **Solución Técnica Aplicada**:
+  - **Reubicación de Modales a Nivel Raíz (`mensual.html` & `mensual.ts`)**:
+    - Se trasladaron tanto `<app-modal-reintegro>` como el nuevo `<app-modal-item-reembolsable>` al nivel raíz de `mensual.html`, al mismo nivel de `<app-modal-pagar-entidad>`.
+    - Se gestionan reactivamente mediante signals en `ReembolsablesService` (`modalReintegroData` y `modalItemData`).
+    - Al emitir `confirmado` o `guardado`, el componente `Mensual` cierra el modal y refresca reactivamente los datos del componente y los balances generales.
+  - **Componente `ModalItemReembolsableComponent` (`modal-item-reembolsable.component.*`)**:
+    - Creado en `src/app/pages/mensual/gastos-reembolsables/modal-item-reembolsable/`.
+    - Formulario reactivo que permite:
+      - Nombre del concepto / servicio o persona que aporta (ej. "Luz", "Agua", "Mamá").
+      - Monto o fórmula aritmética (ej. `=15000+5000` o `3500.50`), evaluado en tiempo real con `evaluarFormula` mostrando vista previa de cálculo o errores sintácticos.
+      - Selección de tipo: `SERVICIO` (suma al costo total de servicios) o `APORTE` (resta del neto personal).
+  - **Administración Directa en la Tabla (`gastos-reembolsables.component.*`)**:
+    - **Cabecera**: Botón `[+ Nuevo]` para crear conceptos en cualquier momento.
+    - **Filas de servicios**: Botón de edición ✏️ (`abrirModalEditarConcepto`) y botón de eliminación 🗑️ (`eliminarConcepto` con confirmación de seguridad).
+    - **Fila de aporte**: Botón de edición ✏️ (`abrirModalEditarAporte`) para ajustar el monto o nombre de la persona que realiza el reintegro.
+    - **Badges de Fórmula**: Indicador visual `formula-badge` con estilo monoespaciado en la fila si el monto fue ingresado mediante cálculo.
+    - **Estado Vacío**: Botón `[+ Agregar primer servicio]` si no hay ítems registrados.
+  - **Persistencia en Base de Datos PostgreSQL (`reembolsables.service.ts`)**:
+    - Métodos `guardarItem` y `eliminarItem` integrados con `MensualItemsService` utilizando la entidad `'Reembolsables'`.
+    - Soporte de migración transparente: si los ítems provenían de Google Sheets (sin `id` en BD), al modificar o crear uno se realiza el seed inicial a la tabla `monthly_items` para preservar la integridad de datos histórica.
+  - **Compilación**: Verificada con `npx ng build --configuration development` (código `0`, 0 errores).
+- **Archivos Afectados**:
+  - `src/app/services/reembolsables.service.ts`
+  - `src/app/pages/mensual/gastos-reembolsables/modal-item-reembolsable/modal-item-reembolsable.component.ts`
+  - `src/app/pages/mensual/gastos-reembolsables/modal-item-reembolsable/modal-item-reembolsable.component.html`
+  - `src/app/pages/mensual/gastos-reembolsables/modal-item-reembolsable/modal-item-reembolsable.component.scss`
+  - `src/app/pages/mensual/gastos-reembolsables/gastos-reembolsables.component.ts`
+  - `src/app/pages/mensual/gastos-reembolsables/gastos-reembolsables.component.html`
+  - `src/app/pages/mensual/gastos-reembolsables/gastos-reembolsables.component.scss`
+  - `src/app/pages/mensual/mensual.ts`
+  - `src/app/pages/mensual/mensual.html`
+  - `REGISTRO_ACCIONES_FRONT.md`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+
+### [2026-10-19 12:20] - Módulo de Gastos a Devolver / Reembolsables en Mensual (Subpaso 6.17.6)
+- **Problema Detectado / Requerimiento**:
+  - En la vista `/mensual`, no existía una sección para visualizar ni gestionar los gastos compartidos que el usuario abona a inicio de mes y que posteriormente le son reintegrados (matriz `Saldo!S45:W58`: luz, agua, claro, afip, GMS, internet, inst alarma y el aporte de Mamá).
+  - Se requería incorporar esta gestión en una tarjeta colapsable en la columna izquierda (justo debajo de "Otros"), mostrando el total pagado de servicios, el aporte a devolver, el neto a cargo y un botón para registrar devoluciones que genere automáticamente un asiento contable de `INGRESO` en la cuenta bancaria/billetera elegida.
+- **Causa Raíz**:
+  - La planilla Google Sheets `Saldo` contiene la matriz en `S45:W58` sin estar mapeada en ningún componente del Frontend ni vinculada a los movimientos contables de la base de datos.
+- **Solución Técnica Aplicada**:
+  - **Servicio `ReembolsablesService` (`reembolsables.service.ts`)**:
+    - Extracción híbrida: lectura de `Saldo!S45:Z58` en años activos en Sheets (`GoogleSheetsService.obtenerMensualAnio`), mapeando filas 45 (meses), 48 (luz), 49 (agua), 51 (claro), 53 (total servicios), 56 (Mamá) y 57 (diferencia neta).
+    - Cruce contable en tiempo real: consulta reactiva a `MovimientosService.listarMovimientos` buscando asientos de tipo `INGRESO` y categoría `Reintegro` para el mes y año consultados.
+    - Computa dinámicamente el monto total devuelto, el saldo restante por reintegrar y el estado (`PENDIENTE`, `REINTEGRADO_PARCIAL` o `REINTEGRADO_TOTAL`).
+  - **Componente Principal `GastosReembolsablesComponent` (`gastos-reembolsables.component.*`)**:
+    - Estructura `.tabla-reembolsables-card` cumpliendo con la Regla de Oro (`AGENTS.md`) con cabecera Slate Indigo (`#4b5896`), botón de colapso y badge reactivo de estado.
+    - Franja superior con 3 mini KPI cards: `Total Servicios`, `Aporte Mamá (A reintegrar)` y `Gasto Neto Personal`.
+    - Tabla detallada de conceptos con filas destacadas para subtotal, aporte de terceros y neto propio.
+    - Historial desplegable de devoluciones registradas con fecha, cuenta receptora y monto.
+    - Soporte completo para Modo Claro y Modo Oscuro (`body.dark-mode`).
+  - **Modal Interactivo `ModalReintegroComponent` (`modal-reintegro.component.*`)**:
+    - Formulario con soporte para fórmulas aritméticas (`evaluarFormula`), precarga del saldo sugerido, selector de cuenta de ingreso (`Galicia`, `Santander`, `Mercado Pago`, `Bancor`, `Naranja X`, `Efectivo`), fecha de acreditación y descripción.
+    - Al confirmar, invoca `reembolsablesService.registrarReintegro`, impactando de inmediato en los movimientos de la cuenta seleccionada y refrescando reactivamente los saldos de la pantalla mensual.
+  - **Integración en `/mensual` (`mensual.html` y `mensual.ts`)**:
+    - Colocado en la columna izquierda entre "Otros" y la "Tabla de Cuotas Coincidentes", integrando la leyenda de origen de datos y conectando el evento `reintegroRegistrado`.
+  - **Compilación**: Verificada con `npx ng build --configuration development` (código `0`, 0 errores).
+- **Archivos Afectados**:
+  - `src/app/services/reembolsables.service.ts`
+  - `src/app/pages/mensual/gastos-reembolsables/modal-reintegro/modal-reintegro.component.ts`
+  - `src/app/pages/mensual/gastos-reembolsables/modal-reintegro/modal-reintegro.component.html`
+  - `src/app/pages/mensual/gastos-reembolsables/modal-reintegro/modal-reintegro.component.scss`
+  - `src/app/pages/mensual/gastos-reembolsables/gastos-reembolsables.component.ts`
+  - `src/app/pages/mensual/gastos-reembolsables/gastos-reembolsables.component.html`
+  - `src/app/pages/mensual/gastos-reembolsables/gastos-reembolsables.component.scss`
+  - `src/app/pages/mensual/mensual.ts`
+  - `src/app/pages/mensual/mensual.html`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-19 11:10] - Gráficos de Gastos Proyectados y Saldo Proyectado en Módulo Mensual (Subpaso 6.17.5)
+- **Problema Detectado / Requerimiento**:
+  - En la vista `/mensual` (columna derecha de "Resumen gráfico"), el componente `app-grafico-proyeccion-totales` calculaba una proyección heurística basada en cuotas restantes que no coincidía con las fórmulas ni con la matriz real de proyección de Google Sheets (filas 23, 36 y 38).
+  - Además, se requería incorporar la visualización interactiva de **Gastos Proyectados** (`I36:R36`) junto al **Saldo Proyectado** (`I38:R38`), permitiendo alternar entre ambas series sin saturar la columna derecha con dos tarjetas separadas.
+- **Causa Raíz**:
+  - El frontend limitaba las consultas por lotes a `A1:K500`, dejando fuera las columnas I a R donde la planilla calcula las proyecciones a futuro.
+  - El componente carecía de un selector de series interactivo y de la lógica de extracción exacta de filas 23, 36 y 38.
+- **Solución Técnica Aplicada**:
+  - **Ampliación de Rango Google Sheets (`movimiento.google.ts`)**:
+    - Se extendieron las consultas de hojas mensuales a `A1:R500` en los métodos de carga por lotes y peticiones individuales.
+  - **Selector de Series Tipo Tabs/Pills en Cabecera (`grafico-proyeccion-totales.html` y `.scss`)**:
+    - Se integraron dos botones con estilo píldora: **"Gastos Proyectados"** (`trending_down`) y **"Saldo Proyectado"** (`account_balance_wallet`), con transición suave y paleta institucional Slate Indigo (`linear-gradient(135deg, #706cd6 0%, #4b5896 100%)`).
+    - Soporte completo para Modo Claro y Modo Oscuro (`body.dark-mode`), adaptando fondos, bordes y contrastes.
+  - **Lógica de Extracción y Resiliencia (`grafico-proyeccion-totales.ts`)**:
+    - Detección reactiva de la cabecera de meses en fila 23 (`I23:R23`), fila 36 para Gastos Proyectados y fila 38 para Saldo Proyectado.
+    - Fallback resiliente para PostgreSQL / offline mediante agregación de cuotas activas de `MonthlyItem` proyectadas en los meses venideros.
+    - Configuración con Chart.js para renderizar:
+      - Gastos Proyectados: Curva coral/rojo (`#ef4444`) con sombreado translúcido `rgba(239, 68, 68, 0.12)`.
+      - Saldo Proyectado: Curva en azul/índigo (`#706cd6`) con marcadores de puntos condicionales verde/rojo según si el balance es positivo o negativo.
+  - **Compilación**: Verificada con éxito (`npx ng build --configuration development` sin errores).
+- **Archivos Afectados**:
+  - `src/app/stores/movimiento.google.ts`
+  - `src/app/pages/mensual/proyeccion-totales/grafico-proyeccion-totales/grafico-proyeccion-totales.ts`
+  - `src/app/pages/mensual/proyeccion-totales/grafico-proyeccion-totales/grafico-proyeccion-totales.html`
+  - `src/app/pages/mensual/proyeccion-totales/grafico-proyeccion-totales/grafico-proyeccion-totales.scss`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-10-19 00:35] - Soporte Integral de Préstamos Históricos (2025, 2024, 2023) en Análisis Anual
 - **Problema Detectado**:
   - En el gráfico "Compromisos y Cuotas de Préstamos Mensuales" (`/reportes`), únicamente se graficaban barras con datos para los años 2026 y 2027. Al seleccionar años anteriores (ej. 2025, 2024, 2023), el gráfico aparecía en cero y con la leyenda "Sin préstamos".

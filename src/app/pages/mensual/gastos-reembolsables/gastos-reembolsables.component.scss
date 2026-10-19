@@ -1,0 +1,703 @@
+mat-card.tabla-reembolsables-card {
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 16px;
+  background-color: #ffffff;
+}
+
+mat-card-header.card-header-wrapper {
+  background-color: #4b5896;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  padding: 12px 16px;
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .card-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      color: #eaecf4;
+    }
+
+    mat-card-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: white;
+      margin: 0;
+    }
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    .btn-nuevo-concepto {
+      background: rgba(255, 255, 255, 0.18);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      color: #ffffff;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+      }
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.28);
+        border-color: rgba(255, 255, 255, 0.6);
+        transform: translateY(-1px);
+      }
+    }
+  }
+
+  .btn-collapse-card {
+    background: transparent;
+    border: none;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: 4px;
+    transition: transform 0.2s ease;
+
+    &.collapsed {
+      transform: rotate(180deg);
+    }
+  }
+}
+
+.badge-estado {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+
+  mat-icon {
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
+  }
+
+  &.badge-total {
+    background-color: #16a34a;
+    color: #ffffff;
+  }
+
+  &.badge-parcial {
+    background-color: #f59e0b;
+    color: #ffffff;
+  }
+
+  &.badge-pendiente {
+    background-color: #ea580c;
+    color: #ffffff;
+  }
+}
+
+.reembolsables-content {
+  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 0 8px;
+
+  .kpi-card {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    .kpi-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .kpi-amount {
+      font-size: 15px;
+      font-weight: 800;
+      color: #1e293b;
+    }
+
+    .kpi-subtitle {
+      font-size: 10px;
+      color: #94a3b8;
+    }
+
+    &.total-servicios {
+      border-left: 3px solid #64748b;
+    }
+
+    &.aporte-tercero {
+      border-left: 3px solid #706cd6;
+      .kpi-amount {
+        color: #4b5896;
+      }
+    }
+
+    &.saldo-neto {
+      border-left: 3px solid #0d9488;
+      .kpi-amount {
+        color: #0d9488;
+      }
+    }
+  }
+}
+
+.tabla-wrapper {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #f1f5f9;
+}
+
+.tabla-movimientos {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  thead tr.header-excel th {
+    background-color: #768699;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 8px 12px;
+    border-bottom: 2px solid #5a6878;
+
+    &.th-concepto {
+      text-align: left;
+    }
+
+    &.th-monto {
+      text-align: right;
+    }
+
+    &.th-acciones {
+      width: 65px;
+      text-align: center;
+    }
+  }
+
+  tbody tr {
+    border-bottom: 1px solid #f1f5f9;
+    transition: background-color 0.15s ease;
+
+    td {
+      padding: 8px 12px;
+      vertical-align: middle;
+
+      &.td-concepto {
+        text-align: left;
+        color: #334155;
+        text-transform: capitalize;
+
+        .concepto-info {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+
+          .concepto-nombre {
+            font-weight: 500;
+          }
+
+          .formula-badge {
+            font-size: 10px;
+            font-family: monospace;
+            background: #eaecf4;
+            color: #4b5896;
+            padding: 1px 5px;
+            border-radius: 4px;
+            border: 1px solid #c4c8df;
+            white-space: nowrap;
+          }
+        }
+      }
+
+      &.td-monto {
+        text-align: right;
+        font-weight: 600;
+        color: #1e293b;
+      }
+
+      &.td-acciones {
+        text-align: right;
+        padding-right: 8px;
+
+        .acciones-fila {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          justify-content: flex-end;
+
+          .btn-row-action {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            width: 26px;
+            height: 26px;
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            transition: all 0.15s ease;
+
+            mat-icon {
+              font-size: 16px;
+              width: 16px;
+              height: 16px;
+            }
+
+            &.btn-edit {
+              color: #4b5896;
+              &:hover {
+                background: #eaecf4;
+                color: #313b6c;
+                transform: scale(1.1);
+              }
+            }
+
+            &.btn-delete {
+              color: #94a3b8;
+              &:hover {
+                background: #fee2e2;
+                color: #dc2626;
+                transform: scale(1.1);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    &:hover:not(.fila-subtotal):not(.fila-aporte-tercero):not(.fila-neto-propio) {
+      background-color: #f8fafc;
+    }
+
+    &.fila-sin-monto td {
+      color: #94a3b8;
+    }
+
+    &.fila-subtotal {
+      background-color: #f1f5f9;
+      font-weight: 700;
+      border-top: 2px solid #cbd5e1;
+
+      td.td-monto {
+        color: #1e293b;
+      }
+    }
+
+    &.fila-aporte-tercero {
+      background-color: #eaecf4;
+      border-top: 1px solid #c4c8df;
+
+      .aporte-td-content {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+
+        .tag-aporte {
+          font-size: 10px;
+          padding: 1px 5px;
+          border-radius: 4px;
+          background-color: #706cd6;
+          color: #ffffff;
+          font-weight: 700;
+          text-transform: uppercase;
+        }
+
+        .formula-badge {
+          font-size: 10px;
+          font-family: monospace;
+          background: #ffffff;
+          color: #4b5896;
+          padding: 1px 5px;
+          border-radius: 4px;
+          border: 1px solid #c4c8df;
+          white-space: nowrap;
+        }
+      }
+
+      td.td-monto {
+        color: #4b5896;
+        font-weight: 700;
+      }
+    }
+
+    &.fila-neto-propio {
+      background-color: #f0fdf4;
+      border-top: 1px solid #bbf7d0;
+
+      td.td-concepto strong {
+        color: #15803d;
+      }
+
+      td.td-monto strong {
+        color: #15803d;
+      }
+    }
+  }
+}
+
+.historial-reintegros {
+  background-color: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 0 8px;
+
+  .historial-titulo {
+    font-size: 12px;
+    font-weight: 700;
+    color: #475569;
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      color: #706cd6;
+    }
+  }
+
+  .reintegros-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .reintegro-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+
+    .reintegro-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .reintegro-fecha {
+        font-weight: 600;
+        color: #64748b;
+      }
+
+      .reintegro-cuenta {
+        background-color: #eaecf4;
+        color: #4b5896;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: 700;
+        font-size: 11px;
+      }
+
+      .reintegro-desc {
+        color: #334155;
+      }
+    }
+
+    .reintegro-monto {
+      font-weight: 700;
+      color: #16a34a;
+    }
+  }
+}
+
+.acciones-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 8px 0 8px;
+  border-top: 1px solid #f1f5f9;
+
+  .info-remanente {
+    font-size: 12px;
+    color: #475569;
+
+    strong {
+      color: #ea580c;
+    }
+
+    .texto-completado {
+      color: #16a34a;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-weight: 600;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
+    }
+  }
+
+  .btn-registrar {
+    background: linear-gradient(135deg, #706cd6 0%, #4b5896 100%);
+    border: none;
+    color: #ffffff;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 5px rgba(75, 88, 150, 0.25);
+    transition: all 0.2s ease;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    &:hover {
+      filter: brightness(1.08);
+      box-shadow: 0 4px 8px rgba(75, 88, 150, 0.35);
+    }
+  }
+}
+
+.sin-datos-msg {
+  text-align: center;
+  padding: 24px;
+  color: #64748b;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+
+  p {
+    margin: 0;
+    font-style: italic;
+  }
+
+  .btn-nuevo-concepto-empty {
+    background: linear-gradient(135deg, #706cd6 0%, #4b5896 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 5px rgba(75, 88, 150, 0.25);
+    transition: all 0.2s ease;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    &:hover {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+  }
+}
+
+.spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 40px;
+}
+
+// MODO OSCURO
+:host-context(body.dark-mode) {
+  mat-card.tabla-reembolsables-card {
+    background-color: #1e293b;
+    border-color: #334155;
+    color: #f8fafc;
+  }
+
+  mat-card-header.card-header-wrapper {
+    background-color: #334155;
+  }
+
+  .kpi-strip .kpi-card {
+    background-color: #0f172a;
+    border-color: #334155;
+
+    .kpi-title {
+      color: #94a3b8;
+    }
+
+    .kpi-amount {
+      color: #f8fafc;
+    }
+
+    &.aporte-tercero .kpi-amount {
+      color: #a5b4fc;
+    }
+
+    &.saldo-neto .kpi-amount {
+      color: #2dd4bf;
+    }
+  }
+
+  .tabla-wrapper {
+    border-color: #334155;
+  }
+
+  .tabla-movimientos {
+    thead tr.header-excel th {
+      background-color: #0f172a;
+      border-bottom-color: #334155;
+      color: #cbd5e1;
+    }
+
+    tbody tr {
+      border-bottom-color: #334155;
+
+      td.td-concepto {
+        color: #cbd5e1;
+      }
+
+      td.td-monto {
+        color: #f8fafc;
+      }
+
+      &:hover:not(.fila-subtotal):not(.fila-aporte-tercero):not(.fila-neto-propio) {
+        background-color: #162032;
+      }
+
+      &.fila-subtotal {
+        background-color: #162032;
+        border-top-color: #334155;
+        td.td-monto {
+          color: #f8fafc;
+        }
+      }
+
+      &.fila-aporte-tercero {
+        background-color: rgba(112, 108, 214, 0.15);
+        border-top-color: #4b5896;
+
+        td.td-monto {
+          color: #a5b4fc;
+        }
+      }
+
+      &.fila-neto-propio {
+        background-color: rgba(13, 148, 136, 0.15);
+        border-top-color: #0d9488;
+
+        td.td-concepto strong,
+        td.td-monto strong {
+          color: #2dd4bf;
+        }
+      }
+    }
+  }
+
+  .historial-reintegros {
+    background-color: #0f172a;
+    border-color: #334155;
+
+    .historial-titulo {
+      color: #94a3b8;
+    }
+
+    .reintegro-item {
+      background-color: #1e293b;
+      border-color: #334155;
+
+      .reintegro-info {
+        .reintegro-fecha {
+          color: #94a3b8;
+        }
+
+        .reintegro-cuenta {
+          background-color: #334155;
+          color: #a5b4fc;
+        }
+
+        .reintegro-desc {
+          color: #e2e8f0;
+        }
+      }
+
+      .reintegro-monto {
+        color: #4ade80;
+      }
+    }
+  }
+
+  .acciones-bar {
+    border-top-color: #334155;
+
+    .info-remanente {
+      color: #94a3b8;
+
+      strong {
+        color: #fb923c;
+      }
+
+      .texto-completado {
+        color: #4ade80;
+      }
+    }
+  }
+
+  .sin-datos-msg {
+    color: #94a3b8;
+  }
+}

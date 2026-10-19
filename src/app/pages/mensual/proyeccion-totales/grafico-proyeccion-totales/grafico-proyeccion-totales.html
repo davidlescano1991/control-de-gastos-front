@@ -1,12 +1,46 @@
 <mat-card class="tabla-resumen-card" [class.is-collapsed]="isCollapsed()">
   <mat-card-header class="card-header-wrapper">
-    <mat-card-title>Evolución de Totales Futuros ($)</mat-card-title>
+    <div class="header-title-box">
+      <mat-card-title>Proyección de Próximos Meses ($)</mat-card-title>
+      <div class="tabs-serie-selector" *ngIf="!isCollapsed()">
+        <button
+          type="button"
+          class="btn-serie-tab"
+          [class.active]="serieActiva() === 'gastos'"
+          (click)="cambiarSerie('gastos')"
+          title="Ver evolución de Gastos Proyectados"
+        >
+          <mat-icon>trending_down</mat-icon>
+          <span>Gastos Proyectados</span>
+        </button>
+        <button
+          type="button"
+          class="btn-serie-tab"
+          [class.active]="serieActiva() === 'saldo'"
+          (click)="cambiarSerie('saldo')"
+          title="Ver evolución de Saldo Remanente Proyectado"
+        >
+          <mat-icon>account_balance_wallet</mat-icon>
+          <span>Saldo Proyectado</span>
+        </button>
+        <button
+          type="button"
+          class="btn-serie-tab"
+          [class.active]="serieActiva() === 'comparativa'"
+          (click)="cambiarSerie('comparativa')"
+          title="Comparar Saldo vs Gastos Proyectados"
+        >
+          <mat-icon>compare_arrows</mat-icon>
+          <span>Saldo vs gastos</span>
+        </button>
+      </div>
+    </div>
     <button
       type="button"
       class="btn-collapse-card"
       [class.collapsed]="isCollapsed()"
       (click)="toggleCollapse()"
-      [title]="isCollapsed() ? 'Expandir Evolución de Totales' : 'Contraer Evolución de Totales'"
+      [title]="isCollapsed() ? 'Expandir Gráfico de Proyección' : 'Contraer Gráfico de Proyección'"
     >
       <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
         <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
@@ -22,7 +56,7 @@
         <canvas baseChart [data]="chartData" [options]="chartOptions" [type]="'line'"></canvas>
       </div>
       <div *ngIf="isBrowser && (!chartData.labels || chartData.labels.length === 0)" class="sin-datos-msg">
-        Sin datos de proyección para este año
+        Sin datos de proyección para este mes
       </div>
     </ng-template>
   </mat-card-content>

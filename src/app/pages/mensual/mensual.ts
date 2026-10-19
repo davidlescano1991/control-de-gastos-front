@@ -1,4 +1,4 @@
-import { Component, inject, OnDestroy, OnInit, signal, computed, WritableSignal } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit, signal, computed, WritableSignal, ViewChild } from '@angular/core';
 import { MovimientosStoreGoogle } from '../../stores/movimiento.google';
 import { WakeLockService } from '../../services/wake-lock.service';
 import { AppConfigService } from '../../services/app-config.service';
@@ -8,8 +8,11 @@ import { AuthService } from '../../services/auth.service';
 import { EntityPaymentService } from '../../services/entity-payment.service';
 import { MensualItemsService, FinancialEntityFront } from '../../services/mensual-items.service';
 import { SyncMensualSheetsDbService } from '../../services/sync-mensual-sheets-db.service';
+import { ReembolsablesService } from '../../services/reembolsables.service';
 import { ModalCargarItemComponent } from './modal-cargar-item/modal-cargar-item';
 import { ModalPagarEntidadComponent } from './modal-pagar-entidad/modal-pagar-entidad.component';
+import { ModalReintegroComponent } from './gastos-reembolsables/modal-reintegro/modal-reintegro.component';
+import { ModalItemReembolsableComponent } from './gastos-reembolsables/modal-item-reembolsable/modal-item-reembolsable.component';
 import { VisaComponent } from './lista-entidades/visa/visa';
 import { NgFor, NgIf, CurrencyPipe } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -17,7 +20,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCard, MatCardContent, MatCardHeader, MatCardTitle } from '@angular/material/card';
 import { MatInputModule } from '@angular/material/input';
 import { MatStepperModule } from '@angular/material/stepper';
-import { GraficoVisa } from './graficos-entidades/visa/grafico-visa/grafico-visa';
 import { Bancor } from './lista-entidades/bancor/bancor';
 import { MasterGalicia } from './lista-entidades/master-galicia/master-galicia';
 import { Naranja } from './lista-entidades/naranja/naranja';
@@ -42,6 +44,7 @@ import { SelectorAnioDelorean } from '../../common/selector-anio-delorean/select
 import { OrigenDatosComponent } from '../../common/origen-datos/origen-datos.component';
 import { ModalProyeccionEntidad } from './proyeccion-entidad/modal-proyeccion-entidad';
 import { ProyeccionOverlayService } from '../../services/proyeccion-overlay.service';
+import { GastosReembolsablesComponent } from './gastos-reembolsables/gastos-reembolsables.component';
 
 @Component({
   selector: 'app-mensual',
@@ -53,7 +56,6 @@ import { ProyeccionOverlayService } from '../../services/proyeccion-overlay.serv
     NgFor,
     VisaComponent,
     MatCardContent,
-    GraficoVisa,
     MasterGalicia,
     Naranja,
     Bancor,
@@ -82,13 +84,19 @@ import { ProyeccionOverlayService } from '../../services/proyeccion-overlay.serv
     ModalProyeccionEntidad,
     ModalCargarItemComponent,
     ModalPagarEntidadComponent,
+    ModalReintegroComponent,
+    ModalItemReembolsableComponent,
+    GastosReembolsablesComponent,
   ],
 })
 export class Mensual implements OnInit, OnDestroy {
   public overlayService = inject(ProyeccionOverlayService);
   public authService = inject(AuthService);
+  public reembolsablesService = inject(ReembolsablesService);
   private mensualItemsService = inject(MensualItemsService);
   public syncMensualService = inject(SyncMensualSheetsDbService);
+
+  @ViewChild(GastosReembolsablesComponent) gastosReembolsablesComp?: GastosReembolsablesComponent;
   readonly esOrigenBD = signal<boolean>(false);
   readonly leyendaFallback = signal<string>('');
   readonly leyendaOrigenActual = computed(() => {
@@ -781,5 +789,23 @@ export class Mensual implements OnInit, OnDestroy {
 
   esAnioEnBD(anio: number): boolean {
     return this.appConfig.esAnioEnBD(anio);
+  }
+
+  async onReintegroRegistrado(): Promise<void> {
+    this.gastosReembolsablesComp?.cargarDatos();
+    await this.cargarTotalesTotales(false, true);
+    await this.seleccionarMes(this.mesSeleccionado(), true);
+  }
+
+  async onReintegroConfirmado(): Promise<void> {
+    this.reembolsablesService.cerrarModalReintegro();
+    this.gastosReembolsablesComp?.cargarDatos();
+    await this.cargarTotalesTotales(false, true);
+    await this.seleccionarMes(this.mesSeleccionado(), true);
+  }
+
+  onItemReembolsableGuardado(): void {
+    this.reembolsablesService.cerrarModalItem();
+    this.gastosReembolsablesComp?.cargarDatos();
   }
 }
