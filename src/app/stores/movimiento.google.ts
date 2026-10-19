@@ -25,12 +25,15 @@ interface GoogleSheetResponse {
  * Representa una fila procesada de la hoja mensual de estimativos diarios.
  */
 export interface EstimativoRow {
+  id?: string;
   fecha: string;
   saldoPesos: number;
   saldoUSD: number;
   deuda: number;
   real: number | null;
   deudaReal: number;
+  evento?: string | null;
+  color?: string | null;
 }
 
 /**

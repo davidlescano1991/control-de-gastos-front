@@ -7,5 +7,7 @@ type EstimativoRow = {
   deuda: number;
   real: number | null;
   deudaReal: number;
+  evento?: string | null;
+  color?: string | null;
   editando?: boolean;
 };

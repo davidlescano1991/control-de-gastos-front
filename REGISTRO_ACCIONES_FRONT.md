@@ -19,6 +19,200 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-19 19:54] - Fondo Pastel Traslúcido con Columnas Alternadas al Tono de la Etiqueta
+- **Problema Detectado / Requerimiento**:
+  - El usuario solicitó no utilizar bordes duros/perimetrales y en su lugar replicar la misma lógica cromática de los feriados (fondo pastel suave/traslúcido), pero generado a partir del color de la etiqueta del evento (ej. verde `#10b981`), alternando a un tono del mismo color ligeramente más oscuro para las columnas destacadas de Saldo Estimado y Deuda.
+- **Causa Raíz / Necesidad**:
+  - Los bordes perimetrales generaban un quiebre visual abrupto con las demás filas, mientras que el sombreado homogéneo de los feriados ofrece una lectura mucho más integrada, armónica y agradable.
+- **Solución Técnica Aplicada**:
+  - En `mensual.scss`, se reescribió `tr.fila-personalizada` utilizando `color-mix`:
+    - **Celdas base**: Tono pastel suave del color del evento (`color-mix(in srgb, var(--fila-custom-color) 10%, #ffffff)` en claro / `15%` en oscuro).
+    - **Columnas alternadas (`td.columna-resaltada`)**: Tono de la misma familia de color un poco más saturado/oscuro (`color-mix(in srgb, var(--fila-custom-color) 22%, #ffffff)` en claro / `26%` en oscuro), manteniendo la alternancia perfecta de columnas Saldo Pesos y Deuda.
+    - **Hover**: Intensificación proporcional suave (`16%` y `28%`).
+    - Borde inferior integrado (`1px solid color-mix(...)`).
+  - **Compilación**: Verificada obligatoriamente con `npx ng build --configuration development` (Código `0`, 0 errores, 0 advertencias en 11.2s).
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/mensual/mensual.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-19 19:48] - Corrección de Borde Superior Visible en Fila con Evento
+- **Problema Detectado / Requerimiento**:
+  - En la tabla de estimativos mensuales, la fila personalizada del día con evento mostraba los bordes lateral e inferior pero el borde superior quedaba oculto o tapado por el colapso de bordes de la fila precedente.
+- **Causa Raíz**:
+  - En modelos de tabla con `border-collapse: collapse;`, el borde inferior de la fila anterior (`04/11`) y el renderizado subpixel de las celdas contiguas se superponían al `border-top` de la fila actual.
+- **Solución Técnica Aplicada**:
+  - Se asignó `position: relative; z-index: 2;` en `tr.fila-personalizada` elevando el contexto de apilamiento por encima de las filas adyacentes.
+  - Se reforzó con `border-top: 2px solid var(--fila-custom-color) !important` y una sombra interior `box-shadow: inset 0 2px 0 0 var(--fila-custom-color)` en todas las celdas `td`, garantizando que la línea superior se pinte nítida y visiblemente sin importar el colapso de bordes ni los fondos de las columnas adyacentes.
+  - **Compilación**: Verificada obligatoriamente con `npx ng build --configuration development` (Código `0`, 0 errores, 0 advertencias en 13.1s).
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/mensual/mensual.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-19 19:44] - Borde Suave y Moderno de Fila Personalizada y Ampliación del Icono de Nota
+- **Problema Detectado / Requerimiento**:
+  - El usuario solicitó destacar más la fila del día con evento dándole un borde suave, moderno y agradable del mismo color de la etiqueta, sin perder la alternancia de columnas.
+  - Asimismo, solicitó agrandar un poco el icono de la anotación para una presencia visual más clara.
+- **Causa Raíz / Necesidad**:
+  - Tras quitar el fondo invasivo anterior, faltaba un encuadre perimetral suave del color del evento (`var(--fila-custom-color)`).
+  - El SVG medía 18px y podía ampliarse para una lectura óptima de los detalles de la hoja y la chincheta.
+- **Solución Técnica Aplicada**:
+  - **Borde Suave Perimetral (`mensual.scss`, `mensual.ts`)**:
+    - Se aplicó en `tr.fila-personalizada td` un borde superior e inferior de `1.5px solid var(--fila-custom-color)`, un acento izquierdo en `td:first-child` de `4px solid var(--fila-custom-color)` y un cierre derecho en `td:last-child` de `1.5px solid var(--fila-custom-color)`.
+    - Al NO alterar los fondos de las celdas (`background-color`), las columnas alternadas (`columna-resaltada` lavanda y fondos blancos) se conservan al 100%.
+    - Compatible con tema claro y modo oscuro.
+  - **Ampliación de Icono (`mensual.html`, `mensual.scss`)**:
+    - Se incrementó el tamaño del SVG de `18×18px` a `22×22px`.
+    - Se ajustó el ancho de la primera columna a `135px` para albergar con espacio holgado el botón de edición, la fecha y el icono ampliado.
+  - **Compilación**: Verificada obligatoriamente con `npx ng build --configuration development` (Código `0`, 0 errores, 0 advertencias en 16.2s).
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/mensual/mensual.ts`
+  - `src/app/pages/estimativos/mensual/mensual.html`
+  - `src/app/pages/estimativos/mensual/mensual.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-19 19:36] - Preservación de Columnas Alternadas y Limpieza de Fondo en Fila con Evento
+- **Problema Detectado / Requerimiento**:
+  - Al marcar un día con evento, la fila adquiría un fondo grisáceo plano uniforme y un borde izquierdo grueso (`border-left: 4px solid ...`) que borraba el sombreado lavanda de las columnas alternadas (`columna-resaltada`), quebrando la continuidad visual de la tabla respecto a los demás registros.
+- **Causa Raíz**:
+  - La clase `.fila-personalizada` aplicaba `background-color` a nivel de `<tr>` y `td { background-color: transparent; }`, anulando el fondo de `td.columna-resaltada` de las columnas de Saldo Pesos y Deuda.
+- **Solución Técnica Aplicada**:
+  - Se eliminaron las reglas de fondo y borde de `.fila-personalizada` en `mensual.scss` (tanto en tema claro como oscuro) y la asignación de clase en `mensual.ts`.
+  - La fila del día con evento conserva 100% sus fondos naturales alternados de columnas (`columna-resaltada` y franjas cebra), manteniéndose perfectamente alineada e indistinguible en su estructura con las filas adyacentes, destacándose únicamente por el icono de nota coloreado con tooltip en la columna de fecha.
+  - **Compilación**: Verificada obligatoriamente con `npx ng build --configuration development` (Código `0`, 0 errores, 0 advertencias en 11.6s).
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/mensual/mensual.ts`
+  - `src/app/pages/estimativos/mensual/mensual.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-19 19:30] - Icono de Anotación / Nota Vectorial con Tooltip en Fila de Estimativos
+- **Problema Detectado / Requerimiento**:
+  - La etiqueta de texto completa en la celda de fecha ocupaba demasiado espacio horizontal, desalineando y expandiendo de forma despareja las columnas de la tabla.
+  - El usuario solicitó sustituir el texto por un icono estilizado de anotación (hojas de notas con chincheta, idéntico a la imagen provista), con fondo transparente, coloreado con el color asignado a la etiqueta/feriado, de tamaño proporcional a la fila (18px) y con un tooltip flotante que muestre la descripción completa al pasar el cursor.
+- **Causa Raíz**:
+  - Se estaba renderizando el texto completo dentro de un `<span class="badge-evento-dia">` que ocupaba hasta 220px.
+- **Solución Técnica Aplicada**:
+  - **Icono Vectorial SVG Personalizado (`mensual.html`)**:
+    - Se reemplazó el badge de texto por un `<span class="icono-evento-dia">` con un SVG vectorial fiel a la imagen de referencia: hoja frontal con líneas blancas de texto, hoja posterior transparente al 38% y chincheta superior con aguja y cabeza esférica.
+    - El icono adopta dinámicamente el color configurado (`[style.color]="fila.color || '#4b5896'"` con `currentColor`).
+    - Se incorporó `[matTooltip]="fila.evento" matTooltipPosition="above"` (con fallback nativo `[title]`) mostrando la descripción en una burbuja flotante al posar el ratón.
+  - **Módulo y Estilos (`mensual.ts`, `mensual.scss`)**:
+    - Se importó `MatTooltipModule` en `EstimativoMensual`.
+    - En `mensual.scss`, se ajustó el ancho de la primera columna a un tamaño fijo y homogéneo de `125px` (`min-width: 125px; width: 125px;`), restaurando la simetría perfecta de todas las filas.
+    - Se añadió efecto hover interactivo (`transform: scale(1.22)` y drop-shadow sutil) con soporte nativo para tema claro y tema oscuro.
+  - **Compilación**: Verificada obligatoriamente con `npx ng build --configuration development` (Código `0`, 0 errores, 0 advertencias en 23.4s).
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/mensual/mensual.ts`
+  - `src/app/pages/estimativos/mensual/mensual.html`
+  - `src/app/pages/estimativos/mensual/mensual.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-19 19:10] - Persistencia y Renderizado de Eventos y Colores en Fila Diaria de Estimativos
+- **Problema Detectado / Requerimiento**:
+  - Al modificar un día desde el modal de estimativos (`ModalEditarDiaComponent`) e intentar asignar una etiqueta de evento o color (ej. "Liquidacion final kinetc", color verde `#10b981`), el backend fallaba con: `Invalid prisma.dailyEstimate.update() ... Unknown argument 'evento'`.
+  - En consecuencia, el modal mostraba un toast de error, el cambio no persistía en la base de datos PostgreSQL y la fila del día 5 (o cualquier otro día) no reflejaba el badge del evento ni el color correspondiente.
+- **Causa Raíz**:
+  - En `control-de-gastos-api/src/services/estimate.service.ts`, `prisma.dailyEstimate.update` incluía `evento` y `color` en `dataToUpdate`. Debido a que el proceso Node en caliente mantenía bloqueada la librería nativa del query engine de Prisma en Windows impidiendo regenerar el cliente en runtime, la validación en memoria del cliente de Prisma rechazaba los argumentos con `Unknown argument 'evento'`.
+  - En la lectura (`getMonthlyEstimate`), las filas no enriquecían los campos `evento` y `color` con consultas directas de SQL, omitiéndose también en modo Google Sheets.
+  - En el frontend (`home.ts`), al guardar un día se esperaba la respuesta completa de red sin actualización optimista inmediata, y el mapeo de fechas no contemplaba diferencias de formateo con/sin ceros a la izquierda.
+- **Solución Técnica Aplicada**:
+  - **Backend API (`estimate.service.ts`)**:
+    - Se desacopló la actualización de `evento` y `color` del schema en memoria de Prisma, ejecutándolas mediante SQL nativo (`prisma.$executeRawUnsafe`) directamente sobre la tabla `daily_estimates`.
+    - En `getMonthlyEstimate`, se implementó la lectura de `evento` y `color` vía `prisma.$queryRawUnsafe` tanto en modo Google Sheets como en modo Base de Datos.
+    - Se enriqueció la notificación de eventos SSE (`DATA_UPDATED`) y el objeto de retorno con `evento` y `color`.
+  - **Frontend Angular (`home.ts`, `modal-editar-dia.ts`, `mensual.ts`, `mensual.scss`)**:
+    - En `modal-editar-dia.ts`, se emite la carga útil completa del día en `guardado.emit({ id, fecha, real, deudaReal, saldoPesos, deuda, evento, color })`.
+    - En `home.ts`, `onDiaGuardado($event)` aplica actualización optimista inmediata (0ms) en la señal reactiva `estimativoFilas` y en el histórico, sincronizando luego de forma resiliente con la API asociando por `id` y por fecha normalizada (`d/m/yyyy` y `dd/mm/yyyy`).
+    - En `mensual.ts`, `obtenerClaseFila` agrega la clase `fila-personalizada` si el día tiene color o evento asignado, y expone `--fila-custom-color` en `obtenerEstiloFila`.
+    - En `mensual.scss`, se agregó un borde distintivo izquierdo en `td:first-child`, se amplió el ancho mínimo de la columna de fecha a 150px y se aumentó el `max-width` del badge a 220px para una lectura clara de nombres de eventos extensos, manteniendo compatibilidad total con tema claro y modo oscuro.
+  - **Compilación**: Verificada obligatoriamente con `npx ng build --configuration development` (Código `0`, 0 errores, 0 advertencias).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/estimate.service.ts`
+  - `src/app/pages/estimativos/modal-editar-dia/modal-editar-dia.ts`
+  - `src/app/pages/estimativos/home.html`
+  - `src/app/pages/estimativos/home.ts`
+  - `src/app/pages/estimativos/mensual/mensual.ts`
+  - `src/app/pages/estimativos/mensual/mensual.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-19 18:25] - Corrección de Error TS2322 en Plugins de Chart.js y Nueva Regla de Oro
+- **Problema Detectado / Requerimiento**:
+  - Al recargar la vista `/estimativo`, el navegador mostró una pantalla de error roja con el overlay de Angular: `TS2322: Type 'Plugin<"line" | "bar", AnyObject>[]' is not assignable to type 'Plugin<"line", AnyObject>[]'`.
+  - El usuario instruyó establecer como **Regla de Oro** la obligación estricta de validar y compilar el proyecto al final de cada tarea, garantizando que jamás se entregue código roto.
+- **Causa Raíz**:
+  - `yearBackgroundPlugin` en `src/app/utils/grafico.utils.ts` estaba tipado restrictivamente como `Plugin<'line' | 'bar'>`. Al pasarlo a un componente con `type="line"`, el verificador de tipos de Angular consideraba incompatibles los parámetros de métodos del plugin (`Chart<'line' | 'bar'>` vs `Chart<'line'>`).
+- **Solución Técnica Aplicada**:
+  - **Flexibilización de Tipado del Plugin**: Se actualizó la firma a `Plugin<any>` en `src/app/utils/grafico.utils.ts` y se especificó `chartPlugins: any[]` en `grafico-historico.ts`, haciéndolo compatible de forma universal con cualquier tipo de gráfico (`line`, `bar`, etc.) sin incompatibilidad de tipos.
+  - **Nueva Regla de Oro en `AGENTS.md`**: Se incorporó la sección *"Regla de Oro: Validación y Compilación Obligatoria al Final de Cada Tarea"* en `.agents/AGENTS.md`, exigiendo compilación limpia con `npx ng build --configuration development` (código `0`, 0 errores, 0 advertencias) previo a cualquier entrega.
+  - **Compilación**: Verificada exitosamente con `npx ng build --configuration development` (Código `0`, 0 errores, 0 advertencias en 11s).
+- **Archivos Afectados**:
+  - `src/app/utils/grafico.utils.ts`
+  - `src/app/pages/estimativos/grafico-historico/grafico-historico.ts`
+  - `.agents/AGENTS.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-19 17:20] - Limpieza de Compilación Angular y Errores 404 de Estimativos en Consola
+- **Problema Detectado / Requerimiento**:
+  - En la terminal del usuario el compilador de Angular mostraba advertencias y errores de compilación (`duplicate member listPeriods`, múltiples advertencias de template `NG8107` en `hojas.html`).
+  - En la consola del navegador se registraban múltiples errores HTTP 404 (`Failed to load resource: 404 (Not Found)` para `:3000/api/estimaciones?year=2027&mes=4..12`) y un aviso rojo generado por un `console.error` de depuración en `mensual.ts`.
+- **Causa Raíz**:
+  - En `estimates.service.ts` se había duplicado la declaración del método `listPeriods()`.
+  - En `hojas.html` se empleaba encadenamiento opcional redundante (`?.`) en propiedades no nulas de `s.metadata.pantallas`.
+  - En `home.ts`, `cargaInicial()` iteraba forzosamente los 12 meses para años en modo base de datos (como 2027), disparando peticiones a meses que aún no tienen configuración en la BD.
+  - En el backend API (`estimate.controller.ts`), cuando un período no tenía configuración, la API respondía `404 Not Found` en lugar de una respuesta limpia `200` con `{ config: null, filas: [] }`.
+- **Solución Técnica Aplicada**:
+  - **Eliminación de Miembro Duplicado**: Se quitó la firma duplicada de `listPeriods()` en `estimates.service.ts`.
+  - **Limpieza de Warnings de Template**: Se corrigieron las expresiones en `hojas.html` eliminando los operadores opcionales redundantes.
+  - **Optimización de Carga Inicial en `home.ts`**: Se consulta primero `listPeriods()` y únicamente se solicitan a la API los períodos que efectivamente existen en la BD para ese año, evitando peticiones innecesarias.
+  - **Manejo Amigable en Backend API (`estimate.controller.ts`)**: Se modificó `getMonthly` para responder HTTP 200 con `{ config: null, filas: [] }` cuando un período no tiene estimativo cargado.
+  - **Sustitución de Log**: Se cambió el `console.error` de depuración en `mensual.ts` por `console.log`.
+  - **Compilación**: Verificada exitosamente con `npx ng build --configuration development` (Código `0`, 0 errores, 0 advertencias).
+- **Archivos Afectados**:
+  - `src/app/services/estimates.service.ts`
+  - `src/app/pages/hojas/hojas.html`
+  - `src/app/pages/estimativos/home.ts`
+  - `src/app/pages/estimativos/mensual/mensual.ts`
+  - `control-de-gastos-api/src/controllers/estimate.controller.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-19 15:30] - Subpaso 6.17.7: Feriados y Eventos con Color Personalizado en Módulo de Estimativos (/estimativo)
+- **Problema Detectado / Requerimiento**:
+  - En la grilla de seguimiento diario del módulo `/estimativo`, los usuarios necesitaban poder marcar días específicos con etiquetas y eventos (ej: Feriados, Cobros, Vencimientos, Viajes, Cumpleaños) y asignarles colores personalizados para una identificación visual inmediata.
+  - La información debía persistirse en la base de datos PostgreSQL (`daily_estimates`) y reflejarse de forma armónica tanto en modo Sheets sincronizado como en modo BD.
+- **Causa Raíz**:
+  - La tabla `daily_estimates` y los servicios del backend/frontend únicamente contemplaban importes numéricos (`real`, `deudaReal`, `saldoPesos`, `deuda`), sin soporte de metadatos de eventos ni estilizado personalizado.
+- **Solución Técnica Aplicada**:
+  - **Base de Datos & Backend API**:
+    - Se ejecutó migración DDL agregando las columnas `evento VARCHAR(100)` y `color VARCHAR(30)` a la tabla `daily_estimates`.
+    - En `estimate.controller.ts` y `estimate.service.ts`: se actualizaron `updateDailyReal`, `getMonthlyEstimate` y `syncSheetsEstimateToDb` para persistir y retornar `evento` y `color` en ambos modos de ejecución.
+  - **Frontend Services & Types**:
+    - `estimates.service.ts`, `models/estimativo.ts`, `stores/movimiento.google.ts` y `home.ts`: se actualizaron interfaces agregando `evento?: string | null` y `color?: string | null`.
+  - **Modal de Edición de Día (`modal-editar-dia.*`)**:
+    - Se incorporaron chips interactivos con presets rápidos: "Feriado", "Cobro", "Vencimiento", "Viaje", "Cumpleaños", "Ajuste".
+    - Input de texto libre para etiquetas personalizadas con botón de limpieza ("Quitar").
+    - Paleta de muestras circulares predefinidas con indicador de selección activa y color picker nativo HTML (`<input type="color">`).
+    - Soporte completo para persistir y resetear color/evento.
+  - **Tabla de Estimativo Mensual (`estimativos/mensual.*`)**:
+    - Se implementó `obtenerEstiloFila` y `obtenerClaseFila` para destacar la fila con borde de acento en el color configurado y fondo suave.
+    - Se incorporó la píldora `.badge-evento-dia` junto a la fecha, estilizada con el color elegido.
+    - Se actualizó el tooltip dinámico de fecha para mostrar `📌 Evento: <nombre>` junto al motivo de feriados nacionales o fines de semana.
+    - Estilos y adaptaciones completas para Light Mode y Dark Mode (`body.dark-mode`).
+  - **Compilación**: Verificada con `npx ng build --configuration development` (código `0`, 0 errores).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/controllers/estimate.controller.ts`
+  - `control-de-gastos-api/src/services/estimate.service.ts`
+  - `src/app/services/estimates.service.ts`
+  - `src/app/models/estimativo.ts`
+  - `src/app/stores/movimiento.google.ts`
+  - `src/app/pages/estimativos/home.ts`
+  - `src/app/pages/estimativos/modal-editar-dia/modal-editar-dia.ts`
+  - `src/app/pages/estimativos/modal-editar-dia/modal-editar-dia.html`
+  - `src/app/pages/estimativos/modal-editar-dia/modal-editar-dia.scss`
+  - `src/app/pages/estimativos/mensual/mensual.ts`
+  - `src/app/pages/estimativos/mensual/mensual.html`
+  - `src/app/pages/estimativos/mensual/mensual.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+
 ### [2026-10-19 13:00] - Proyección de Próximos Meses: Modo "Saldo vs gastos" y Reemplazo del Gráfico Antiguo
 - **Problema Detectado / Requerimiento**:
   - El gráfico "Total mensual $" (`app-grafico-visa`) ubicado al inicio de la columna derecha contenía información redundante y menos completa que el nuevo componente de proyección (`app-grafico-proyeccion-totales`).

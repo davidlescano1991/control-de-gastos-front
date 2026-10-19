@@ -19,12 +19,16 @@ import { GraficoDiasRestantesAnual } from '../anual/grafico-dias-restantes-anual
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 
 interface EstimativoRow {
+  id?: string;
+  dia?: number;
   fecha: string;
   saldoPesos: number;
   saldoUSD: number;
   deuda: number;
   real: number | null;
   deudaReal: number;
+  evento?: string | null;
+  color?: string | null;
   editando?: boolean;
 }
 
@@ -89,7 +93,20 @@ export class HomeEstimativo implements OnInit, OnDestroy {
     this.diaParaEditar.set(null);
   }
 
-  async onDiaGuardado(): Promise<void> {
+  async onDiaGuardado(datosActualizados?: any): Promise<void> {
+    if (datosActualizados && datosActualizados.fecha) {
+      const actualizadas = (this.estimativoFilas() || []).map((f: any) => {
+        if (f.fecha === datosActualizados.fecha || (datosActualizados.id && f.id === datosActualizados.id)) {
+          return {
+            ...f,
+            ...datosActualizados,
+          };
+        }
+        return f;
+      });
+      this.estimativoFilas.set(actualizadas);
+      this.actualizarFilasEnHistorico(actualizadas);
+    }
     this.cerrarEditarDia();
     await this.seleccionarMesMensual(this.mesSeleccionado(), true);
     void this.cargaInicial(false, true);
@@ -200,20 +217,32 @@ export class HomeEstimativo implements OnInit, OnDestroy {
     const mesesDelAnio = this.storeGoogle.base.map((mes) => `Estimativo ${mes}`);
     const filas: EstimativoRow[] = [];
     try {
+      let periodosDb: { year: number; mes: number; nombreMes: string }[] = [];
+      try {
+        periodosDb = (await firstValueFrom(this.estimatesService.listPeriods())) || [];
+      } catch {
+        periodosDb = [];
+      }
+
       for (const anio of this.anios) {
         if (!this.appConfig.isSheetsActivo(anio)) {
-          // Si el año está en modo Base de Datos (ej. 2022), cargar meses disponibles de la BD
-          for (let m = 1; m <= 12; m++) {
+          // Si el año está en modo Base de Datos (ej. 2022 o 2027), cargar únicamente los meses existentes en BD
+          const mesesDisponibles = periodosDb.filter((p) => p.year === anio).map((p) => p.mes);
+          for (const m of mesesDisponibles) {
             try {
               const res = await firstValueFrom(this.estimatesService.getMonthly(anio, m));
               if (res && res.filas && res.filas.length > 0) {
                 const mapped = res.filas.map((f: any) => ({
+                  id: f.id,
+                  dia: f.dia,
                   fecha: f.fecha,
                   saldoPesos: Number(f.saldoPesos),
                   saldoUSD: f.saldoUSD !== null && f.saldoUSD !== undefined ? Number(f.saldoUSD) : 0,
                   deuda: Number(f.deuda),
                   real: f.real !== null && f.real !== undefined ? Number(f.real) : null,
                   deudaReal: f.deudaReal !== null && f.deudaReal !== undefined ? Number(f.deudaReal) : Number(f.deuda),
+                  evento: f.evento || null,
+                  color: f.color || null,
                 }));
                 filas.push(...mapped);
               }
@@ -298,6 +327,8 @@ export class HomeEstimativo implements OnInit, OnDestroy {
             deuda: Number(f.deuda),
             real: f.real !== null && f.real !== undefined ? Number(f.real) : null,
             deudaReal: f.deudaReal !== null && f.deudaReal !== undefined ? Number(f.deudaReal) : Number(f.deuda),
+            evento: f.evento || null,
+            color: f.color || null,
           }));
           this.setSignalIfChanged(this.estimativoFilas, filas);
           this.actualizarFilasEnHistorico(filas);
@@ -366,6 +397,36 @@ export class HomeEstimativo implements OnInit, OnDestroy {
         if (res.config.presupuestoTotal !== undefined && res.config.presupuestoTotal !== null && Number(res.config.presupuestoTotal) > 0) {
           this.gastoEstimadoMes.set(Number(res.config.presupuestoTotal));
         }
+      }
+      if (res?.filas && res.filas.length > 0) {
+        const dbMap = new Map<string, any>();
+        for (const rf of res.filas) {
+          if (rf.fecha) {
+            dbMap.set(rf.fecha, rf);
+            const partes = rf.fecha.split('/');
+            if (partes.length === 3) {
+              const d = parseInt(partes[0], 10);
+              const m = parseInt(partes[1], 10);
+              const y = partes[2];
+              dbMap.set(`${d}/${m}/${y}`, rf);
+              dbMap.set(`${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`, rf);
+            }
+          }
+          if (rf.id) {
+            dbMap.set(rf.id, rf);
+          }
+        }
+        const filasActualizadas = (this.estimativoFilas() || []).map((f: any) => {
+          const dbRow = dbMap.get(f.fecha) || (f.id ? dbMap.get(f.id) : null);
+          return {
+            ...f,
+            id: dbRow?.id || f.id,
+            evento: dbRow?.evento !== undefined ? dbRow.evento : (f.evento || null),
+            color: dbRow?.color !== undefined ? dbRow.color : (f.color || null),
+          };
+        });
+        this.setSignalIfChanged(this.estimativoFilas, filasActualizadas);
+        this.actualizarFilasEnHistorico(filasActualizadas);
       }
     } catch {
       // ignorar si no hay conexión o no está disponible

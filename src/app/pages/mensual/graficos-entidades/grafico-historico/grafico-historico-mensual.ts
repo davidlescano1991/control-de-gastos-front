@@ -17,7 +17,7 @@ export class GraficoMensualHistorico implements AfterViewInit {
     @ViewChild(BaseChartDirective) chart?: BaseChartDirective;
     @Input() isCargando: boolean = false;
     isBrowser = false;
-    chartPlugins = [yearBackgroundPlugin];
+    chartPlugins: any[] = [yearBackgroundPlugin];
 
     @Input() set resultados(value: { anio: number; mes: string; total: number }[]) {
         if (value && value.length > 0) {

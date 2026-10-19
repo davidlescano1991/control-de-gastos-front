@@ -25,3 +25,9 @@
 - **ACTUALIZACIÓN CONTINUA**: En cada sesión de trabajo, cualquier nueva funcionalidad, corrección de bugs, refactorización o ajuste visual en el Frontend DEBE registrarse inmediatamente en `REGISTRO_ACCIONES_FRONT.md`.
 - **CONTENIDO**: Indicar fecha/hora, resumen del cambio, problemas detectados, causa raíz, solución técnica y archivos afectados.
 
+## Regla de Oro: Validación y Compilación Obligatoria al Final de Cada Tarea
+
+- **COMPILACIÓN LIMPIA OBLIGATORIA (CÓDIGO 0)**: Antes de responder o dar por concluido cualquier cambio, refactorización o subpaso, es MANDATORIO ejecutar `npx ng build --configuration development` y comprobar que la compilación sea 100% exitosa con CERO errores y CERO advertencias.
+- **PROHIBIDO FINALIZAR CON ERRORES O ROTO**: Si el compilador detecta cualquier error de tipos de TypeScript (`TSxxxx`), errores de plantillas de Angular (`NGxxxx`) o advertencias, el agente TIENE LA OBLIGACIÓN ESTRICTA de corregirlos inmediatamente y volver a compilar hasta obtener éxito total antes de entregar la respuesta al usuario.
+- **PREVENCIÓN DE OVERLAYS EN NAVEGADOR**: Verificar que no queden errores en runtime ni en la consola de red (ej. 404/500 innecesarios) que activen el cartel o modal rojo de error en el navegador.
+

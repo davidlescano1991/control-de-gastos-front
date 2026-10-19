@@ -1199,11 +1199,11 @@ gantt
           - **Renderizado a Nivel Raíz**: Ubicado en la raíz de `mensual.html` (junto al modal de pagos de entidades) para superar de forma definitiva el contexto de apilamiento (`stacking context`) de la columna izquierda y centrarse en el viewport.
           - Formulario con evaluación de expresiones aritméticas (`evaluarFormula`), precarga del saldo sugerido, selector de cuenta receptora (`Galicia`, `Santander`, `Mercado Pago`, `Bancor`, `Naranja X`, `Efectivo`), fecha y detalle contable.
           - Al confirmar: genera automáticamente un asiento de movimiento a favor (`INGRESO`) vía `POST /api/movimientos`, emite evento SSE en tiempo real y refresca de inmediato saldos y totales en la interfaz. *(Completado)*
-      * **6.17.7**: Módulo de Estimativos (`/estimativo`): Feriados y Eventos con Color Personalizado:
+      * **6.17.7**: Módulo de Estimativos (`/estimativo`): Feriados y Eventos con Color Personalizado *(Completado)*:
         - Permitir al usuario hacer clic o seleccionar cualquier día en la grilla de seguimiento diario de `/estimativo` para:
-          - Asignar una etiqueta o tipo de evento (ej. "Feriado", "Cobro", "Vencimiento", "Viaje").
-          - Seleccionar un color personalizado (paleta predefinida y color picker).
-        - Persistir la configuración en base de datos (`DailyEstimate.evento` / `color`) y pintar dinámicamente la fila o badge del día con el color elegido.
+          - Asignar una etiqueta o tipo de evento (presets: "Feriado", "Cobro", "Vencimiento", "Viaje", "Cumpleaños", "Ajuste" o texto libre).
+          - Seleccionar un color personalizado (paleta armónica de muestras y color picker nativo HTML).
+        - Persistir la configuración en base de datos (`DailyEstimate.evento` y `color`), retornarla en la API y pintar dinámicamente la fila con acento izquierdo y badge píldora `.badge-evento-dia` junto a la fecha en modo Claro y Oscuro. *(Completado)*
       * **6.17.8**: Módulo de Estimativos (`/estimativo`): Termómetro de Porcentaje de Días Positivos:
         - Incorporar en `/estimativo` un segundo indicador tipo termómetro/gauge visual (junto al termómetro de días transcurridos existente).
         - El termómetro calculará y mostrará el **porcentaje de días con rendimiento positivo del mes**, tomando los datos de la tabla de *Rendimientos positivos mensuales* de la vista Anual (celda `H53` de cada mes en Excel).

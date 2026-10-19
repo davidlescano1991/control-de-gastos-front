@@ -369,6 +369,31 @@ app-bancor {
         }
       }
 
+      &.fila-personalizada {
+        background-color: color-mix(in srgb, var(--fila-custom-color, #4b5896) 10%, #ffffff);
+
+        td {
+          background-color: color-mix(in srgb, var(--fila-custom-color, #4b5896) 10%, #ffffff);
+          border-bottom: 1px solid color-mix(in srgb, var(--fila-custom-color, #4b5896) 25%, #e2e8f0);
+        }
+
+        td.columna-resaltada {
+          background-color: color-mix(in srgb, var(--fila-custom-color, #4b5896) 22%, #ffffff);
+        }
+
+        &:hover {
+          background-color: color-mix(in srgb, var(--fila-custom-color, #4b5896) 16%, #ffffff);
+
+          td {
+            background-color: color-mix(in srgb, var(--fila-custom-color, #4b5896) 16%, #ffffff);
+          }
+
+          td.columna-resaltada {
+            background-color: color-mix(in srgb, var(--fila-custom-color, #4b5896) 28%, #ffffff);
+          }
+        }
+      }
+
       td {
         padding: 5px 6px;
         border-bottom: 1px solid #f1f1f1;
@@ -408,10 +433,11 @@ app-bancor {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Forzar anchos mínimos por columna para evitar que fechas/números se partan */
+/* Ancho natural y homogéneo para la columna de fecha con botón e icono */
 .tabla-fechas th:first-child,
 .tabla-fechas td:first-child {
-  min-width: 125px;
+  min-width: 135px;
+  width: 135px;
   white-space: nowrap;
 }
 
@@ -420,6 +446,34 @@ app-bancor {
   align-items: center;
   gap: 6px;
   white-space: nowrap;
+
+  .fecha-dia-texto {
+    font-weight: 500;
+  }
+
+  .icono-evento-dia {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    padding: 2px;
+    border-radius: 4px;
+    cursor: help;
+    transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), filter 0.18s ease;
+    flex-shrink: 0;
+
+    .svg-nota-evento {
+      display: block;
+      width: 22px;
+      height: 22px;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.12));
+    }
+
+    &:hover {
+      transform: scale(1.22);
+      filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.25));
+    }
+  }
 }
 .tabla-fechas th:nth-child(2),
 .tabla-fechas td:nth-child(2) {
@@ -549,6 +603,43 @@ app-bancor {
     color: #ffffff;
     border-color: #a78bfa;
     box-shadow: 0 2px 8px rgba(139, 92, 246, 0.5);
+  }
+}
+
+:host-context(body.dark-mode) {
+  .tabla-fechas tbody tr.fila-personalizada {
+    background-color: color-mix(in srgb, var(--fila-custom-color, #706cd6) 15%, #181926);
+
+    td {
+      background-color: color-mix(in srgb, var(--fila-custom-color, #706cd6) 15%, #181926);
+      border-bottom: 1px solid color-mix(in srgb, var(--fila-custom-color, #706cd6) 25%, #2a2b3d);
+    }
+
+    td.columna-resaltada {
+      background-color: color-mix(in srgb, var(--fila-custom-color, #706cd6) 26%, #181926);
+    }
+
+    &:hover {
+      background-color: color-mix(in srgb, var(--fila-custom-color, #706cd6) 22%, #181926);
+
+      td {
+        background-color: color-mix(in srgb, var(--fila-custom-color, #706cd6) 22%, #181926);
+      }
+
+      td.columna-resaltada {
+        background-color: color-mix(in srgb, var(--fila-custom-color, #706cd6) 32%, #181926);
+      }
+    }
+  }
+
+  .icono-evento-dia {
+    .svg-nota-evento {
+      filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4));
+    }
+
+    &:hover {
+      filter: drop-shadow(0 2px 6px rgba(255, 255, 255, 0.25));
+    }
   }
 }
 

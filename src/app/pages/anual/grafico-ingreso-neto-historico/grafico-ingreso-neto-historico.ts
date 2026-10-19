@@ -49,7 +49,7 @@ export class GraficoIngresoNetoHistorico implements OnInit, OnChanges {
   isBrowser = isPlatformBrowser(this.platformId);
   isCargando = signal(false);
 
-  chartPlugins = [yearBackgroundPlugin];
+  chartPlugins: any[] = [yearBackgroundPlugin];
 
   @ViewChild(BaseChartDirective) chart?: BaseChartDirective;
   chartData: ChartConfiguration<'line'>['data'] = {

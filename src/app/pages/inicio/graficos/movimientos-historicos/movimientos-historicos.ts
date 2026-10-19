@@ -20,7 +20,7 @@ export class GraficoMovimientosHistoricos {
   }
 
   @Input() isCargando = false;
-  chartPlugins = [yearBackgroundPlugin];
+  chartPlugins: any[] = [yearBackgroundPlugin];
 
   chartData: ChartConfiguration<'line'>['data'] = {
     labels: [],

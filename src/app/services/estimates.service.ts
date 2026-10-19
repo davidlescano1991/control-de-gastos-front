@@ -43,6 +43,8 @@ export interface DailyEstimateRow {
   esFeriado?: boolean;
   esNoLaborable?: boolean;
   motivoFeriado?: string | null;
+  evento?: string | null;
+  color?: string | null;
   claseFila?: string;
   tooltipFecha?: string;
 }
@@ -151,6 +153,8 @@ export class EstimatesService {
       saldoPesos?: number;
       deuda?: number;
       propagarDeuda?: boolean;
+      evento?: string | null;
+      color?: string | null;
     }
   ): Observable<any> {
     return this.http.put(`${this.apiUrl}/daily/${id}`, payload);

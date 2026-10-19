@@ -1,7 +1,7 @@
 import { Component, EventEmitter, inject, Inject, Input, Output, PLATFORM_ID, signal, SimpleChanges } from '@angular/core';
 import { MovimientosStoreGoogle } from '../../../stores/movimiento.google';
 import { WakeLockService } from '../../../services/wake-lock.service';
-import { NgIf, NgFor, CurrencyPipe, NgClass, isPlatformBrowser } from '@angular/common';
+import { NgIf, NgFor, CurrencyPipe, NgClass, NgStyle, isPlatformBrowser } from '@angular/common';
 import { MatCardContent, MatCardModule } from '@angular/material/card';
 import { GraficoEstimativo } from '../grafico-estimativo/grafico-estimativo'
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -9,6 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { esDiaNoLaborable, esFinDeSemana, esFeriadoNacional, obtenerInfoDia } from '../../../utils/feriados.utils';
 import { OrigenDatosComponent } from '../../../common/origen-datos/origen-datos.component';
 import { AuthService } from '../../../services/auth.service';
@@ -20,13 +21,14 @@ import { firstValueFrom } from 'rxjs';
   selector: 'app-estimativo-mensual',
   standalone: true,
   imports: [
-    NgIf, NgFor, NgClass,
+    NgIf, NgFor, NgClass, NgStyle,
     FormsModule,
     MatCardContent, MatCardModule,
     CurrencyPipe,
     MatFormFieldModule,
     MatInputModule, MatIconModule,
     MatProgressSpinnerModule,
+    MatTooltipModule,
     OrigenDatosComponent,
   ],
   templateUrl: './mensual.html',
@@ -92,9 +94,7 @@ export class EstimativoMensual {
   async ngOnChanges(changes: SimpleChanges) {
     if ((changes['mesSeleccionado'] || changes['anioSeleccionado'] || changes['estimativoFilas'] || !changes['isCargando']) 
       && this.isBrowser) {
-      console.error('Grafico de estimativo inicio método ngOnChanges()')
-      //this.meses.set(this.storeGoogle.getMesesParaResumen(this.anioSeleccionado))
-      //this.seleccionarMes(this.mesSeleccionado)
+      console.log('Grafico de estimativo inicio método ngOnChanges()');
     }
   }
 
@@ -133,22 +133,44 @@ export class EstimativoMensual {
     return esFeriadoNacional(fecha);
   }
 
-  obtenerClaseFila(fecha: string): string {
+  obtenerClaseFila(filaOrFecha: any): string {
+    const fecha = typeof filaOrFecha === 'string' ? filaOrFecha : filaOrFecha?.fecha || '';
+    const clases: string[] = [];
     const info = obtenerInfoDia(fecha);
-    if (info.esFeriado) return 'fila-no-laborable fila-feriado';
-    if (info.esFinDeSemana) return 'fila-no-laborable fila-fin-de-semana';
-    return '';
+    if (info.esFeriado) clases.push('fila-no-laborable fila-feriado');
+    else if (info.esFinDeSemana) clases.push('fila-no-laborable fila-fin-de-semana');
+
+    if (typeof filaOrFecha === 'object' && (filaOrFecha?.color || filaOrFecha?.evento)) {
+      clases.push('fila-personalizada');
+    }
+    return clases.join(' ');
   }
 
-  obtenerTooltipFecha(fecha: string): string {
+  obtenerEstiloFila(fila: any): { [key: string]: any } {
+    if (fila && (fila.color || fila.evento)) {
+      return {
+        '--fila-custom-color': fila.color || '#4b5896',
+      };
+    }
+    return {};
+  }
+
+  obtenerTooltipFecha(filaOrFecha: any): string {
+    const fila = typeof filaOrFecha === 'object' ? filaOrFecha : null;
+    const fecha = typeof filaOrFecha === 'string' ? filaOrFecha : filaOrFecha?.fecha || '';
+    const partes: string[] = [];
+
+    if (fila?.evento) {
+      partes.push(`📌 Evento: ${fila.evento}`);
+    }
+
     const info = obtenerInfoDia(fecha);
     if (info.esFeriado && info.motivo) {
-      return `${info.nombreDia} - Feriado: ${info.motivo}`;
+      partes.push(`${info.nombreDia} - Feriado: ${info.motivo}`);
+    } else if (info.esFinDeSemana) {
+      partes.push(info.nombreDia);
     }
-    if (info.esFinDeSemana) {
-      return info.nombreDia;
-    }
-    return '';
+    return partes.join(' | ');
   }
 
   /* async guardarFormula(fecha: string, formula: string) {
