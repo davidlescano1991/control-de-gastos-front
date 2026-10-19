@@ -16,7 +16,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { BaseChartDirective } from 'ng2-charts';
-import { ChartConfiguration, ChartOptions } from 'chart.js';
+import { ChartConfiguration, ChartOptions, Plugin } from 'chart.js';
 import { SelectorAnioDelorean } from '../../common/selector-anio-delorean/selector-anio-delorean';
 import { AuthService } from '../../services/auth.service';
 import { AppConfigService } from '../../services/app-config.service';
@@ -27,6 +27,10 @@ import {
   SaldoPunto,
   CorteBimonetario,
   ReporteCortesBimonetariosResponse,
+  ReporteAnalisisAnualResponse,
+  MesSaldoItem,
+  MesGastoItem,
+  MesPrestamoItem,
 } from '../../services/reportes.service';
 import { calcularTendencia, getGridColor, getLineWidth } from '../../utils/grafico.utils';
 
@@ -38,6 +42,44 @@ export interface ReporteSubmenu {
   badge: string;
   adminOnly?: boolean;
 }
+
+/**
+ * Plugin de Chart.js para dibujar etiquetas numéricas de moneda ($X.XXX.XXX,XX)
+ * arriba de los puntos de la serie, idéntico al diseño de Google Sheets.
+ */
+export const googleSheetsDataLabelsPlugin: Plugin = {
+  id: 'googleSheetsDataLabels',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    chart.data.datasets.forEach((dataset: any, i) => {
+      if (!dataset.showDataLabels) return;
+      const meta = chart.getDatasetMeta(i);
+      if (meta.hidden) return;
+
+      ctx.save();
+      ctx.font = 'bold 10px Inter, system-ui, -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillStyle = dataset.dataLabelColor || '#2563eb';
+
+      meta.data.forEach((point, index) => {
+        const val = dataset.data[index];
+        if (val === null || val === undefined) return;
+        const num = Number(val);
+        const formatted =
+          '$' +
+          num.toLocaleString('es-AR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          });
+
+        const offset = dataset.dataLabelOffset || -8;
+        ctx.fillText(formatted, point.x, point.y + offset);
+      });
+      ctx.restore();
+    });
+  },
+};
 
 @Component({
   selector: 'app-reportes',
@@ -80,6 +122,14 @@ export class ReportesComponent implements OnInit, OnDestroy {
   public isLoadingCortes = signal<boolean>(false);
   public reporteCortes = signal<ReporteCortesBimonetariosResponse | null>(null);
   public serieBimonetariaActiva = signal<'totalUSD' | 'saldoDeuda' | 'variaciones' | 'integral'>('totalUSD');
+
+
+  // Estado del reporte de Análisis Anual Reorganizado (Submenú 3)
+  public isLoadingAnalisis = signal<boolean>(false);
+  public reporteAnalisis = signal<ReporteAnalisisAnualResponse | null>(null);
+  public subTabAnalisis = signal<'todos' | 'saldo' | 'gastos' | 'prestamos'>('todos');
+  public mesProximoAPagarNombre = signal<string>('');
+  public gastosPlugins = [googleSheetsDataLabelsPlugin];
 
   // Filtros interactivos de la vista de Saldo
   public serieActiva = signal<'pesos' | 'usd' | 'deuda' | 'comparativa'>('pesos');
@@ -389,6 +439,232 @@ export class ReportesComponent implements OnInit, OnDestroy {
     },
   };
 
+
+  // Configuración de Chart.js para Análisis Anual - Saldo
+  public chartDataAnalisisSaldo: ChartConfiguration<'line'>['data'] = {
+    labels: [],
+    datasets: [],
+  };
+
+  public chartOptionsAnalisisSaldo: ChartConfiguration<'line'>['options'] = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: 'index',
+      intersect: false,
+    },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top',
+        labels: {
+          usePointStyle: true,
+          boxWidth: 8,
+          boxHeight: 8,
+          font: { size: 12, weight: 'bold' },
+          color: '#475569',
+        },
+      },
+      tooltip: {
+        backgroundColor: 'rgba(15, 23, 42, 0.92)',
+        titleColor: '#90caf9',
+        bodyColor: '#ffffff',
+        titleFont: { size: 13, weight: 'bold' },
+        bodyFont: { size: 12 },
+        padding: 12,
+        cornerRadius: 8,
+        callbacks: {
+          label: (context) => {
+            const val = context.parsed.y;
+            if (val === null || val === undefined) return ' Saldo Anual: N/A';
+            return ` Saldo Anual: $ ${val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { color: (ctx) => getGridColor(ctx) },
+        ticks: { color: '#64748b', font: { size: 11 } },
+      },
+      y: {
+        beginAtZero: true,
+        grid: { color: (ctx) => getGridColor(ctx), lineWidth: (ctx) => getLineWidth(ctx) },
+        ticks: {
+          color: '#64748b',
+          font: { size: 11 },
+          callback: (value) => {
+            const num = Number(value);
+            if (Math.abs(num) >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (Math.abs(num) >= 1000) return (num / 1000).toFixed(0) + 'k';
+            return num.toLocaleString('es-AR');
+          },
+        },
+      },
+    },
+  };
+
+  // Configuración de Chart.js para Análisis Anual - Gastos (Estilo Google Sheets)
+  public chartDataAnalisisGastos: ChartConfiguration<'line'>['data'] = {
+    labels: [],
+    datasets: [],
+  };
+
+  public chartOptionsAnalisisGastos: ChartConfiguration<'line'>['options'] = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: 'index',
+      intersect: false,
+    },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top',
+        labels: {
+          usePointStyle: true,
+          boxWidth: 8,
+          boxHeight: 8,
+          font: { size: 12, weight: 'bold' },
+          color: '#475569',
+        },
+      },
+      tooltip: {
+        backgroundColor: 'rgba(15, 23, 42, 0.94)',
+        titleColor: '#fca5a5',
+        bodyColor: '#ffffff',
+        titleFont: { size: 13, weight: 'bold' },
+        bodyFont: { size: 12 },
+        padding: 12,
+        cornerRadius: 8,
+        callbacks: {
+          label: (context) => {
+            const idx = context.dataIndex;
+            const val = context.parsed.y;
+            if (val === null || val === undefined) return ' N/A';
+            const rep = this.reporteAnalisis();
+            const g = rep?.gastos?.[idx];
+            let extra = '';
+            if (g && idx > 0) {
+              const sign = g.variacion > 0 ? '+' : '';
+              extra = ` (${sign}$ ${g.variacion.toLocaleString('es-AR')} | ${sign}${g.porcentajeVariacion}%)`;
+            }
+            return ` Gasto: $ ${val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${extra}`;
+          },
+          afterLabel: (context) => {
+            const idx = context.dataIndex;
+            const rep = this.reporteAnalisis();
+            const g = rep?.gastos?.[idx];
+            if (!g || idx === 0) return '';
+            return g.aumento ? ' ⚠️ Aumento de gasto vs mes previo' : ' 📉 Gasto en descenso / contenido';
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { color: (ctx) => getGridColor(ctx) },
+        ticks: { color: '#64748b', font: { size: 11 } },
+      },
+      y: {
+        beginAtZero: false,
+        grid: { color: (ctx) => getGridColor(ctx), lineWidth: (ctx) => getLineWidth(ctx) },
+        ticks: {
+          color: '#64748b',
+          font: { size: 11 },
+          callback: (value) => {
+            const num = Number(value);
+            if (Math.abs(num) >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (Math.abs(num) >= 1000) return (num / 1000).toFixed(0) + 'k';
+            return num.toLocaleString('es-AR');
+          },
+        },
+      },
+    },
+  };
+
+  public chartDataAnalisisPrestamos: ChartConfiguration<'bar' | 'line'>['data'] = {
+    labels: [],
+    datasets: [],
+  };
+
+  public chartOptionsAnalisisPrestamos: ChartConfiguration<'bar' | 'line'>['options'] = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: 'index',
+      intersect: false,
+    },
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        backgroundColor: 'rgba(15, 23, 42, 0.94)',
+        titleColor: '#c084fc',
+        bodyColor: '#ffffff',
+        titleFont: { size: 13, weight: 'bold' },
+        bodyFont: { size: 12 },
+        padding: 12,
+        cornerRadius: 8,
+        callbacks: {
+          label: (context) => {
+            const idx = context.dataIndex;
+            const rep = this.reporteAnalisis();
+            if (!rep || !rep.prestamos[idx]) return `$ ${context.raw}`;
+            const p = rep.prestamos[idx];
+            const mesProximoObj = rep.prestamos.find(
+              (item: MesPrestamoItem) => item.cuotasDetalle && item.cuotasDetalle.some((c: any) => !c.pagada)
+            );
+            const esProximo = mesProximoObj ? p.numeroMes === mesProximoObj.numeroMes : false;
+            const prevTotal = idx > 0 ? rep.prestamos[idx - 1].totalCuotas : 0;
+            const aumento = idx > 0 && p.totalCuotas > prevTotal;
+            const diff = idx > 0 ? p.totalCuotas - prevTotal : 0;
+
+            let estadoTexto = '';
+            if (esProximo) {
+              estadoTexto = ' • 🔵 PRÓXIMO MES A PAGAR';
+            } else if (aumento) {
+              estadoTexto = ` • 🔴 Aumento (+$ ${diff.toLocaleString('es-AR', { minimumFractionDigits: 2 })} vs mes previo)`;
+            }
+
+            return ` Cuotas a pagar: $ ${Number(context.raw).toLocaleString('es-AR', { minimumFractionDigits: 2 })} (${p.cantidadCuotas} cuotas)${estadoTexto}`;
+          },
+          afterBody: (context) => {
+            const idx = context[0]?.dataIndex;
+            const rep = this.reporteAnalisis();
+            if (!rep || !rep.prestamos[idx]) return [];
+            const p = rep.prestamos[idx];
+            if (!p.cuotasDetalle || p.cuotasDetalle.length === 0) return [' (Sin cuotas este mes)'];
+            return p.cuotasDetalle.slice(0, 8).map(
+              (c: any) => ` • ${c.prestamoNombre} (${c.entidad}): $ ${c.monto.toLocaleString('es-AR')} [${c.pagada ? 'PAGADA' : 'PENDIENTE'}]`
+            );
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { color: (ctx) => getGridColor(ctx) },
+        ticks: { color: '#64748b', font: { size: 11 } },
+      },
+      y: {
+        beginAtZero: true,
+        grid: { color: (ctx) => getGridColor(ctx), lineWidth: (ctx) => getLineWidth(ctx) },
+        ticks: {
+          color: '#64748b',
+          font: { size: 11 },
+          callback: (value) => {
+            const num = Number(value);
+            if (Math.abs(num) >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (Math.abs(num) >= 1000) return (num / 1000).toFixed(0) + 'k';
+            return num.toLocaleString('es-AR');
+          },
+        },
+      },
+    },
+  };
+
   constructor(@Inject(PLATFORM_ID) platformId: Object) {
     this.isBrowser = isPlatformBrowser(platformId);
   }
@@ -428,10 +704,13 @@ export class ReportesComponent implements OnInit, OnDestroy {
         this.mesFiltro.set('TODOS');
         this.reporteSaldo.set(null);
         this.reporteCortes.set(null);
+        this.reporteAnalisis.set(null);
         if (this.tabActiva() === 'saldo') {
           this.cargarReporteSaldo();
         } else if (this.tabActiva() === 'bimonetario') {
           this.cargarReporteCortes();
+        } else if (this.tabActiva() === 'anual') {
+          this.cargarReporteAnalisis();
         }
       }
     }
@@ -443,6 +722,8 @@ export class ReportesComponent implements OnInit, OnDestroy {
       this.cargarReporteSaldo();
     } else if (id === 'bimonetario' && !this.reporteCortes()) {
       this.cargarReporteCortes();
+    } else if (id === 'anual' && !this.reporteAnalisis()) {
+      this.cargarReporteAnalisis();
     }
   }
 
@@ -800,4 +1081,177 @@ export class ReportesComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
     this.chart?.update();
   }
+
+
+  public cambiarSubTabAnalisis(tab: 'todos' | 'saldo' | 'gastos' | 'prestamos'): void {
+    this.subTabAnalisis.set(tab);
+    setTimeout(() => {
+      this.cdr.detectChanges();
+      this.chart?.update();
+    }, 50);
+  }
+
+  public cargarReporteAnalisis(force = false): void {
+    const anio = this.anioSeleccionado();
+    this.isLoadingAnalisis.set(true);
+
+    this.reportesService.getAnalisisAnual(anio, force).subscribe({
+      next: (data) => {
+        this.isLoadingAnalisis.set(false);
+        if (data) {
+          this.reporteAnalisis.set(data);
+          this.actualizarGraficosAnalisis();
+        } else {
+          this.reporteAnalisis.set(null);
+        }
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error al cargar reporte de análisis anual:', err);
+        this.isLoadingAnalisis.set(false);
+        this.reporteAnalisis.set(null);
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  private actualizarGraficosAnalisis(): void {
+    const rep = this.reporteAnalisis();
+    if (!rep) return;
+
+    const labels = rep.saldos.map((s: MesSaldoItem) => s.mes);
+
+    // 1. Gráfico de Saldo Anual
+    const saldosData = rep.saldos.map((s: MesSaldoItem) => s.saldo);
+    const tendenciaSaldo = calcularTendencia(saldosData);
+    const pointColorsSaldo = saldosData.map((v: number) => (v >= 0 ? '#10b981' : '#ef4444'));
+
+    this.chartDataAnalisisSaldo = {
+      labels,
+      datasets: [
+        {
+          label: 'Saldo Anual ($)',
+          data: saldosData,
+          borderColor: '#706cd6',
+          backgroundColor: 'rgba(112, 108, 214, 0.12)',
+          pointBackgroundColor: pointColorsSaldo,
+          pointBorderColor: pointColorsSaldo,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          borderWidth: 2.2,
+          tension: 0.25,
+          fill: true,
+        },
+        {
+          label: 'Tendencia ($)',
+          data: tendenciaSaldo,
+          borderColor: '#94a3b8',
+          borderDash: [4, 4],
+          pointRadius: 0,
+          borderWidth: 1.8,
+          fill: false,
+        },
+      ],
+    };
+
+    // 2. Gráfico de Gastos Anuales (Similar a Saldo Anual, en Rojo y sin Nafta)
+    const gastosData = rep.gastos.map((g: MesGastoItem) => g.total);
+    const tendenciaGastos = calcularTendencia(gastosData);
+
+    this.chartDataAnalisisGastos = {
+      labels,
+      datasets: [
+        {
+          label: 'Gastos Mensuales ($)',
+          data: gastosData,
+          borderColor: '#ef4444',
+          backgroundColor: 'rgba(239, 68, 68, 0.12)',
+          pointBackgroundColor: '#ef4444',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          pointRadius: 5,
+          pointHoverRadius: 7.5,
+          borderWidth: 2.2,
+          tension: 0.25,
+          fill: true,
+        },
+        {
+          label: 'Tendencia ($)',
+          data: tendenciaGastos,
+          borderColor: '#94a3b8',
+          borderDash: [4, 4],
+          pointRadius: 0,
+          borderWidth: 1.8,
+          fill: false,
+        },
+      ],
+    };
+
+    // 3. Gráfico de Préstamos Mensuales con lógica reactiva de coloración:
+    // - Azul: Mes próximo a pagar (primer mes con cuotas pendientes)
+    // - Rojo: Meses donde la cantidad aumentó con respecto al mes anterior
+    // - Violeta: Meses normales, en descenso o ya abonados
+    const tienePrestamos = rep.prestamos && rep.prestamos.some((p: MesPrestamoItem) => p.totalCuotas > 0);
+    const mesProximoObj = rep.prestamos.find(
+      (p: MesPrestamoItem) => p.cuotasDetalle && p.cuotasDetalle.some((c: any) => !c.pagada)
+    );
+    const mesProximoNum = mesProximoObj ? mesProximoObj.numeroMes : null;
+    this.mesProximoAPagarNombre.set(
+      mesProximoObj ? mesProximoObj.mes : (tienePrestamos ? 'Completado' : 'Sin préstamos')
+    );
+
+    const prestamosData = rep.prestamos.map((p: MesPrestamoItem) => p.totalCuotas);
+    const tendenciaPrestamos = calcularTendencia(prestamosData);
+
+    const bgColorsPrestamos = rep.prestamos.map((p: MesPrestamoItem, idx: number) => {
+      if (p.numeroMes === mesProximoNum) {
+        return 'rgba(59, 130, 246, 0.88)'; // Azul: Próximo mes a pagar
+      }
+      const prevTotal = idx > 0 ? rep.prestamos[idx - 1].totalCuotas : 0;
+      if (idx > 0 && p.totalCuotas > prevTotal) {
+        return 'rgba(239, 68, 68, 0.88)'; // Rojo: Aumento respecto al mes previo
+      }
+      return 'rgba(139, 92, 246, 0.85)'; // Violeta institucional
+    });
+
+    const borderColorsPrestamos = rep.prestamos.map((p: MesPrestamoItem, idx: number) => {
+      if (p.numeroMes === mesProximoNum) {
+        return '#2563eb';
+      }
+      const prevTotal = idx > 0 ? rep.prestamos[idx - 1].totalCuotas : 0;
+      if (idx > 0 && p.totalCuotas > prevTotal) {
+        return '#dc2626';
+      }
+      return '#7c3aed';
+    });
+
+    this.chartDataAnalisisPrestamos = {
+      labels,
+      datasets: [
+        {
+          type: 'bar',
+          label: 'Cuotas de Préstamos ($)',
+          data: prestamosData,
+          backgroundColor: bgColorsPrestamos,
+          borderColor: borderColorsPrestamos,
+          borderWidth: 1.5,
+          borderRadius: 6,
+        },
+        {
+          type: 'line',
+          label: 'Tendencia Amortizaciones',
+          data: tendenciaPrestamos,
+          borderColor: '#a855f7',
+          borderDash: [4, 4],
+          pointRadius: 0,
+          borderWidth: 1.8,
+          fill: false,
+        },
+      ],
+    };
+
+    this.cdr.detectChanges();
+    this.chart?.update();
+  }
+
 }

@@ -12,8 +12,8 @@ import { firstValueFrom, Subscription } from 'rxjs';
 import { Prestamo } from '../../../models/prestamo';
 import { LoansService, Loan } from '../../../services/loans.service';
 import { EntityPaymentService } from '../../../services/entity-payment.service';
-import { GraficoSaldoAnual } from '../grafico-saldo-anual/grafico-saldo-anual';
 import { GraficoDiasRestantesAnual } from '../grafico-dias-restantes-anual/grafico-dias-restantes-anual';
+
 import { RendimientosPositivosMensuales } from '../rendimientos-positivos-mensuales/rendimientos-positivos-mensuales';
 import { GraficoRendimientosPositivosMensuales } from '../grafico-rendimientos-positivos-mensuales/grafico-rendimientos-positivos-mensuales';
 import { TablaPrestamos } from '../tabla-prestamos/tabla-prestamos';
@@ -49,7 +49,6 @@ import { OrigenDatosComponent } from '../../../common/origen-datos/origen-datos.
     MatFormFieldModule,
     MatInputModule,
     MatIconModule,
-    GraficoSaldoAnual,
     GraficoDiasRestantesAnual,
     RendimientosPositivosMensuales,
     GraficoRendimientosPositivosMensuales,

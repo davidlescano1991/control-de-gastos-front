@@ -19,6 +19,144 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-19 00:35] - Soporte Integral de Préstamos Históricos (2025, 2024, 2023) en Análisis Anual
+- **Problema Detectado**:
+  - En el gráfico "Compromisos y Cuotas de Préstamos Mensuales" (`/reportes`), únicamente se graficaban barras con datos para los años 2026 y 2027. Al seleccionar años anteriores (ej. 2025, 2024, 2023), el gráfico aparecía en cero y con la leyenda "Sin préstamos".
+- **Causa Raíz**:
+  - El backend (`control-de-gastos-api`) consultaba los préstamos exclusivamente en la tabla `Loan` / `LoanInstallment` de PostgreSQL. Dado que el módulo interactivo de préstamos se diseñó para la operatoria actual de 2026/2027, la base de datos no contenía préstamos históricos de años anteriores.
+  - Sin embargo, las hojas Google Sheets y las plantillas locales de Excel (`Anual 2025`, `Anual 2024`, `Anual 2023`) conservan en el rango `L83:Z96` la matriz completa de préstamos: nombres de créditos en la fila 83, totales mensuales en la columna `L` y el desglose de cuotas individuales por mes en las columnas `O` a `Z`.
+- **Solución Técnica Aplicada**:
+  - **Backend (`reportes.service.ts`)**:
+    - Se implementó el método `parsePrestamosFromSheetValues(values, year)` para extraer de Google Sheets (`Anual [Año]!L83:Z96`) los nombres de préstamos (fila 83), el total mensual amortizado (columna L) y los importes de cada cuota individual.
+    - Se implementó el método `extractLoansFromWorksheet(ws, year)` para extraer la misma matriz desde plantillas Excel en caso de consulta en base de datos/offline.
+    - En `fetchAnalisisFromGoogleSheets` y `fetchAnalisisFromDatabase`, si la consulta en Prisma `loansList` no arroja préstamos registrados, se activa el fallback a la matriz de préstamos de la hoja o plantilla del año en cuestión.
+    - Se adaptó `buildAnalisisResponse` para recibir `prestamosOverride` y alimentar las métricas y la serie mensual sin alterar la funcionalidad de 2026/2027.
+  - **Resultado**:
+    - **2025**: $9.902.537,52 anuales con sus 12 meses graficados (ej. Enero $898k, Diciembre $1.15M con 11 cuotas detalladas).
+    - **2024**: $8.104.884,82 anuales graficados mes a mes.
+    - **2023**: $1.766.317,37 anuales graficados mes a mes.
+    - **2022**: $0 (año sin compromisos crediticios en planilla).
+    - **2026 / 2027**: Conserva la consulta reactiva a la base de datos de préstamos de la aplicación.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+  - `control-de-gastos-front/PLAN_MIGRACION_CLOUD_API.md`
+
+### [2026-10-19 00:15] - Corrección de Reactividad al Cambiar de Año en Pestaña "Análisis Anual" (`/reportes`)
+- **Problema Detectado**:
+  - Al cambiar de año en la línea de tiempo (selector DeLorean) mientras se visualizaba la pestaña "Análisis Anual" (Submenú 3), los gráficos y tarjetas ejecutivas mantenían los montos y datos del año 2026 (indicando erróneamente `* Información obtenida desde la hoja Google Sheets (Anual 2026)` a pesar de haber seleccionado 2025 o 2022).
+- **Causa Raíz**:
+  - En `reportes.ts`, el método `seleccionarAnio(index)` únicamente reseteaba y recargaba las pestañas `'saldo'` y `'bimonetario'`, omitiendo la condición `this.tabActiva() === 'anual'` y no limpiando el signal `this.reporteAnalisis.set(null)`.
+  - Adicionalmente, en `cambiarTab(id)`, si el usuario cambiaba de pestaña a `'anual'` habiendo seleccionado previamente otro año, faltaba la comprobación reactiva `id === 'anual' && !this.reporteAnalisis()` para invocar `cargarReporteAnalisis()`.
+- **Solución Técnica Aplicada**:
+  - En `reportes.ts`:
+    - En `seleccionarAnio(index)`: Se agregó `this.reporteAnalisis.set(null)` y el bloque condicional `else if (this.tabActiva() === 'anual') { this.cargarReporteAnalisis(); }`.
+    - En `cambiarTab(id)`: Se añadió `else if (id === 'anual' && !this.reporteAnalisis()) { this.cargarReporteAnalisis(); }`.
+    - En `actualizarGraficosAnalisis()`: Se contempló el caso donde un año no tenga préstamos registrados (como 2022 o 2025 con totalCuotas en 0), mostrando en la leyenda "Sin préstamos" en lugar de "Completado" cuando no existen créditos en el ejercicio.
+- **Archivos Afectados**:
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.ts`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-18 23:59] - Gráfico de Gastos Anuales: Rediseño Elegante en Rojo (Similar a Saldo Anual), Eliminación de Nafta y Erradicación de Superposiciones
+- **Problema / Requerimiento**:
+  - En el gráfico de Gastos Anuales del Submenú 3 (`/reportes`):
+    1. Las etiquetas de moneda sobre cada punto colisionaban directamente con la barra superior de leyenda (especialmente en el pico de Julio de $3.965.191,48), dificultando la lectura y generando saturación visual.
+    2. El rango vertical arrancaba desde $0 para acomodar la línea de Nafta ($0 - $23.000), aplanando artificialmente la curva de gastos reales (que oscilan entre $2.9M y $4.0M) en la parte superior.
+    3. El usuario solicitó unificar el estilo con el gráfico de Saldo Anual:
+       - Color **Rojo (#EF4444)** en lugar de azul.
+       - Curva suave (spline) con sombreado de área translúcida bajo la curva (`fill: true`, `tension: 0.25`).
+       - Puntos destacados con borde blanco y tooltips informativos con monto exacto y variaciones mes a mes.
+       - Línea de tendencia punteada.
+       - Escala dinámica del eje Y (`beginAtZero: false`) con formateo `M` y `k` para que la curva tenga respiro y amplitud visual.
+       - Eliminación de la serie de Nafta (no requerida ya que se podrá consultar a demanda en "Consultas y Reportes").
+- **Solución Técnica Aplicada**:
+  - **Frontend (`control-de-gastos-front`)**:
+    - **`reportes.ts`**:
+      - Se reconfiguró `chartOptionsAnalisisGastos` sin el plugin de etiquetas superpuestas y con `beginAtZero: false`, ticks limpios con callback de abreviación (`M` / `k`) y tooltip enriquecido en rojo (`#fca5a5`) con variación y alerta de aumento/descenso.
+      - En `actualizarGraficosAnalisis()`, se configuró la serie de gastos en color rojo `#ef4444`, fondo suave translúcido `rgba(239, 68, 68, 0.12)`, puntos con borde blanco y línea de tendencia punteada `#94a3b8`.
+      - Se eliminó el dataset de combustible (Nafta).
+    - **`reportes.html`**:
+      - Se actualizó el encabezado de la tarjeta: ícono `trending_down` color coral, título *"Evolución Anual de Gastos (Pesos $)"* y subtítulo indicando curva con área sombreada y línea de tendencia.
+      - Se removió `[plugins]="gastosPlugins"` del `<canvas>` evitando colisiones con leyendas.
+- **Archivos Afectados**:
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.html`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+  - `control-de-gastos-front/PLAN_MIGRACION_CLOUD_API.md`
+
+### [2026-10-18 23:45] - Gráfico de Gastos Estilo Google Sheets y Gráfico de Préstamos Reactivo (3 Colores)
+- **Problema / Requerimiento**:
+  - En el Submenú 3 (Análisis Anual) de `/reportes`:
+    1. **Gráfico de Gastos**: Reemplazar las barras por el diseño idéntico al de las hojas de Google Sheets:
+       - Gráfico de líneas (`type: 'line'`).
+       - Título centrado: `Enero - Diciembre [Año]`.
+       - Eje Y etiquetado con `Gastos` en color rojo `#dc2626` y valores de moneda `$X.XXX.XXX,XX`.
+       - Eje X etiquetado con `Meses`.
+       - Serie de Gastos: Línea azul brillante `#2563eb` con puntos circulares y etiquetas numéricas de moneda arriba de cada punto (`$3.383.437,79`, etc.).
+       - Línea de referencia horizontal de promedio mensual en celeste suave `rgba(147, 197, 253, 0.85)`.
+       - Serie de combustible (Nafta): Línea violeta `#9333ea` con puntos y etiquetas monetarias en los meses con consumos (`$20.000,00`, `$10.000,00`, `$23.030,25`, etc.).
+    2. **Gráfico de Préstamos**:
+       - Conservar el formato de barras que le gusta al usuario, pero implementar la lógica reactiva condicional:
+         - **Azul (#3B82F6 / #2563EB)**: Para el **mes próximo a pagar** (detección dinámica automática del primer mes del año con cuotas pendientes; actualmente Noviembre 2026, y al pagarse las cuotas de Noviembre se actualizará automáticamente a Diciembre).
+         - **Rojo (#EF4444 / #DC2626)**: Para aquellos meses donde el total de cuotas **aumentó** con respecto al mes anterior.
+         - **Violeta (#8B5CF6 / #7C3AED)**: Para los demás meses normales, en descenso o ya abonados.
+       - Barra de leyendas clara con 3 píldoras informativas (Azul, Rojo, Violeta).
+- **Solución Técnica Aplicada**:
+  - **Backend (`control-de-gastos-api`)**:
+    - Se amplió la lectura de filas en `fetchAnalisisFromGoogleSheets` y `fetchAnalisisFromDatabase` hasta la fila 42 para capturar la fila de consumos de `Nafta` (fila 42 de `Anual [Año]`), exponiéndola opcionalmente en `ReporteAnalisisAnualResponse` como `nafta?: number[]`.
+  - **Frontend (`control-de-gastos-front`)**:
+    - Se actualizó la interfaz `ReporteAnalisisAnualResponse` en `reportes.service.ts` con `nafta?: number[]`.
+    - Se creó el plugin personalizado `googleSheetsDataLabelsPlugin` para Chart.js que renderiza los valores de moneda encima de cada punto en azul/violeta sin dependencias externas pesadas.
+    - Se actualizó `chartOptionsAnalisisGastos` y `chartDataAnalisisGastos` en `reportes.ts` a `type: 'line'`, con el título superior, etiquetas de ejes roja `Gastos` y gris `Meses`, promedio de referencia y serie de nafta condicional.
+    - Se implementó la lógica de detección de `mesProximoNum` y coloración de 3 estados (Azul, Rojo, Violeta) en `chartDataAnalisisPrestamos` y `chartOptionsAnalisisPrestamos`.
+    - Se actualizaron las leyendas, chips y layout en `reportes.html` y `reportes.scss` con soporte dark mode.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - `control-de-gastos-front/src/app/services/reportes.service.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.html`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.scss`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-18 23:00] - Subpaso 6.17.4: Submenú 3 en Reportes (Análisis Anual Reorganizado) y Desacople de Gráfico de Saldo en /anual
+- **Problema / Requerimiento**:
+  - En cumplimiento con el subpaso 6.17.4 del Plan Maestro:
+    1. Descongestionar la vista `/anual` retirando el gráfico de saldos anuales (`app-grafico-saldo-anual`) para mantenerla enfocada con total claridad en la matriz contable de préstamos, tablas y balances anuales.
+    2. Desarrollar el Submenú 3 en el Centro de Reportes Financieros (`/reportes`): **Análisis Anual Reorganizado** con 3 visualizaciones clave:
+       - Gráfico de Saldo Anual trasladado de `/anual` (curva en pesos y tendencia).
+       - Gráfico independiente de Gastos Anuales con coloración reactiva condicional: **Rojo (#EF4444)** cuando el gasto del mes superó al anterior (aumento) y **Azul (#3B82F6)** cuando el gasto disminuyó o se mantuvo igual.
+       - Gráfico de Préstamos Mensuales con el total acumulado de cuotas y amortizaciones a cancelar por mes.
+- **Solución Técnica Aplicada**:
+  - **Backend (`control-de-gastos-api`)**:
+    - Se creó el endpoint `GET /api/reportes/analisis-anual?year=:year&force=:force` en `reportes.service.ts`, `reportes.controller.ts` y `reportes.routes.ts`.
+    - Soporte multi-origen dual transparente:
+      - Para años en Google Sheets: consulta la hoja `Anual [Año]!A32:L39` obteniendo saldos mensuales (fila 34) y gastos mensuales (fila 38).
+      - Para años en BD (ej. 2022 o interruptor apagado): extrae los datos de `templates/Cuentas claras_[Año].xlsx` o computa desde `monthly_estimate_configs` y `monthly_items`/`movements`.
+      - Préstamos: consulta relacional a PostgreSQL (`loans` y `loan_installments`) agrupando las cuotas mensuales de todos los préstamos vigentes con sus nombres y entidades.
+      - Métricas ejecutivas: saldo promedio, total anual de gastos, promedio mensual, mes con mayor y menor gasto, conteo de meses con aumento (rojo) y reducción (azul), y total anual de préstamos.
+  - **Frontend (`control-de-gastos-front`)**:
+    - **Servicio (`reportes.service.ts`)**: Se incorporaron las interfaces `ReporteAnalisisAnualResponse`, `MesSaldoItem`, `MesGastoItem`, `MesPrestamoItem` y el método `getAnalisisAnual(year, force)`.
+    - **Vista `/anual` (`anual.html` y `anual.ts`)**: Se retiró `<app-grafico-saldo-anual>` de la plantilla HTML y de los imports del componente.
+    - **Vista `/reportes` (`reportes.ts`, `reportes.html`, `reportes.scss`)**:
+      - 4 KPI cards ejecutivas superiores: Saldo Promedio Mensual, Total Gastos Anuales (con mes pico), Comportamiento Mensual (mini-pills roja de aumentos y azul de reducciones), y Total Amortización de Préstamos.
+      - Selector de sub-tabs: *Todos los Gráficos*, *Saldo Anual ($)*, *Gastos Condicionales (Rojo/Azul)* y *Préstamos Mensuales*.
+      - **Gráfico de Saldo Anual**: Línea spline índigo `#706cd6` con área sombreada y línea de tendencia.
+      - **Gráfico Condicional de Gastos Anuales**: Barras reactivas coloreadas en rojo `#ef4444` ante aumentos vs mes previo y azul `#3b82f6` ante reducciones o estabilidad, con chips de leyenda explicativa interactiva y tooltips informativos.
+      - **Gráfico de Préstamos Mensuales**: Barras moradas `#7c3aed` con el total de cuotas y tooltip detallando los préstamos de cada mes.
+      - Estilos adaptados al 100% respetando la Regla de Oro (`AGENTS.md`) y compatibilidad completa con Modo Oscuro (`body.dark-mode`).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - `control-de-gastos-api/src/controllers/reportes.controller.ts`
+  - `control-de-gastos-api/src/routes/reportes.routes.ts`
+  - `control-de-gastos-front/src/app/services/reportes.service.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.html`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.scss`
+  - `control-de-gastos-front/src/app/pages/anual/anual/anual.html`
+  - `control-de-gastos-front/src/app/pages/anual/anual/anual.ts`
+  - `control-de-gastos-front/PLAN_MIGRACION_CLOUD_API.md`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-10-18 22:30] - Control de Redirección Offline: Permanencia en el Sistema tras "Volver al Sistema"
 - **Problema / Requerimiento**:
   - Al perder la conexión a internet, la redirección automática inicial al minijuego de la Viborita (`/offline`) funcionaba bien, pero al pulsar "Volver al Sistema", el usuario volvía a ser redirigido inmediatamente al juego cada 6 segundos debido a que el sondeo periódico de conectividad volvía a invocar `triggerOffline()`.

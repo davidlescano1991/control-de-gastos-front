@@ -1687,3 +1687,172 @@
     }
   }
 }
+
+/* =========================================================
+   ESTILOS SUBMENÚ 3: ANÁLISIS ANUAL REORGANIZADO
+   ========================================================= */
+.highlight-border-purple {
+  border-color: #c084fc !important;
+}
+
+.analisis-pills-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+
+  .mini-kpi-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    line-height: 1.2;
+
+    mat-icon {
+      font-size: 15px;
+      width: 15px;
+      height: 15px;
+    }
+
+    &.pill-red {
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fecaca;
+    }
+
+    &.pill-blue {
+      background: #eff6ff;
+      color: #2563eb;
+      border: 1px solid #bfdbfe;
+    }
+  }
+}
+
+.pill-purple {
+  background: #f5f3ff;
+  color: #7c3aed;
+  border: 1px solid #ddd6fe;
+}
+
+.text-purple {
+  color: #7c3aed !important;
+}
+
+.leyenda-condicional-box {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+
+  .leyenda-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+
+    .dot-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+
+      &.dot-red {
+        background: #ef4444;
+      }
+
+      &.dot-blue {
+        background: #3b82f6;
+      }
+
+      &.dot-purple {
+        background: #8b5cf6;
+      }
+    }
+
+    &.chip-alerta-rojo {
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+    }
+
+    &.chip-optimo-azul {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+
+    &.chip-neutral-purple {
+      background: #f5f3ff;
+      color: #6d28d9;
+      border: 1px solid #ddd6fe;
+    }
+  }
+}
+
+.analisis-anual-charts-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+:host-context(body.dark-mode) {
+  .highlight-border-purple {
+    border-color: rgba(192, 132, 252, 0.4) !important;
+  }
+
+  .analisis-pills-row {
+    .mini-kpi-pill {
+      &.pill-red {
+        background: rgba(239, 68, 68, 0.15);
+        color: #fca5a5;
+        border-color: rgba(239, 68, 68, 0.3);
+      }
+
+      &.pill-blue {
+        background: rgba(59, 130, 246, 0.15);
+        color: #93c5fd;
+        border-color: rgba(59, 130, 246, 0.3);
+      }
+    }
+  }
+
+  .pill-purple {
+    background: rgba(147, 51, 234, 0.15);
+    color: #d8b4fe;
+    border-color: rgba(147, 51, 234, 0.3);
+  }
+
+  .text-purple {
+    color: #c084fc !important;
+  }
+
+  .leyenda-condicional-box {
+    .leyenda-chip {
+      &.chip-alerta-rojo {
+        background: rgba(239, 68, 68, 0.15);
+        color: #fca5a5;
+        border-color: rgba(239, 68, 68, 0.3);
+      }
+
+      &.chip-optimo-azul {
+        background: rgba(59, 130, 246, 0.15);
+        color: #93c5fd;
+        border-color: rgba(59, 130, 246, 0.3);
+      }
+
+      &.chip-neutral-purple {
+        background: rgba(139, 92, 246, 0.15);
+        color: #c084fc;
+        border-color: rgba(139, 92, 246, 0.3);
+      }
+    }
+  }
+}

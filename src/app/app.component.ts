@@ -90,10 +90,10 @@ export class AppComponent {
   }
 
   private obtenerVersionApp(): string {
-    if (typeof window === 'undefined') return 'V1.0.dev';
+    if (typeof window === 'undefined') return 'V1.1.dev';
 
     const version = (window as AppWindow).__APP_VERSION__;
-    if (!version || version === '__APP_VERSION__') return 'V1.0.dev';
+    if (!version || version === '__APP_VERSION__') return 'V1.1.dev';
 
     return version;
   }

@@ -1150,12 +1150,29 @@ gantt
       * **6.17.3**: Submenú 2 en Reportes: Tabla de Cortes Bimonetarios y Gráfico Asociado (`Saldo!K47:R60`) *(Completado)*:
         - Backend: Endpoint `GET /api/reportes/cortes-bimonetarios?year=:year` en `reportes.service.ts` con extracción dinámica y resiliente multi-origen (Google Sheets `Saldo!J40:S85`, plantillas históricas `templates/Cuentas claras_[Año].xlsx` o checkpoints en PostgreSQL `MonthlyEstimateConfig`/`DailyEstimate`), cálculo de métricas patrimoniales agregadas y caché en memoria. *(Completado)*
         - Frontend: Renderizado del segundo submenú en `ReportesComponent` con 4 KPI cards (Total Saldo U$S, Saldo en Pesos al Corte con badge A Favor/En Descubierto, Deuda Registrada y Variación Neta Acumulada), selector interactivo de series (Total Saldo U$S, Saldo $ vs Deuda $, Variación U$S y Vista Integral), gráfico spline/barras responsivo con Chart.js y tabla detallada con formateo monetario bimonetario dual, pills de variación y adaptación completa a Modo Oscuro (`body.dark-mode`). *(Completado)*
-      * **6.17.4**: Submenú 3 en Reportes: Análisis Anual Reorganizado (Saldos, Gastos Condicionales Rojo/Azul y Préstamos):
-        - Retirar el gráfico de saldos de la vista `/anual` (dejando `/anual` enfocada exclusivamente en la matriz contable y balance) y trasladarlo a este submenú de Reportes.
-        - Desarrollar el gráfico independiente de Gastos Anuales con coloración reactiva condicional:
-          - **Rojo (#EF4444)**: Cuando el gasto del mes superó al del mes anterior (aumento).
-          - **Azul (#3B82F6)**: Cuando el gasto del mes disminuyó o fue igual a cero.
-        - Desarrollar el gráfico con el total acumulado de montos de cuotas/amortizaciones de préstamos para cada mes del año.
+      * **6.17.4**: Submenú 3 en Reportes: Análisis Anual Reorganizado (Saldos, Gastos Estilo Google Sheets y Préstamos Reactivo) *(Completado)*:
+        - **Desacople Visual en `/anual`**: Se retiró el gráfico de saldos anuales (`app-grafico-saldo-anual`) de la vista `/anual`, dejándola enfocada exclusivamente en la matriz contable de préstamos, tablas y balances anuales.
+        - **Backend (API)**:
+          - Endpoint `GET /api/reportes/analisis-anual?year=:year` en `reportes.service.ts`, `reportes.controller.ts` y `reportes.routes.ts` con soporte dual (Google Sheets `Anual [Año]!A32:L43` para años online y plantillas/PostgreSQL `monthly_estimate_configs`/`loans` para años en BD).
+          - Captura automática de saldos (fila 34), gastos mensuales (fila 38), consumos de combustible Nafta (fila 42), amortizaciones de préstamos en PostgreSQL por mes y métricas analíticas.
+        - **Frontend (`ReportesComponent`)**:
+          - Integración de `getAnalisisAnual` en `ReportesService` con interfaz tipada (`ReporteAnalisisAnualResponse`).
+          - Renderizado de Submenú 3 con 4 KPI cards (Saldo Promedio Mensual, Total Gastos del Año con mes pico, Comportamiento Mensual con píldoras de aumentos/reducciones, y Amortización Total de Préstamos).
+          - Barra de sub-tabs interna: "Todos los Gráficos", "Saldo Anual ($)", "Gastos Anuales" y "Préstamos Mensuales".
+          - **Gráfico de Saldo Anual**: Línea suave con área translúcida índigo `#706cd6`, puntos coloreados (verde/rojo) y línea de tendencia.
+          - **Gráfico de Gastos Anuales (Estilo Google Sheets)**:
+            - Gráfico de líneas (`type: 'line'`) con título centrado `Enero - Diciembre [Año]`.
+            - Eje Y con título `Gastos` en color rojo institucional `#dc2626` y formateo monetario `$X.XXX.XXX,XX`.
+            - Eje X con título `Meses`.
+            - Serie de gastos devengados en azul sólido `#2563eb` con puntos circulares y plugin personalizado de etiquetas monetarias (`googleSheetsDataLabelsPlugin`) sobre cada punto.
+            - Línea de referencia horizontal de promedio mensual en celeste suave.
+            - Serie violeta `#9333ea` de combustible (Nafta) con etiquetas de valor en los meses con consumos.
+          - **Gráfico de Préstamos Mensuales (Coloración Reactiva de 3 Estados)**:
+            - **Azul (#3B82F6)**: Para el **mes próximo a pagar** (detección dinámica automática del primer mes con cuotas impagas en el año; ej. Noviembre 2026, y al registrar el pago se actualiza automáticamente a Diciembre).
+            - **Rojo (#EF4444)**: Para aquellos meses donde el total de cuotas aumentó respecto al mes anterior.
+            - **Violeta (#8B5CF6)**: Para los demás meses normales, en descenso o ya abonados.
+            - Barra de leyendas interactiva con 3 chips indicadores (`chip-optimo-azul`, `chip-alerta-rojo`, `chip-neutral-purple`).
+          - Cumplimiento estricto de la Regla de Oro (`AGENTS.md`) y soporte completo para Modo Claro y Modo Oscuro. *(Completado)*
       * **6.17.5**: Módulo Mensual (`/mensual`): Gráfico de Gastos Proyectados de Próximos Meses:
         - Incorporar en la vista `/mensual`, junto al gráfico de proyección de saldo existente, el gráfico interactivo de gastos proyectados (`H36`), cubriendo los mismos rangos de meses futuros según el ciclo consultado (ej. para Octubre, proyectando Noviembre, Diciembre, Enero, etc.).
       * **6.17.6**: Módulo Mensual (`/mensual`): Gastos a Devolver / Reembolsables (`Saldo!S45:W57`):

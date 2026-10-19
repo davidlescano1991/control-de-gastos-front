@@ -633,52 +633,287 @@
            ======================================================== -->
       <section *ngIf="tabActiva() === 'anual'" class="subcard-section animate-fade">
         <div class="sub-card info-card">
+          <!-- CABECERA DEL SUBMENÚ -->
           <div class="card-header-bar">
             <div class="card-title-group">
               <mat-icon class="card-icon indigo">insights</mat-icon>
               <div>
-                <h2>Análisis Anual Reorganizado</h2>
+                <h2>Análisis Anual Reorganizado (Año {{ anioSeleccionado() }})</h2>
                 <p class="card-description">
-                  Saldos anuales trasladados, gastos con coloración condicional rojo/azul y compromisos de préstamos.
+                  Saldos anuales consolidados, gastos con coloración condicional reactiva (Rojo/Azul) y cronograma de préstamos.
                 </p>
               </div>
             </div>
-            <span class="status-pill status-ready">Subpaso 6.17.4</span>
+
+            <div class="header-right-actions">
+              <span class="origen-badge" *ngIf="reporteAnalisis() as repAnual">
+                <mat-icon class="badge-icon">{{ repAnual.origen === 'SHEETS' ? 'table_view' : 'storage' }}</mat-icon>
+                <span>{{ repAnual.origen === 'SHEETS' ? '* Información obtenida desde la hoja ' + repAnual.hoja : '* Información obtenida desde la BD' }}</span>
+              </span>
+
+              <button
+                mat-stroked-button
+                class="btn-refrescar"
+                (click)="cargarReporteAnalisis(true)"
+                [disabled]="isLoadingAnalisis()"
+                title="Recargar análisis anual"
+              >
+                <mat-icon [class.spin]="isLoadingAnalisis()">refresh</mat-icon>
+                <span>Actualizar</span>
+              </button>
+            </div>
           </div>
 
           <div class="card-body">
-            <div class="preview-metrics-grid">
-              <div class="metric-box">
-                <mat-icon class="metric-icon red">trending_up</mat-icon>
-                <div class="metric-details">
-                  <span class="metric-label">Gasto en Aumento (Rojo)</span>
-                  <span class="metric-status">Alerta cuando Gasto Mes > Mes Anterior</span>
-                </div>
-              </div>
-              <div class="metric-box">
-                <mat-icon class="metric-icon blue">trending_down</mat-icon>
-                <div class="metric-details">
-                  <span class="metric-label">Gasto en Descenso (Azul)</span>
-                  <span class="metric-status">Óptimo cuando Gasto Mes &le; Mes Anterior</span>
-                </div>
-              </div>
-              <div class="metric-box">
-                <mat-icon class="metric-icon purple">account_balance</mat-icon>
-                <div class="metric-details">
-                  <span class="metric-label">Préstamos Mensuales</span>
-                  <span class="metric-status">Amortizaciones y cuotas por mes</span>
-                </div>
-              </div>
+            <!-- SPINNER DE CARGA -->
+            <div *ngIf="isLoadingAnalisis()" class="loading-state-container">
+              <mat-spinner diameter="44"></mat-spinner>
+              <p>Consultando análisis anual de {{ anioSeleccionado() }}...</p>
             </div>
 
-            <div class="placeholder-container">
-              <div class="placeholder-graphic">
-                <mat-icon class="big-icon pulse indigo">bar_chart</mat-icon>
-                <h3>Análisis Anual Visual Desacoplado</h3>
-                <p>
-                  En el subpaso 6.17.4 se incorporará el gráfico condicional rojo/azul de gastos mes a mes
-                  y el gráfico de desembolsos y cuotas de préstamos anuales.
-                </p>
+            <!-- ESTADO VACÍO SI NO HAY DATOS -->
+            <div
+              *ngIf="!isLoadingAnalisis() && (!reporteAnalisis() || !reporteAnalisis()?.gastos?.length)"
+              class="empty-state-card"
+            >
+              <mat-icon class="empty-icon">search_off</mat-icon>
+              <h3>Sin registros de análisis anual</h3>
+              <p>No se encontraron datos consolidados de saldos y gastos para el año {{ anioSeleccionado() }}.</p>
+              <button type="button" class="btn-recargar" (click)="cargarReporteAnalisis(true)">
+                <mat-icon>refresh</mat-icon>
+                <span>Reintentar</span>
+              </button>
+            </div>
+
+            <!-- CONTENIDO PRINCIPAL CUANDO HAY DATOS -->
+            <div *ngIf="!isLoadingAnalisis() && reporteAnalisis() as repAnual" class="reporte-content-wrapper">
+              <!-- GRID DE 4 TARJETAS KPI EJECUTIVAS -->
+              <div class="kpi-saldo-grid">
+                <!-- KPI 1: SALDO ANUAL PROMEDIO -->
+                <div
+                  class="kpi-saldo-card"
+                  [class.kpi-negativo]="repAnual.metrics.saldoPromedio < 0"
+                  [matTooltip]="'Promedio mensual de liquidez y saldos a lo largo de los 12 meses de ' + anioSeleccionado()"
+                  matTooltipPosition="above"
+                >
+                  <div class="kpi-card-header">
+                    <span class="kpi-label">Saldo Promedio Mensual</span>
+                    <mat-icon class="kpi-icon blue" *ngIf="repAnual.metrics.saldoPromedio >= 0">trending_up</mat-icon>
+                    <mat-icon class="kpi-icon red" *ngIf="repAnual.metrics.saldoPromedio < 0">trending_down</mat-icon>
+                  </div>
+                  <div class="kpi-value-row">
+                    <span class="kpi-amount" [class.text-negativo]="repAnual.metrics.saldoPromedio < 0">
+                      {{ formatearMoneda(repAnual.metrics.saldoPromedio, 'ARS') }}
+                    </span>
+                    <span
+                      class="kpi-pill"
+                      [class.pill-positive]="repAnual.metrics.saldoPromedio >= 0"
+                      [class.pill-negative]="repAnual.metrics.saldoPromedio < 0"
+                    >
+                      {{ repAnual.metrics.saldoPromedio >= 0 ? 'A Favor' : 'En Descubierto' }}
+                    </span>
+                  </div>
+                  <span class="kpi-subtext">Promedio anual de cierre mensual</span>
+                </div>
+
+                <!-- KPI 2: TOTAL GASTOS ANUALES -->
+                <div
+                  class="kpi-saldo-card"
+                  [matTooltip]="'Monto total acumulado de egresos presupuestados y devengados durante todo el año ' + anioSeleccionado()"
+                  matTooltipPosition="above"
+                >
+                  <div class="kpi-card-header">
+                    <span class="kpi-label">Total Gastos Anuales</span>
+                    <mat-icon class="kpi-icon coral">receipt_long</mat-icon>
+                  </div>
+                  <div class="kpi-value-row">
+                    <span class="kpi-amount text-coral">
+                      {{ formatearMoneda(repAnual.metrics.totalGastosAnual, 'ARS') }}
+                    </span>
+                    <span class="kpi-pill pill-coral">Egresos 12 meses</span>
+                  </div>
+                  <span class="kpi-subtext" *ngIf="repAnual.metrics.mesMayorGasto">
+                    Pico máximo: <strong>{{ repAnual.metrics.mesMayorGasto.mes }}</strong> ({{ formatearMoneda(repAnual.metrics.mesMayorGasto.total, 'ARS') }})
+                  </span>
+                </div>
+
+                <!-- KPI 3: COMPORTAMIENTO DE GASTOS (ROJO vs AZUL) -->
+                <div
+                  class="kpi-saldo-card"
+                  matTooltip="Meses con incremento de egresos respecto al mes anterior (Rojo) versus meses con reducción o estabilidad (Azul)."
+                  matTooltipPosition="above"
+                >
+                  <div class="kpi-card-header">
+                    <span class="kpi-label">Comportamiento Mensual</span>
+                    <mat-icon class="kpi-icon indigo">compare_arrows</mat-icon>
+                  </div>
+                  <div class="kpi-value-row">
+                    <div class="analisis-pills-row">
+                      <span class="mini-kpi-pill pill-red" matTooltip="Meses donde el gasto aumentó respecto al mes previo">
+                        <mat-icon>trending_up</mat-icon>
+                        <strong>{{ repAnual.metrics.mesesConAumento }}</strong> en aumento
+                      </span>
+                      <span class="mini-kpi-pill pill-blue" matTooltip="Meses donde el gasto disminuyó o se mantuvo">
+                        <mat-icon>trending_down</mat-icon>
+                        <strong>{{ repAnual.metrics.mesesConReduccion }}</strong> contenidos
+                      </span>
+                    </div>
+                  </div>
+                  <span class="kpi-subtext">Criterio condicional rojo / azul</span>
+                </div>
+
+                <!-- KPI 4: COMPROMISOS EN PRÉSTAMOS -->
+                <div
+                  class="kpi-saldo-card highlight-border-purple"
+                  matTooltip="Total de amortizaciones y cuotas a pagar en el año por préstamos activos tomados."
+                  matTooltipPosition="above"
+                >
+                  <div class="kpi-card-header">
+                    <span class="kpi-label">Amortización de Préstamos</span>
+                    <mat-icon class="kpi-icon purple">account_balance</mat-icon>
+                  </div>
+                  <div class="kpi-value-row">
+                    <span class="kpi-amount text-purple">
+                      {{ formatearMoneda(repAnual.metrics.totalPrestamosAnual, 'ARS') }}
+                    </span>
+                    <span class="kpi-pill pill-purple">Cuotas año</span>
+                  </div>
+                  <span class="kpi-subtext">Cronograma de préstamos y amortizaciones</span>
+                </div>
+              </div>
+
+              <!-- BARRA SELECTORA DE SUB-TABS INTERNAS -->
+              <div class="controles-grafico-bar">
+                <div class="series-pills-group">
+                  <button
+                    type="button"
+                    class="pill-btn"
+                    [class.active]="subTabAnalisis() === 'todos'"
+                    (click)="cambiarSubTabAnalisis('todos')"
+                  >
+                    <mat-icon>dashboard</mat-icon>
+                    <span>Todos los Gráficos</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="pill-btn"
+                    [class.active]="subTabAnalisis() === 'saldo'"
+                    (click)="cambiarSubTabAnalisis('saldo')"
+                  >
+                    <mat-icon>show_chart</mat-icon>
+                    <span>Saldo Anual ($)</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="pill-btn"
+                    [class.active]="subTabAnalisis() === 'gastos'"
+                    (click)="cambiarSubTabAnalisis('gastos')"
+                  >
+                    <mat-icon>timeline</mat-icon>
+                    <span>Gastos Anuales</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="pill-btn"
+                    [class.active]="subTabAnalisis() === 'prestamos'"
+                    (click)="cambiarSubTabAnalisis('prestamos')"
+                  >
+                    <mat-icon>account_balance</mat-icon>
+                    <span>Préstamos Mensuales</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- GRID DE GRÁFICOS ANALÍTICOS -->
+              <div class="analisis-anual-charts-grid">
+                <!-- GRÁFICO 1: SALDO ANUAL (Trasladado de /anual) -->
+                <div
+                  *ngIf="subTabAnalisis() === 'todos' || subTabAnalisis() === 'saldo'"
+                  class="chart-card-wrapper"
+                >
+                  <div class="chart-header-row">
+                    <div class="chart-title-box">
+                      <mat-icon class="chart-icon blue">show_chart</mat-icon>
+                      <div>
+                        <h3>Evolución de Saldo Anual (Pesos $)</h3>
+                        <p class="chart-sub">Curva mensual de saldo neto trasladada de la vista /anual.</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="chart-canvas-container" style="height: 320px;">
+                    <canvas
+                      baseChart
+                      [data]="chartDataAnalisisSaldo"
+                      [options]="chartOptionsAnalisisSaldo"
+                      type="line"
+                    ></canvas>
+                  </div>
+                </div>
+
+                <!-- GRÁFICO 2: GASTOS ANUALES (SIMILAR A SALDO ANUAL, EN ROJO) -->
+                <div
+                  *ngIf="subTabAnalisis() === 'todos' || subTabAnalisis() === 'gastos'"
+                  class="chart-card-wrapper"
+                >
+                  <div class="chart-header-row">
+                    <div class="chart-title-box">
+                      <mat-icon class="chart-icon coral">trending_down</mat-icon>
+                      <div>
+                        <h3>Evolución Anual de Gastos (Pesos $)</h3>
+                        <p class="chart-sub">
+                          Curva mensual de gastos devengados con área sombreada y línea de tendencia.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="chart-canvas-container" style="height: 320px;">
+                    <canvas
+                      baseChart
+                      [data]="chartDataAnalisisGastos"
+                      [options]="chartOptionsAnalisisGastos"
+                      type="line"
+                    ></canvas>
+                  </div>
+                </div>
+
+                <!-- GRÁFICO 3: PRÉSTAMOS MENSUALES (AZUL / ROJO / VIOLETA) -->
+                <div
+                  *ngIf="subTabAnalisis() === 'todos' || subTabAnalisis() === 'prestamos'"
+                  class="chart-card-wrapper"
+                >
+                  <div class="chart-header-row">
+                    <div class="chart-title-box">
+                      <mat-icon class="chart-icon purple">account_balance</mat-icon>
+                      <div>
+                        <h3>Compromisos y Cuotas de Préstamos Mensuales</h3>
+                        <p class="chart-sub">Total acumulado de cuotas a cancelar por mes con detección automática del próximo mes a pagar.</p>
+                      </div>
+                    </div>
+                    <!-- LEYENDA CONDICIONAL DE PRÉSTAMOS (AZUL / ROJO / VIOLETA) -->
+                    <div class="leyenda-condicional-box">
+                      <span class="leyenda-chip chip-optimo-azul" [matTooltip]="'Mes con cuotas pendientes por abonar (' + (mesProximoAPagarNombre() || 'Próximo') + ')'">
+                        <span class="dot-indicator dot-blue"></span>
+                        <span>Próximo a pagar ({{ mesProximoAPagarNombre() || 'Pendiente' }})</span>
+                      </span>
+                      <span class="leyenda-chip chip-alerta-rojo" matTooltip="El total de cuotas aumentó con respecto al mes anterior">
+                        <span class="dot-indicator dot-red"></span>
+                        <span>Aumento vs mes anterior</span>
+                      </span>
+                      <span class="leyenda-chip chip-neutral-purple" matTooltip="Cuotas normales, en descenso o ya abonadas">
+                        <span class="dot-indicator dot-purple"></span>
+                        <span>Cuotas normales / Pagadas</span>
+                      </span>
+                    </div>
+                  </div>
+                  <div class="chart-canvas-container" style="height: 320px;">
+                    <canvas
+                      baseChart
+                      [data]="chartDataAnalisisPrestamos"
+                      [options]="chartOptionsAnalisisPrestamos"
+                      type="bar"
+                    ></canvas>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

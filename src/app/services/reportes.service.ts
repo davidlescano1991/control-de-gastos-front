@@ -60,6 +60,55 @@ export interface ReporteCortesBimonetariosResponse {
   };
 }
 
+export interface MesSaldoItem {
+  mes: string;
+  numeroMes: number;
+  saldo: number;
+}
+
+export interface MesGastoItem {
+  mes: string;
+  numeroMes: number;
+  total: number;
+  totalAnterior: number;
+  variacion: number;
+  porcentajeVariacion: number;
+  aumento: boolean;
+}
+
+export interface MesPrestamoItem {
+  mes: string;
+  numeroMes: number;
+  totalCuotas: number;
+  cantidadCuotas: number;
+  cuotasDetalle: Array<{
+    prestamoNombre: string;
+    entidad: string;
+    monto: number;
+    pagada: boolean;
+  }>;
+}
+
+export interface ReporteAnalisisAnualResponse {
+  year: number;
+  origen: 'SHEETS' | 'DATABASE';
+  hoja: string;
+  saldos: MesSaldoItem[];
+  gastos: MesGastoItem[];
+  prestamos: MesPrestamoItem[];
+  nafta?: number[];
+  metrics: {
+    saldoPromedio: number;
+    totalGastosAnual: number;
+    promedioGastoMensual: number;
+    mesMayorGasto: { mes: string; total: number } | null;
+    mesMenorGasto: { mes: string; total: number } | null;
+    mesesConAumento: number;
+    mesesConReduccion: number;
+    totalPrestamosAnual: number;
+  };
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -94,5 +143,20 @@ export class ReportesService {
       })
     );
   }
+
+  /**
+   * Obtiene el análisis anual reorganizado (saldos, gastos condicionales rojo/azul y préstamos).
+   */
+  getAnalisisAnual(year: number, force = false): Observable<ReporteAnalisisAnualResponse | null> {
+    const url = `${this.apiUrl}/reportes/analisis-anual?year=${year}&force=${force}`;
+    return this.http.get<{ status: string; data: ReporteAnalisisAnualResponse }>(url).pipe(
+      map((res) => res.data),
+      catchError((err) => {
+        console.warn(`[ReportesService] Error al obtener análisis anual de la API para ${year}:`, err);
+        return of(null);
+      })
+    );
+  }
 }
+
 
