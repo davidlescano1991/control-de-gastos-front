@@ -14,6 +14,8 @@ import { ThemeService } from './services/theme.service';
 import { MovimientosStoreGoogle } from './stores/movimiento.google';
 import { SseService } from './services/sse.service';
 import { AuthService } from './services/auth.service';
+import { ConnectivityService } from './services/connectivity.service';
+import { WakeLockService } from './services/wake-lock.service';
 import { ModalExportarExcelComponent } from './common/modal-exportar-excel/modal-exportar-excel.component';
 
 type AppWindow = Window & { __APP_VERSION__?: string };
@@ -51,8 +53,11 @@ export class AppComponent {
   private storeGoogle = inject(MovimientosStoreGoogle);
   public sseService = inject(SseService);
   public authService = inject(AuthService);
+  public connectivityService = inject(ConnectivityService);
+  private wakeLockService = inject(WakeLockService);
 
   constructor() {
+    this.wakeLockService.requestWakeLock();
     this.breakpointObserver.observe([Breakpoints.Handset]).subscribe((result) => {
       this.isMobile = result.matches;
       console.log('¿Es móvil?', this.isMobile);

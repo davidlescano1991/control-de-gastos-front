@@ -1,0 +1,234 @@
+<div class="offline-page-container">
+  <div class="movimientos-wrapper">
+    <!-- ENCABEZADO DE ESTADO OFFLINE -->
+    <header class="offline-header">
+      <div class="header-status-box">
+        <div class="status-icon-wrapper" [class.is-offline]="!connectivityService.isOnline()">
+          <mat-icon>{{ connectivityService.isOnline() ? 'wifi' : 'wifi_off' }}</mat-icon>
+        </div>
+        <div class="status-texts">
+          <div class="status-badge-row">
+            <span
+              class="connection-badge"
+              [class.online]="connectivityService.isOnline()"
+              [class.offline]="!connectivityService.isOnline()"
+            >
+              <span class="status-dot"></span>
+              {{ connectivityService.isOnline() ? 'Conexión Restablecida' : 'Sin Conexión a Internet' }}
+            </span>
+
+            <button
+              type="button"
+              class="simulacion-toggle-pill"
+              [class.active]="connectivityService.simulatedOffline()"
+              (click)="toggleSimulacion()"
+              matTooltip="Alterna entre simulación offline y estado real para pruebas"
+            >
+              <mat-icon>{{ connectivityService.simulatedOffline() ? 'tune' : 'check_circle' }}</mat-icon>
+              <span>{{ connectivityService.simulatedOffline() ? 'Simulación Offline: ACTIVA' : 'Simular Offline' }}</span>
+            </button>
+          </div>
+
+          <h1 class="main-title">
+            {{ connectivityService.isOnline() ? '¡Estás conectado nuevamente!' : '¡Oops! Te has quedado sin conexión' }}
+          </h1>
+          <p class="subtitle">
+            {{ connectivityService.isOnline()
+              ? 'La conexión a Internet está lista. Puedes volver a navegar o continuar jugando a la Viborita.'
+              : 'No te preocupes, tus datos locales están a salvo. Mientras esperamos a que vuelva la red, ¡disfruta de este clásico de la Viborita estilo Nokia 1100!' }}
+          </p>
+        </div>
+      </div>
+
+      <!-- BOTONES DE ACCIÓN DE CONEXIÓN -->
+      <div class="header-actions">
+        <button
+          mat-stroked-button
+          class="btn-action check"
+          (click)="reintentarConexion()"
+          [disabled]="isCheckingConnection()"
+          matTooltip="Comprobar si el acceso a Internet ha regresado"
+        >
+          <mat-icon [class.spin]="isCheckingConnection()">refresh</mat-icon>
+          <span>{{ isCheckingConnection() ? 'Comprobando...' : 'Reintentar Conexión' }}</span>
+        </button>
+
+        <button
+          mat-flat-button
+          class="btn-action primary"
+          (click)="volverAlSistema()"
+          matTooltip="Regresar al inicio del sistema"
+        >
+          <mat-icon>dashboard</mat-icon>
+          <span>Volver al Sistema</span>
+        </button>
+      </div>
+
+      <!-- MENSAJE DE COMPROBACIÓN -->
+      <div class="connection-toast" *ngIf="connectionCheckedMessage() as msg">
+        <mat-icon [class.online]="connectivityService.isOnline()">
+          {{ connectivityService.isOnline() ? 'cloud_done' : 'cloud_off' }}
+        </mat-icon>
+        <span>{{ msg }}</span>
+      </div>
+    </header>
+
+    <!-- ÁREA DEL MINIJUEGO: CONSOLA VIBORITA (NOKIA 1100 MODERN) -->
+    <section class="game-console-card">
+      <div class="console-top-bar">
+        <div class="console-brand">
+          <mat-icon class="brand-icon">sports_esports</mat-icon>
+          <div class="brand-text">
+            <span class="brand-title">NOKIA 1100 MODERN</span>
+            <span class="brand-sub">SNAKE ARCADE EDITION</span>
+          </div>
+        </div>
+
+        <!-- SELECTOR DE VELOCIDAD / DIFICULTAD -->
+        <div class="speed-selector-group">
+          <button
+            type="button"
+            class="speed-pill"
+            [class.active]="speedMode() === 'EASY'"
+            (click)="setSpeedMode('EASY')"
+          >
+            Fácil
+          </button>
+          <button
+            type="button"
+            class="speed-pill"
+            [class.active]="speedMode() === 'CLASSIC'"
+            (click)="setSpeedMode('CLASSIC')"
+          >
+            Nokia 1100
+          </button>
+          <button
+            type="button"
+            class="speed-pill"
+            [class.active]="speedMode() === 'TURBO'"
+            (click)="setSpeedMode('TURBO')"
+          >
+            Turbo
+          </button>
+        </div>
+
+        <!-- MARCADORES Y AUDIO -->
+        <div class="scores-and-sound">
+          <div class="score-badge current">
+            <span class="score-label">PUNTOS</span>
+            <span class="score-val">{{ score() }}</span>
+          </div>
+
+          <div class="score-badge high">
+            <span class="score-label">RÉCORD</span>
+            <span class="score-val">{{ highScore() }}</span>
+          </div>
+
+          <button
+            type="button"
+            class="btn-sound-toggle"
+            (click)="toggleSound()"
+            [matTooltip]="soundEnabled() ? 'Silenciar efectos 8-bit' : 'Activar efectos 8-bit'"
+          >
+            <mat-icon>{{ soundEnabled() ? 'volume_up' : 'volume_off' }}</mat-icon>
+          </button>
+        </div>
+      </div>
+
+      <!-- PANTALLA DE JUEGO (CANVAS CON MARCO NEÓN) -->
+      <div class="canvas-bezel-frame">
+        <canvas
+          #gameCanvas
+          width="440"
+          height="440"
+          class="snake-canvas"
+        ></canvas>
+      </div>
+
+      <!-- BARRA DE CONTROLES INFERIOR Y D-PAD TÁCTIL -->
+      <div class="console-controls-section">
+        <!-- BOTONES DE ACCIÓN RÁPIDA -->
+        <div class="action-buttons-row">
+          <button
+            type="button"
+            class="btn-game-action"
+            (click)="pauseGame()"
+            [disabled]="isGameOver()"
+          >
+            <mat-icon>{{ isPaused() ? 'play_arrow' : 'pause' }}</mat-icon>
+            <span>{{ isPaused() ? 'Reanudar' : 'Pausa' }}</span>
+          </button>
+
+          <button
+            type="button"
+            class="btn-game-action restart"
+            (click)="restartGame()"
+          >
+            <mat-icon>replay</mat-icon>
+            <span>Reiniciar Partida</span>
+          </button>
+        </div>
+
+        <!-- D-PAD TÁCTIL PARA CELULARES Y TABLETS -->
+        <div class="dpad-container">
+          <div class="dpad-row">
+            <button
+              type="button"
+              class="dpad-btn up"
+              (click)="changeDirection('UP')"
+              aria-label="Arriba"
+            >
+              <mat-icon>keyboard_arrow_up</mat-icon>
+            </button>
+          </div>
+          <div class="dpad-row middle">
+            <button
+              type="button"
+              class="dpad-btn left"
+              (click)="changeDirection('LEFT')"
+              aria-label="Izquierda"
+            >
+              <mat-icon>keyboard_arrow_left</mat-icon>
+            </button>
+            <button
+              type="button"
+              class="dpad-btn center-action"
+              (click)="pauseGame()"
+              aria-label="Pausa/Play"
+            >
+              <mat-icon>{{ isPaused() ? 'play_arrow' : 'pause' }}</mat-icon>
+            </button>
+            <button
+              type="button"
+              class="dpad-btn right"
+              (click)="changeDirection('RIGHT')"
+              aria-label="Derecha"
+            >
+              <mat-icon>keyboard_arrow_right</mat-icon>
+            </button>
+          </div>
+          <div class="dpad-row">
+            <button
+              type="button"
+              class="dpad-btn down"
+              (click)="changeDirection('DOWN')"
+              aria-label="Abajo"
+            >
+              <mat-icon>keyboard_arrow_down</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- GUÍA DE TECLADO DESKTOP -->
+        <div class="keyboard-shortcuts-guide">
+          <span class="guide-title">Controles de Teclado:</span>
+          <div class="keys-list">
+            <span class="key-pill"><kbd>&uarr;&darr;&larr;&rarr;</kbd> o <kbd>WASD</kbd> Moverse</span>
+            <span class="key-pill"><kbd>Espacio</kbd> Pausa</span>
+            <span class="key-pill"><kbd>Enter</kbd> Reiniciar</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>

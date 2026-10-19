@@ -297,7 +297,7 @@
           <!-- Meses Extra -->
           <mat-form-field appearance="outline" class="field-item">
             <mat-label>Meses Extra (separados por coma)</mat-label>
-            <input matInput formControlName="mesesExtra" placeholder="Ej: Enero_2028, Febrero_2028" />
+            <input matInput formControlName="mesesExtra" placeholder="Ej: Ninguno" />
             <mat-hint>Pestañas adicionales proyectadas del año siguiente</mat-hint>
           </mat-form-field>
 
@@ -401,20 +401,20 @@
           <!-- Badges de Pantallas Habilitadas -->
           <div class="screens-chips-row">
             <span class="chips-label">Pantallas:</span>
-            <span class="chip-item" [class.enabled]="s.metadata.pantallas.inicio">
-              <mat-icon>{{ s.metadata.pantallas.inicio ? 'check' : 'close' }}</mat-icon>
+            <span class="chip-item" [class.enabled]="s.metadata?.pantallas?.inicio">
+              <mat-icon>{{ s.metadata?.pantallas?.inicio ? 'check' : 'close' }}</mat-icon>
               Inicio
             </span>
-            <span class="chip-item" [class.enabled]="s.metadata.pantallas.estimativos">
-              <mat-icon>{{ s.metadata.pantallas.estimativos ? 'check' : 'close' }}</mat-icon>
+            <span class="chip-item" [class.enabled]="s.metadata?.pantallas?.estimativos">
+              <mat-icon>{{ s.metadata?.pantallas?.estimativos ? 'check' : 'close' }}</mat-icon>
               Estimativos
             </span>
-            <span class="chip-item" [class.enabled]="s.metadata.pantallas.mensual">
-              <mat-icon>{{ s.metadata.pantallas.mensual ? 'check' : 'close' }}</mat-icon>
+            <span class="chip-item" [class.enabled]="s.metadata?.pantallas?.mensual">
+              <mat-icon>{{ s.metadata?.pantallas?.mensual ? 'check' : 'close' }}</mat-icon>
               Mensual
             </span>
-            <span class="chip-item" [class.enabled]="s.metadata.pantallas.anual">
-              <mat-icon>{{ s.metadata.pantallas.anual ? 'check' : 'close' }}</mat-icon>
+            <span class="chip-item" [class.enabled]="s.metadata?.pantallas?.anual">
+              <mat-icon>{{ s.metadata?.pantallas?.anual ? 'check' : 'close' }}</mat-icon>
               Anual
             </span>
           </div>
@@ -422,13 +422,13 @@
           <!-- Resumen de Rangos -->
           <div class="ranges-summary-row">
             <span class="summary-item">
-              <strong>Meses Extra:</strong> {{ s.metadata.mesesExtra.length ? s.metadata.mesesExtra.join(', ') : 'Ninguno' }}
+              <strong>Meses Extra:</strong> {{ s.metadata?.mesesExtra?.length ? s.metadata.mesesExtra.join(', ') : 'Ninguno' }}
             </span>
             <span class="summary-item">
-              <strong>Filas Anual:</strong> {{ s.metadata.filasTablaAnual || 84 }}
+              <strong>Filas Anual:</strong> {{ s.metadata?.filasTablaAnual || 84 }}
             </span>
             <span class="summary-item">
-              <strong>Celda Neto:</strong> {{ s.metadata.celdaIngresoNeto || 'K21' }}
+              <strong>Celda Neto:</strong> {{ s.metadata?.celdaIngresoNeto || 'K21' }}
             </span>
           </div>
         </div>

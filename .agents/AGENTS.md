@@ -6,6 +6,15 @@
 - **ANCHO HOMOGÉNEO (100%)**: Todos los componentes de gráficos y tablas dentro de columnas deben mantener el ancho igualado al 100% (`width: 100%`, `box-sizing: border-box`).
 - **PROHIBICIÓN EXPRESA**: Bajo ninguna circunstancia alterar o remover estas estructuras visuales salvo solicitud explícita del usuario.
 
+## Regla de Oro: Paleta de Colores Institucional del Logo
+
+- **COLORES PRIMARIOS OFICIALES**: El color primario del sistema DEBE ser estrictamente el tono Slate Indigo corporativo del logo (`assets/9346204.png`), compuesto por:
+  - **Primario Dominante**: `#4b5896` (Azul Pizarra / Slate Indigo principal).
+  - **Secundario / Acento Luminoso**: `#706cd6` (o `#7e79d6` para bordes/resaltes en modo oscuro; versión viva, agradable y no apagada de la misma familia de color).
+  - **Degradado Oficial**: `linear-gradient(135deg, #706cd6 0%, #4b5896 100%)`.
+  - **Fondos de Píldoras / Badges Suaves**: `#eaecf4` con borde `#c4c8df` y texto `#4b5896`.
+- **PROHIBICIÓN EXPRESA DE AZULES O TURQUESAS AJENOS**: Bajo ninguna circunstancia utilizar tonos turquesa/cyan (`#0284c7`, `#38bdf8`, `#0ea5e9`) ni azules eléctricos genéricos (`#1565c0`, `#1e88e5`, `#2563eb`) en botones primarios, cabeceras o indicadores. Todo debe responder a la paleta armónica del logo `#4b5896` / `#706cd6`.
+
 ## Plan Maestro Único y Sincronizado
 
 - **ARCHIVO COMPARTIDO**: El archivo `PLAN_MIGRACION_CLOUD_API.md` es el plan maestro centralizado tanto para la API como para el Frontend. Está enlazado a nivel de sistema de archivos (`hardlink`) con `control-de-gastos-api/PLAN_MIGRACION_CLOUD_API.md`.

@@ -1137,18 +1137,19 @@ gantt
         8. **Termómetro de Días Positivos en Estimativos**: Segundo gráfico tipo termómetro en `/estimativo` que refleja el porcentaje de días con rendimiento positivo del mes, obtenido de la tabla *Rendimientos positivos mensuales* de Anual (celda `H53` de cada mes).
         9. **Explorador y Generador de Reportes Multicriterio con Gráficos Dinámicos (Exclusivo Administradores)**: Submenú exclusivo para usuarios administradores que permite consultar la base de datos mediante filtros visuales avanzados (fechas, entidades múltiples, estados de pago, tipos de ítems, montos) generando al vuelo tablas de resultados consolidados y gráficos interactivos (barras, líneas, torta) sin necesidad de escribir sentencias SQL complejas (`SELECT`, `JOIN`, `GROUP BY`).
     * **Subpasos de Ejecución**:
-      * **6.17.1**: Frontend & Routing: Creación de la Nueva Vista de Reportes (`/reportes`) con Arquitectura de Submenús:
+      * **6.17.1**: Frontend & Routing: Creación de la Nueva Vista de Reportes (`/reportes`) con Arquitectura de Submenús *(Completado)*:
         - Crear el módulo/componente `ReportesComponent` en `src/app/pages/reportes/` con barra de navegación por pestañas/submenús interactivos:
           1. *Evolución de Saldo* (`Saldo [Año]`).
           2. *Cortes Bimonetarios* (`Saldo!K47:R60`).
           3. *Análisis Anual* (Saldos, Gastos Condicionales Rojo/Azul y Préstamos).
           4. *Consultas y Reportes Dinámicos* (Protegido por `RoleGuard` para administradores).
-        - Integrar la ruta `/reportes` en el Navbar principal de la aplicación con icono analítico (`query_stats` / `analytics`), respetando la Regla de Oro (`AGENTS.md`) con `.movimientos-wrapper`, tarjetas con bordes suaves y soporte completo de Modo Claro y Modo Oscuro.
-      * **6.17.2**: Submenú 1 en Reportes: Gráficos de Evolución de Saldo del Año (`Saldo 2026` / Saldo):
+      * **6.17.2**: Submenú 1 en Reportes: Gráficos de Evolución de Saldo del Año (`Saldo 2026` / Saldo) *(Completado)*:
         - Implementar en el primer submenú de Reportes la visualización exclusiva de los gráficos de evolución de saldos en el tiempo (pesos y dólares) según el año seleccionado, prescindiendo de las tablas de datos crudos para una visualización ejecutiva limpia y ágil.
-      * **6.17.3**: Submenú 2 en Reportes: Tabla de Cortes Bimonetarios y Gráfico Asociado (`Saldo!K47:R60`):
-        - Backend: Endpoint para suministrar la serie de cortes bimonetarios de saldo de la tabla `K47:R60` (`Fecha`, `Saldo $`, `Saldo U$`, `Deuda/bitcoin`, `Saldo $ a U$`, `Total Saldo U$`, `Variación $`, `Variación U$`).
-        - Frontend: Renderizar la tabla con formateo monetario elegante y el gráfico nativo asociado que compara saldos y variaciones.
+        - Backend: Implementación de `ReportesService` (`GET /api/reportes/saldo-anual?year=:year`) con soporte híbrido automático (Google Sheets `Saldo [Año]` para años activos y PostgreSQL `MonthlyEstimateConfig` / `DailyEstimate` para años en BD), métricas consolidadas y caché en memoria.
+        - Frontend: Dashboard ejecutivo en `ReportesComponent` con 4 KPI cards (Último Saldo en Pesos con indicador de descubierto/a favor, Saldo en USD, Rango Anual de Volatilidad Mín/Máx y Deuda Actual), selector de series (Pesos, Dólares, Deuda, Comparativa), filtro rápido por mes con chips interactivos, gráfico responsivo con Chart.js (línea spline suave, puntos coloreados, línea de tendencia) y adaptación a Modo Oscuro. *(Completado)*
+      * **6.17.3**: Submenú 2 en Reportes: Tabla de Cortes Bimonetarios y Gráfico Asociado (`Saldo!K47:R60`) *(Completado)*:
+        - Backend: Endpoint `GET /api/reportes/cortes-bimonetarios?year=:year` en `reportes.service.ts` con extracción dinámica y resiliente multi-origen (Google Sheets `Saldo!J40:S85`, plantillas históricas `templates/Cuentas claras_[Año].xlsx` o checkpoints en PostgreSQL `MonthlyEstimateConfig`/`DailyEstimate`), cálculo de métricas patrimoniales agregadas y caché en memoria. *(Completado)*
+        - Frontend: Renderizado del segundo submenú en `ReportesComponent` con 4 KPI cards (Total Saldo U$S, Saldo en Pesos al Corte con badge A Favor/En Descubierto, Deuda Registrada y Variación Neta Acumulada), selector interactivo de series (Total Saldo U$S, Saldo $ vs Deuda $, Variación U$S y Vista Integral), gráfico spline/barras responsivo con Chart.js y tabla detallada con formateo monetario bimonetario dual, pills de variación y adaptación completa a Modo Oscuro (`body.dark-mode`). *(Completado)*
       * **6.17.4**: Submenú 3 en Reportes: Análisis Anual Reorganizado (Saldos, Gastos Condicionales Rojo/Azul y Préstamos):
         - Retirar el gráfico de saldos de la vista `/anual` (dejando `/anual` enfocada exclusivamente en la matriz contable y balance) y trasladarlo a este submenú de Reportes.
         - Desarrollar el gráfico independiente de Gastos Anuales con coloración reactiva condicional:

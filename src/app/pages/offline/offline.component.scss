@@ -1,0 +1,655 @@
+.offline-page-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+  box-sizing: border-box;
+
+  @media (max-width: 768px) {
+    padding: 0.75rem 0.5rem;
+  }
+}
+
+/* =========================================================
+   CONTENEDOR BLANCO PRINCIPAL (REGLA DE ORO DE AGENTS.MD)
+   ========================================================= */
+.movimientos-wrapper {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  padding: 1.75rem;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+
+  @media (max-width: 768px) {
+    padding: 1.25rem 1rem;
+    gap: 1.25rem;
+  }
+}
+
+/* =========================================================
+   ENCABEZADO DE ESTADO OFFLINE
+   ========================================================= */
+.offline-header {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 1.5rem;
+
+  .header-status-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
+
+    @media (max-width: 640px) {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+  }
+
+  .status-icon-wrapper {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #16a34a;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.15);
+    transition: all 0.3s ease;
+
+    mat-icon {
+      font-size: 34px;
+      width: 34px;
+      height: 34px;
+    }
+
+    &.is-offline {
+      background: #fef2f2;
+      border-color: #fecaca;
+      color: #dc2626;
+      box-shadow: 0 4px 14px rgba(220, 38, 38, 0.2);
+      animation: pulseAlert 2.2s infinite ease-in-out;
+    }
+  }
+
+  .status-texts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    flex: 1;
+
+    .status-badge-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+
+      @media (max-width: 640px) {
+        justify-content: center;
+      }
+    }
+
+    .connection-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 3px 10px;
+      border-radius: 20px;
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+
+      &.online {
+        background: #ecfdf5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+
+        .status-dot {
+          background: #10b981;
+          box-shadow: 0 0 6px #10b981;
+        }
+      }
+
+      &.offline {
+        background: #fef2f2;
+        color: #b91c1c;
+        border: 1px solid #fecaca;
+
+        .status-dot {
+          background: #ef4444;
+          box-shadow: 0 0 6px #ef4444;
+        }
+      }
+    }
+
+    .simulacion-toggle-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      color: #475569;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      mat-icon {
+        font-size: 15px;
+        width: 15px;
+        height: 15px;
+      }
+
+      &:hover {
+        background: #e2e8f0;
+      }
+
+      &.active {
+        background: #eaecf4;
+        color: #4b5896;
+        border-color: #c4c8df;
+        font-weight: 700;
+      }
+    }
+
+    .main-title {
+      margin: 0;
+      font-size: 1.55rem;
+      font-weight: 800;
+      color: #1e293b;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      margin: 0;
+      font-size: 0.95rem;
+      color: #64748b;
+      line-height: 1.55;
+    }
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+
+    @media (max-width: 640px) {
+      justify-content: center;
+    }
+
+    .btn-action {
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.88rem;
+      padding: 0.55rem 1.15rem;
+
+      &.check {
+        color: #4b5896;
+        border-color: #cbd5e1;
+
+        &:hover:not([disabled]) {
+          background: #eaecf4;
+          border-color: #c4c8df;
+        }
+      }
+
+      &.primary {
+        background: linear-gradient(135deg, #706cd6 0%, #4b5896 100%);
+        color: #ffffff;
+        box-shadow: 0 4px 12px rgba(75, 88, 150, 0.25);
+
+        &:hover {
+          box-shadow: 0 6px 16px rgba(75, 88, 150, 0.35);
+        }
+      }
+
+      mat-icon {
+        margin-right: 6px;
+      }
+    }
+  }
+
+  .connection-toast {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #334155;
+    align-self: flex-start;
+
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      color: #ef4444;
+
+      &.online {
+        color: #10b981;
+      }
+    }
+
+    @media (max-width: 640px) {
+      align-self: center;
+    }
+  }
+}
+
+/* =========================================================
+   CONSOLA DEL MINIJUEGO VIBORITA (NOKIA 1100 MODERN)
+   ========================================================= */
+.game-console-card {
+  background: #0f172a;
+  border: 2px solid #334155;
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+
+  @media (max-width: 640px) {
+    padding: 1rem 0.75rem;
+    gap: 1.15rem;
+  }
+
+  .console-top-bar {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    border-bottom: 1px solid #1e293b;
+    padding-bottom: 1rem;
+
+    .console-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+
+      .brand-icon {
+        font-size: 28px;
+        width: 28px;
+        height: 28px;
+        color: #22c55e;
+      }
+
+      .brand-text {
+        display: flex;
+        flex-direction: column;
+
+        .brand-title {
+          font-family: monospace, system-ui;
+          font-size: 0.88rem;
+          font-weight: 800;
+          color: #f8fafc;
+          letter-spacing: 0.06em;
+        }
+
+        .brand-sub {
+          font-size: 0.68rem;
+          font-weight: 700;
+          color: #64748b;
+          letter-spacing: 0.08em;
+        }
+      }
+    }
+
+    .speed-selector-group {
+      display: flex;
+      gap: 0.35rem;
+
+      .speed-pill {
+        padding: 4px 10px;
+        border-radius: 14px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        background: #1e293b;
+        color: #94a3b8;
+        border: 1px solid #334155;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:hover {
+          color: #f8fafc;
+          border-color: #475569;
+        }
+
+        &.active {
+          background: #4b5896;
+          color: #ffffff;
+          border-color: #706cd6;
+          box-shadow: 0 0 8px rgba(112, 108, 214, 0.35);
+        }
+      }
+    }
+
+    .scores-and-sound {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+
+      .score-badge {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 3px 8px;
+        min-width: 58px;
+
+        .score-label {
+          font-size: 0.62rem;
+          font-weight: 700;
+          letter-spacing: 0.05em;
+          color: #94a3b8;
+        }
+
+        .score-val {
+          font-family: monospace;
+          font-size: 1.05rem;
+          font-weight: 800;
+          color: #22c55e;
+          font-variant-numeric: tabular-nums;
+        }
+
+        &.high {
+          .score-val {
+            color: #facc15;
+          }
+        }
+      }
+
+      .btn-sound-toggle {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        background: #1e293b;
+        border: 1px solid #334155;
+        color: #cbd5e1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:hover {
+          background: #334155;
+          color: #f8fafc;
+        }
+
+        mat-icon {
+          font-size: 19px;
+          width: 19px;
+          height: 19px;
+        }
+      }
+    }
+  }
+
+  /* MARCO BISELADO DE LA PANTALLA LCD / CANVAS */
+  .canvas-bezel-frame {
+    background: #020617;
+    border: 3px solid #1e293b;
+    border-radius: 12px;
+    padding: 8px;
+    box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.9), 0 0 12px rgba(34, 197, 94, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+    box-sizing: border-box;
+
+    .snake-canvas {
+      width: 440px;
+      height: 440px;
+      max-width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 6px;
+      display: block;
+      background: #0f172a;
+
+      @media (max-width: 480px) {
+        width: 320px;
+        height: 320px;
+      }
+    }
+  }
+
+  /* SECCIÓN DE CONTROLES INFERIOR */
+  .console-controls-section {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+
+    .action-buttons-row {
+      display: flex;
+      gap: 0.75rem;
+
+      .btn-game-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        background: #1e293b;
+        border: 1px solid #334155;
+        color: #f8fafc;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+        }
+
+        &:hover:not([disabled]) {
+          background: #334155;
+          border-color: #475569;
+        }
+
+        &.restart {
+          background: rgba(37, 99, 235, 0.2);
+          border-color: #2563eb;
+          color: #93c5fd;
+
+          &:hover {
+            background: #2563eb;
+            color: #ffffff;
+          }
+        }
+      }
+    }
+
+    /* D-PAD TÁCTIL RETRO-MODERNO */
+    .dpad-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+
+      .dpad-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+
+        &.middle {
+          gap: 6px;
+        }
+      }
+
+      .dpad-btn {
+        width: 52px;
+        height: 52px;
+        border-radius: 12px;
+        background: #1e293b;
+        border: 2px solid #334155;
+        color: #f8fafc;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+
+        mat-icon {
+          font-size: 30px;
+          width: 30px;
+          height: 30px;
+        }
+
+        &:active {
+          transform: translateY(2px);
+          background: #334155;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+        }
+
+        &.center-action {
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          background: #0f172a;
+          border-color: #22c55e;
+          color: #22c55e;
+
+          mat-icon {
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
+          }
+
+          &:active {
+            background: #22c55e;
+            color: #0f172a;
+          }
+        }
+      }
+    }
+
+    /* GUÍA DE TECLADO */
+    .keyboard-shortcuts-guide {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      font-size: 0.8rem;
+      color: #94a3b8;
+
+      .guide-title {
+        font-weight: 700;
+        color: #cbd5e1;
+      }
+
+      .keys-list {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+
+        .key-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+
+          kbd {
+            background: #1e293b;
+            border: 1px solid #475569;
+            border-bottom-width: 2px;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: #f8fafc;
+          }
+        }
+      }
+    }
+  }
+}
+
+@keyframes pulseAlert {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 14px rgba(220, 38, 38, 0.2);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 4px 20px rgba(220, 38, 38, 0.4);
+  }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* =========================================================
+   SOPORTE PARA MODO OSCURO (DARK MODE)
+   ========================================================= */
+:host-context(body.dark-mode) {
+  .movimientos-wrapper {
+    background: #1e293b;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  }
+
+  .offline-header {
+    border-color: #334155;
+
+    .status-texts {
+      .main-title {
+        color: #f8fafc;
+      }
+
+      .subtitle {
+        color: #94a3b8;
+      }
+    }
+
+    .connection-toast {
+      background: #0f172a;
+      border-color: #334155;
+      color: #e2e8f0;
+    }
+  }
+}

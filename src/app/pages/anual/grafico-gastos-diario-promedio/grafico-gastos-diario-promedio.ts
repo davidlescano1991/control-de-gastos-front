@@ -62,7 +62,8 @@ export class GraficoGastosDiarioPromedio implements OnInit, OnChanges {
         grid: { color: (ctx) => getGridColor(ctx) },
       },
       y: {
-        beginAtZero: false,
+        beginAtZero: true,
+        suggestedMin: 0,
         border: { display: true },
         grid: {
           color: (ctx) => getGridColor(ctx),

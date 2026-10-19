@@ -879,8 +879,6 @@ export class ProyeccionEntidadService {
     }
 
     const getColMesNum = (colMes: string, colAnio: number) => {
-      if (colMes.startsWith('Enero_')) return 13;
-      if (colMes.startsWith('Febrero_')) return 14;
       const idx = mesesDelAnio.indexOf(colMes);
       if (idx !== -1) {
         return (colAnio - anio) * 12 + (idx + 1);
@@ -1018,8 +1016,6 @@ export class ProyeccionEntidadService {
 
     const mesesDelAnio = this.storeGoogle.getMesesParaResumen(anio);
     const getColMesNum = (colMes: string, colAnio: number) => {
-      if (colMes.startsWith('Enero_')) return 13;
-      if (colMes.startsWith('Febrero_')) return 14;
       const idx = mesesDelAnio.indexOf(colMes);
       return idx !== -1 ? (colAnio - anio) * 12 + (idx + 1) : 0;
     };

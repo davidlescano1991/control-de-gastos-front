@@ -157,10 +157,6 @@ export class Anual implements OnInit, OnDestroy {
     'Octubre',
     'Noviembre',
     'Diciembre',
-    'Enero_2026',
-    'Febrero_2026',
-    'Marzo_2026',
-    'Abril_2026',
   ];
   totalesSaldoAnualesVisa = signal<
     {

@@ -1,0 +1,746 @@
+<app-selector-anio-delorean
+  [anios]="aniosDisponibles()"
+  [anioSeleccionado]="anioSeleccionado()"
+  (indiceCambiado)="seleccionarAnio($event)"
+></app-selector-anio-delorean>
+
+<div class="reportes-container">
+  <div class="movimientos-wrapper">
+    <!-- ENCABEZADO DE LA VISTA DE REPORTES -->
+    <header class="reportes-header">
+      <div class="header-main">
+        <div class="header-icon-container">
+          <mat-icon class="header-icon">query_stats</mat-icon>
+        </div>
+        <div class="header-text">
+          <div class="title-row">
+            <h1 class="main-title">Centro de Reportes Financieros</h1>
+            <span class="year-badge">Año {{ anioSeleccionado() }}</span>
+          </div>
+          <p class="subtitle">
+            Análisis consolidado, comparativas bimonetarias históricas y visualizaciones avanzadas.
+          </p>
+        </div>
+      </div>
+    </header>
+
+    <!-- BARRA DE SUBMENÚS / PESTAÑAS INTERACTIVAS -->
+    <nav class="submenus-nav">
+      <button
+        *ngFor="let tab of submenusVisibles()"
+        type="button"
+        class="submenu-tab-btn"
+        [class.active]="tabActiva() === tab.id"
+        [class.admin-tab]="tab.adminOnly"
+        (click)="cambiarTab(tab.id)"
+        [matTooltip]="tab.subtitulo"
+      >
+        <div class="tab-icon-box">
+          <mat-icon>{{ tab.icono }}</mat-icon>
+        </div>
+        <div class="tab-info">
+          <span class="tab-title">{{ tab.titulo }}</span>
+          <span class="tab-badge" [class.badge-admin]="tab.adminOnly">{{ tab.badge }}</span>
+        </div>
+      </button>
+    </nav>
+
+    <!-- SECCIÓN DE CONTENIDO SEGÚN SUBMENÚ SELECCIONADO -->
+    <div class="tab-content-area">
+      <!-- ========================================================
+           SUBMENÚ 1: EVOLUCIÓN DE SALDO (Saldo [Año])
+           ======================================================== -->
+      <section *ngIf="tabActiva() === 'saldo'" class="subcard-section animate-fade">
+        <div class="sub-card info-card">
+          <!-- CABECERA DEL MÓDULO DE SALDO -->
+          <div class="card-header-bar">
+            <div class="card-title-group">
+              <mat-icon class="card-icon blue">show_chart</mat-icon>
+              <div>
+                <h2>Evolución de Saldos (Saldo {{ anioSeleccionado() }})</h2>
+                <p class="card-description">
+                  Gráficos analíticos de evolución de saldos en pesos ($), dólares (USD) y deuda acumulada en el tiempo.
+                </p>
+              </div>
+            </div>
+
+            <div class="header-right-actions">
+              <span class="origen-badge" *ngIf="reporteSaldo() as rep">
+                <mat-icon class="badge-icon">{{ rep.origen === 'SHEETS' ? 'table_view' : 'storage' }}</mat-icon>
+                <span>{{ rep.origen === 'SHEETS' ? '* Información obtenida desde la hoja ' + rep.hoja : '* Información obtenida desde la BD' }}</span>
+              </span>
+
+              <button
+                mat-stroked-button
+                class="btn-refrescar"
+                (click)="cargarReporteSaldo(true)"
+                [disabled]="isLoadingSaldo()"
+                title="Recargar datos de saldo"
+              >
+                <mat-icon [class.spin]="isLoadingSaldo()">refresh</mat-icon>
+                <span>Actualizar</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <!-- TARJETAS EJECUTIVAS KPI DE SALDO -->
+            <div class="kpi-saldo-grid">
+              <!-- KPI 1: ÚLTIMO SALDO PESOS -->
+              <div
+                class="kpi-saldo-card"
+                [class.kpi-negativo]="metricsFiltradas().ultimoSaldoPesos < 0"
+                [matTooltip]="'Saldo disponible registrado al cierre más reciente (' + (metricsFiltradas().fechaUltimo || 'N/A') + '). Refleja la liquidez neta en caja y cuentas bancarias en pesos.'"
+                matTooltipPosition="above"
+              >
+                <div class="kpi-card-header">
+                  <span class="kpi-label">Último Saldo en Pesos</span>
+                  <mat-icon class="kpi-icon blue" *ngIf="metricsFiltradas().ultimoSaldoPesos >= 0">trending_up</mat-icon>
+                  <mat-icon class="kpi-icon red" *ngIf="metricsFiltradas().ultimoSaldoPesos < 0">trending_down</mat-icon>
+                </div>
+                <div class="kpi-value-row">
+                  <span class="kpi-amount" [class.text-negativo]="metricsFiltradas().ultimoSaldoPesos < 0">
+                    {{ formatearMoneda(metricsFiltradas().ultimoSaldoPesos, 'ARS') }}
+                  </span>
+                  <span
+                    class="kpi-pill"
+                    [class.pill-positive]="metricsFiltradas().ultimoSaldoPesos >= 0"
+                    [class.pill-negative]="metricsFiltradas().ultimoSaldoPesos < 0"
+                    [matTooltip]="metricsFiltradas().ultimoSaldoPesos >= 0 ? 'Posición positiva: Tienes fondos a favor disponibles en cuenta.' : 'Alerta: Saldo negativo o descubierto en cuenta bancaria.'"
+                  >
+                    {{ metricsFiltradas().ultimoSaldoPesos >= 0 ? 'A Favor' : 'En Descubierto' }}
+                  </span>
+                </div>
+                <span class="kpi-subtext" *ngIf="metricsFiltradas().fechaUltimo">Cierre registrado el {{ metricsFiltradas().fechaUltimo }}</span>
+                <span class="kpi-subtext" *ngIf="!metricsFiltradas().fechaUltimo">Saldo disponible más reciente</span>
+              </div>
+
+              <!-- KPI 2: ÚLTIMO SALDO USD -->
+              <div
+                class="kpi-saldo-card"
+                [matTooltip]="'Saldo en dólares físicos o colocaciones en moneda extranjera al ' + (metricsFiltradas().fechaUltimo || 'N/A') + '. Reserva monetaria acumulada para protección contra devaluación.'"
+                matTooltipPosition="above"
+              >
+                <div class="kpi-card-header">
+                  <span class="kpi-label">Último Saldo en Dólares</span>
+                  <mat-icon class="kpi-icon emerald">attach_money</mat-icon>
+                </div>
+                <div class="kpi-value-row">
+                  <span class="kpi-amount text-emerald">
+                    {{ formatearMoneda(metricsFiltradas().ultimoSaldoUSD, 'USD') }}
+                  </span>
+                  <span class="kpi-pill pill-emerald" matTooltip="Tenencias en moneda extranjera billete">USD</span>
+                </div>
+                <span class="kpi-subtext" *ngIf="metricsFiltradas().fechaUltimo">Cierre registrado el {{ metricsFiltradas().fechaUltimo }}</span>
+                <span class="kpi-subtext" *ngIf="!metricsFiltradas().fechaUltimo">Moneda extranjera equivalente</span>
+              </div>
+
+              <!-- KPI 3: RANGO ANUAL DE VOLATILIDAD -->
+              <div
+                class="kpi-saldo-card"
+                [matTooltip]="'Rango de fluctuación del período: Saldo pico máximo de ' + formatearMoneda(metricsFiltradas().saldoMaxPesos, 'ARS') + ' alcanzado el ' + metricsFiltradas().fechaMaxPesos + ', y piso mínimo de ' + formatearMoneda(metricsFiltradas().saldoMinPesos, 'ARS') + ' registrado el ' + metricsFiltradas().fechaMinPesos + '.'"
+                matTooltipPosition="above"
+              >
+                <div class="kpi-card-header">
+                  <span class="kpi-label">Rango Anual de Volatilidad</span>
+                  <mat-icon class="kpi-icon indigo">swap_vert</mat-icon>
+                </div>
+                <div class="kpi-rango-details">
+                  <div
+                    class="rango-item"
+                    [matTooltip]="'Saldo máximo pico alcanzado el día ' + metricsFiltradas().fechaMaxPesos"
+                    matTooltipPosition="left"
+                  >
+                    <span class="rango-sublabel">Máximo:</span>
+                    <div class="rango-val-with-date">
+                      <span class="rango-subval text-emerald">{{ formatearMoneda(metricsFiltradas().saldoMaxPesos, 'ARS') }}</span>
+                      <span class="rango-fecha-tag" *ngIf="metricsFiltradas().fechaMaxPesos">{{ metricsFiltradas().fechaMaxPesos }}</span>
+                    </div>
+                  </div>
+                  <div
+                    class="rango-item"
+                    [matTooltip]="'Saldo mínimo registrado el día ' + metricsFiltradas().fechaMinPesos"
+                    matTooltipPosition="left"
+                  >
+                    <span class="rango-sublabel">Mínimo:</span>
+                    <div class="rango-val-with-date">
+                      <span class="rango-subval text-negativo">{{ formatearMoneda(metricsFiltradas().saldoMinPesos, 'ARS') }}</span>
+                      <span class="rango-fecha-tag" *ngIf="metricsFiltradas().fechaMinPesos">{{ metricsFiltradas().fechaMinPesos }}</span>
+                    </div>
+                  </div>
+                </div>
+                <span class="kpi-subtext">Límites registrados en el período</span>
+              </div>
+
+              <!-- KPI 4: DEUDA REGISTRADA ACTUAL -->
+              <div
+                class="kpi-saldo-card"
+                [matTooltip]="'Total de deudas acumuladas en tarjetas de crédito, préstamos y compromisos pendientes de pago al ' + (metricsFiltradas().fechaUltimo || 'N/A') + '.'"
+                matTooltipPosition="above"
+              >
+                <div class="kpi-card-header">
+                  <span class="kpi-label">Deuda Consolidada Actual</span>
+                  <mat-icon class="kpi-icon coral">credit_card</mat-icon>
+                </div>
+                <div class="kpi-value-row">
+                  <span class="kpi-amount text-coral">
+                    {{ formatearMoneda(metricsFiltradas().ultimaDeuda, 'ARS') }}
+                  </span>
+                  <span class="kpi-pill pill-coral" matTooltip="Pasivos exigibles pendientes de cancelación">Compromiso</span>
+                </div>
+                <span class="kpi-subtext">Tarjetas y préstamos acumulados</span>
+              </div>
+            </div>
+
+            <!-- BARRA DE CONTROLES: SELECTOR DE SERIE Y FILTRO DE MESES -->
+            <div class="controles-grafico-bar">
+              <!-- SELECTOR DE SERIE ACTIVA -->
+              <div class="series-pills-group">
+                <button
+                  type="button"
+                  class="pill-btn"
+                  [class.active]="serieActiva() === 'pesos'"
+                  (click)="cambiarSerie('pesos')"
+                  matTooltip="Ver la curva continua de saldo en pesos argentinos con proyección de tendencia lineal"
+                >
+                  <mat-icon>show_chart</mat-icon>
+                  <span>Saldo en Pesos ($)</span>
+                </button>
+                <button
+                  type="button"
+                  class="pill-btn"
+                  [class.active]="serieActiva() === 'usd'"
+                  (click)="cambiarSerie('usd')"
+                  matTooltip="Ver la evolución del saldo ahorrado en dólares estadounidenses"
+                >
+                  <mat-icon>attach_money</mat-icon>
+                  <span>Saldo en Dólares (USD)</span>
+                </button>
+                <button
+                  type="button"
+                  class="pill-btn"
+                  [class.active]="serieActiva() === 'deuda'"
+                  (click)="cambiarSerie('deuda')"
+                  matTooltip="Ver la trayectoria de tus pasivos acumulados y compromisos financieros"
+                >
+                  <mat-icon>trending_down</mat-icon>
+                  <span>Deuda ($)</span>
+                </button>
+                <button
+                  type="button"
+                  class="pill-btn"
+                  [class.active]="serieActiva() === 'comparativa'"
+                  (click)="cambiarSerie('comparativa')"
+                  matTooltip="Comparativa simultánea de saldo en pesos vs deuda registrada para evaluar solvencia neta"
+                >
+                  <mat-icon>compare_arrows</mat-icon>
+                  <span>Saldo vs Deuda</span>
+                </button>
+              </div>
+
+              <!-- FILTRO RÁPIDO POR MES -->
+              <div class="meses-chips-wrapper" *ngIf="reporteSaldo()?.mesesDisponibles?.length">
+                <span class="meses-label">Filtrar mes:</span>
+                <div class="meses-chips-list">
+                  <button
+                    type="button"
+                    class="chip-mes"
+                    [class.active]="mesFiltro() === 'TODOS'"
+                    (click)="filtrarPorMes('TODOS')"
+                    matTooltip="Visualizar el historial completo de los 12 meses del ejercicio"
+                  >
+                    Todo el Año
+                  </button>
+                  <button
+                    *ngFor="let mes of reporteSaldo()?.mesesDisponibles"
+                    type="button"
+                    class="chip-mes"
+                    [class.active]="mesFiltro() === mes"
+                    (click)="filtrarPorMes(mes)"
+                    [matTooltip]="mes === 'Mes actual' ? 'Filtrar visualización exclusivamente para el Mes actual en curso' : 'Filtrar visualización exclusivamente para el mes de ' + mes"
+                  >
+                    {{ mes }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- CONTENEDOR DEL GRÁFICO PRINCIPAL -->
+            <div class="chart-canvas-container">
+              <!-- SPINNER DE CARGA -->
+              <div class="chart-loading-overlay" *ngIf="isLoadingSaldo()">
+                <mat-spinner diameter="46"></mat-spinner>
+                <p>Cargando evolución de saldo de {{ anioSeleccionado() }}...</p>
+              </div>
+
+              <!-- ESTADO VACÍO -->
+              <div
+                class="chart-empty-state"
+                *ngIf="!isLoadingSaldo() && puntosFiltrados().length === 0"
+              >
+                <mat-icon class="empty-icon">insert_chart_outlined</mat-icon>
+                <p>No se encontraron registros de saldo para el período seleccionado.</p>
+              </div>
+
+              <!-- CANVAS DE CHART.JS -->
+              <div
+                class="canvas-wrapper"
+                *ngIf="isBrowser && puntosFiltrados().length > 0"
+              >
+                <canvas
+                  baseChart
+                  [data]="chartData"
+                  [options]="chartOptions"
+                  [type]="'line'"
+                ></canvas>
+              </div>
+            </div>
+
+            <!-- PIE DE RESUMEN EJECUTIVO -->
+            <div class="chart-footer-metrics" *ngIf="puntosFiltrados().length > 0">
+              <div class="footer-metric-item" matTooltip="Cantidad total de mediciones y puntos computados en el gráfico">
+                <mat-icon>calendar_today</mat-icon>
+                <span><strong>{{ metricsFiltradas().totalPuntos }}</strong> días registrados</span>
+              </div>
+              <div class="footer-metric-divider"></div>
+              <div class="footer-metric-item" matTooltip="Promedio aritmético del saldo diario en pesos durante este período">
+                <mat-icon>functions</mat-icon>
+                <span>Promedio diario: <strong>{{ formatearMoneda(metricsFiltradas().promedioSaldoPesos, 'ARS') }}</strong></span>
+              </div>
+              <div class="footer-metric-divider"></div>
+              <div
+                class="footer-metric-item"
+                [matTooltip]="'Diferencia neta entre el saldo del primer día registrado (' + metricsFiltradas().fechaPrimero + ') y el último día (' + metricsFiltradas().fechaUltimo + ')'"
+              >
+                <mat-icon [class.text-emerald]="metricsFiltradas().variacionPeriodoPesos >= 0" [class.text-negativo]="metricsFiltradas().variacionPeriodoPesos < 0">
+                  {{ metricsFiltradas().variacionPeriodoPesos >= 0 ? 'arrow_upward' : 'arrow_downward' }}
+                </mat-icon>
+                <span>Variación del período: 
+                  <strong [class.text-emerald]="metricsFiltradas().variacionPeriodoPesos >= 0" [class.text-negativo]="metricsFiltradas().variacionPeriodoPesos < 0">
+                    {{ formatearMoneda(metricsFiltradas().variacionPeriodoPesos, 'ARS') }}
+                  </strong>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           SUBMENÚ 2: CORTES BIMONETARIOS (Saldo!K47:R60)
+           ======================================================== -->
+      <!-- ========================================================
+           SUBMENÚ 2: CORTES BIMONETARIOS (Saldo!K47:R60)
+           ======================================================== -->
+      <section *ngIf="tabActiva() === 'bimonetario'" class="subcard-section animate-fade">
+        <div class="sub-card info-card">
+          <!-- CABECERA DEL SUBMENÚ -->
+          <div class="card-header-bar">
+            <div class="card-title-group">
+              <mat-icon class="card-icon emerald">currency_exchange</mat-icon>
+              <div>
+                <h2>Tabla de Cortes Bimonetarios y Variación ($ / U$)</h2>
+                <p class="card-description">
+                  Historial periódico de control de saldos bimonetarios, paridad cambiaria de corte y variaciones respecto al ejercicio.
+                </p>
+              </div>
+            </div>
+
+            <div class="header-right-actions">
+              <span class="origen-badge" *ngIf="reporteCortes() as repCortes">
+                <mat-icon class="badge-icon">{{ repCortes.origen === 'SHEETS' ? 'table_view' : 'storage' }}</mat-icon>
+                <span>{{ repCortes.origen === 'SHEETS' ? '* Información obtenida desde la hoja ' + repCortes.hoja : '* Información obtenida desde la BD' }}</span>
+              </span>
+
+              <button
+                mat-stroked-button
+                class="btn-refrescar"
+                (click)="cargarReporteCortes(true)"
+                [disabled]="isLoadingCortes()"
+                title="Recargar cortes bimonetarios"
+              >
+                <mat-icon [class.spin]="isLoadingCortes()">refresh</mat-icon>
+                <span>Actualizar</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <!-- SPINNER DE CARGA -->
+            <div *ngIf="isLoadingCortes()" class="loading-state-container">
+              <mat-spinner diameter="44"></mat-spinner>
+              <p>Consultando cortes bimonetarios de {{ anioSeleccionado() }}...</p>
+            </div>
+
+            <!-- ESTADO VACÍO SI NO HAY CORTES -->
+            <div
+              *ngIf="!isLoadingCortes() && (!reporteCortes() || !reporteCortes()?.cortes?.length)"
+              class="empty-state-card"
+            >
+              <mat-icon class="empty-icon">search_off</mat-icon>
+              <h3>Sin registros de cortes bimonetarios</h3>
+              <p>No se encontraron filas de corte bimonetario para el año {{ anioSeleccionado() }}.</p>
+              <button type="button" class="btn-recargar" (click)="cargarReporteCortes(true)">
+                <mat-icon>refresh</mat-icon>
+                <span>Reintentar</span>
+              </button>
+            </div>
+
+            <!-- CONTENIDO PRINCIPAL CUANDO HAY DATOS -->
+            <div *ngIf="!isLoadingCortes() && reporteCortes()?.cortes?.length" class="reporte-content-wrapper">
+              <!-- GRID DE 4 TARJETAS KPI EJECUTIVAS -->
+              <div class="kpi-saldo-grid">
+                <!-- KPI 1: TOTAL SALDO U$S ACTUAL -->
+                <div
+                  class="kpi-saldo-card highlight-border-emerald"
+                  [matTooltip]="'Patrimonio bimonetario unificado al corte del ' + (reporteCortes()?.metrics?.ultimoCorte?.fecha || '') + '. Suma los dólares billete más los pesos convertidos a la cotización de corte.'"
+                  matTooltipPosition="above"
+                >
+                  <div class="kpi-card-header">
+                    <span class="kpi-label">Total Saldo U$S (Último Corte)</span>
+                    <mat-icon class="kpi-icon emerald">savings</mat-icon>
+                  </div>
+                  <div class="kpi-value-row">
+                    <span class="kpi-amount text-emerald">
+                      {{ formatearMoneda(reporteCortes()?.metrics?.ultimoCorte?.totalSaldoUSD, 'USD') }}
+                    </span>
+                    <span class="kpi-pill pill-positive" matTooltip="Valor patrimonial neto expresado en moneda dura (USD)">
+                      Patrimonio U$S
+                    </span>
+                  </div>
+                  <span class="kpi-subtext">Saldo billete + $ convertidos a dólares</span>
+                </div>
+
+                <!-- KPI 2: SALDO EN PESOS AL CORTE -->
+                <div
+                  class="kpi-saldo-card"
+                  [class.kpi-negativo]="(reporteCortes()?.metrics?.ultimoCorte?.saldoPesos || 0) < 0"
+                  [matTooltip]="'Saldo líquido en pesos argentinos registrado en el último corte periódico (' + (reporteCortes()?.metrics?.ultimoCorte?.fecha || '') + ').'"
+                  matTooltipPosition="above"
+                >
+                  <div class="kpi-card-header">
+                    <span class="kpi-label">Saldo en Pesos al Corte</span>
+                    <mat-icon class="kpi-icon blue">payments</mat-icon>
+                  </div>
+                  <div class="kpi-value-row">
+                    <span
+                      class="kpi-amount"
+                      [class.text-negativo]="(reporteCortes()?.metrics?.ultimoCorte?.saldoPesos || 0) < 0"
+                    >
+                      {{ formatearMoneda(reporteCortes()?.metrics?.ultimoCorte?.saldoPesos, 'ARS') }}
+                    </span>
+                    <span
+                      class="kpi-pill"
+                      [class.pill-positive]="(reporteCortes()?.metrics?.ultimoCorte?.saldoPesos || 0) >= 0"
+                      [class.pill-negative]="(reporteCortes()?.metrics?.ultimoCorte?.saldoPesos || 0) < 0"
+                      [matTooltip]="(reporteCortes()?.metrics?.ultimoCorte?.saldoPesos || 0) >= 0 ? 'Fondo disponible positivo' : 'Posición en descubierto bancario al corte'"
+                    >
+                      {{ (reporteCortes()?.metrics?.ultimoCorte?.saldoPesos || 0) >= 0 ? 'A Favor' : 'En Descubierto' }}
+                    </span>
+                  </div>
+                  <span class="kpi-subtext">Cuentas y bancos en moneda nacional</span>
+                </div>
+
+                <!-- KPI 3: DEUDA REGISTRADA AL CORTE -->
+                <div
+                  class="kpi-saldo-card"
+                  [matTooltip]="'Pasivos financieros exigibles, deudas de tarjetas y préstamos registrados al último corte.'"
+                  matTooltipPosition="above"
+                >
+                  <div class="kpi-card-header">
+                    <span class="kpi-label">Deuda Consolidada al Corte</span>
+                    <mat-icon class="kpi-icon coral">account_balance_wallet</mat-icon>
+                  </div>
+                  <div class="kpi-value-row">
+                    <span class="kpi-amount text-coral">
+                      {{ formatearMoneda(reporteCortes()?.metrics?.deudaActual, 'ARS') }}
+                    </span>
+                    <span class="kpi-pill pill-coral" matTooltip="Compromisos y pasivos a cancelar">Compromiso</span>
+                  </div>
+                  <span class="kpi-subtext">Tarjetas y préstamos vigentes</span>
+                </div>
+
+                <!-- KPI 4: VARIACIÓN ACUMULADA DEL EJERCICIO -->
+                <div
+                  class="kpi-saldo-card"
+                  [matTooltip]="'Variación acumulada neta de tu patrimonio en dólares respecto al corte de apertura del período: ' + formatearMoneda(reporteCortes()?.metrics?.variacionAcumuladaUSD, 'USD') + ' (' + formatearMoneda(reporteCortes()?.metrics?.variacionAcumuladaPesos, 'ARS') + ').'"
+                  matTooltipPosition="above"
+                >
+                  <div class="kpi-card-header">
+                    <span class="kpi-label">Variación Neta Acumulada</span>
+                    <mat-icon class="kpi-icon indigo">currency_exchange</mat-icon>
+                  </div>
+                  <div class="kpi-value-row">
+                    <span
+                      class="kpi-amount"
+                      [class.text-emerald]="(reporteCortes()?.metrics?.variacionAcumuladaUSD || 0) >= 0"
+                      [class.text-negativo]="(reporteCortes()?.metrics?.variacionAcumuladaUSD || 0) < 0"
+                    >
+                      {{ formatearMoneda(reporteCortes()?.metrics?.variacionAcumuladaUSD, 'USD') }}
+                    </span>
+                    <span
+                      class="kpi-pill"
+                      [class.pill-positive]="(reporteCortes()?.metrics?.variacionAcumuladaUSD || 0) >= 0"
+                      [class.pill-negative]="(reporteCortes()?.metrics?.variacionAcumuladaUSD || 0) < 0"
+                    >
+                      {{ (reporteCortes()?.metrics?.variacionAcumuladaUSD || 0) >= 0 ? '↑ Crecimiento' : '↓ Reducción' }}
+                    </span>
+                  </div>
+                  <span class="kpi-subtext">
+                    En pesos: {{ formatearMoneda(reporteCortes()?.metrics?.variacionAcumuladaPesos, 'ARS') }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- BARRA DE CONTROLES: SELECTOR DE SERIE BIMONETARIA -->
+              <div class="controles-grafico-bar">
+                <div class="series-pills-group">
+                  <button
+                    type="button"
+                    class="pill-btn"
+                    [class.active]="serieBimonetariaActiva() === 'totalUSD'"
+                    (click)="cambiarSerieBimonetaria('totalUSD')"
+                    matTooltip="Visualizar la curva histórica del patrimonio total unificado en dólares"
+                  >
+                    <mat-icon>savings</mat-icon>
+                    <span>Total Saldo U$S</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="pill-btn"
+                    [class.active]="serieBimonetariaActiva() === 'saldoDeuda'"
+                    (click)="cambiarSerieBimonetaria('saldoDeuda')"
+                    matTooltip="Comparar simultáneamente el saldo disponible en pesos vs la deuda acumulada"
+                  >
+                    <mat-icon>compare_arrows</mat-icon>
+                    <span>Saldo $ vs Deuda $</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="pill-btn"
+                    [class.active]="serieBimonetariaActiva() === 'variaciones'"
+                    (click)="cambiarSerieBimonetaria('variaciones')"
+                    matTooltip="Gráfico de barras que resalta el avance (verde) o retroceso (rojo) patrimonial en dólares"
+                  >
+                    <mat-icon>bar_chart</mat-icon>
+                    <span>Variación U$S</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="pill-btn"
+                    [class.active]="serieBimonetariaActiva() === 'integral'"
+                    (click)="cambiarSerieBimonetaria('integral')"
+                    matTooltip="Perspectiva integral consolidada de dólares, pesos y deudas en un solo gráfico"
+                  >
+                    <mat-icon>multiline_chart</mat-icon>
+                    <span>Vista Integral</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- CONTENEDOR DEL GRÁFICO ASOCIADO -->
+              <div class="chart-canvas-container">
+                <canvas
+                  baseChart
+                  [data]="chartDataBimonetario"
+                  [options]="chartOptionsBimonetario"
+                  type="line"
+                ></canvas>
+              </div>
+
+              <!-- TABLA DETALLADA DE CORTES BIMONETARIOS (Saldo!K47:R60) -->
+              <div class="tabla-cortes-card">
+                <div class="tabla-cortes-header">
+                  <div class="tabla-title-box">
+                    <mat-icon class="tabla-title-icon emerald">table_chart</mat-icon>
+                    <div>
+                      <h3 class="tabla-title">Planilla de Cortes Bimonetarios (Saldo!K47:R60)</h3>
+                      <p class="tabla-sub">Cortes periódicos de saldo, paridad cambiaria y fluctuaciones</p>
+                    </div>
+                  </div>
+                  <span class="tabla-badge-count">{{ reporteCortes()?.cortes?.length }} Registros</span>
+                </div>
+
+                <div class="table-responsive">
+                  <table class="cortes-table">
+                    <thead>
+                      <tr>
+                        <th class="th-num" matTooltip="Número correlativo de corte">#</th>
+                        <th class="th-fecha" matTooltip="Fecha exacta del balance o arqueo de corte">Fecha</th>
+                        <th class="th-mes" matTooltip="Período mensual de referencia">Período / Mes</th>
+                        <th class="th-moneda" matTooltip="Disponibilidad líquida en pesos argentinos a la fecha de corte">Saldo ($)</th>
+                        <th class="th-moneda" matTooltip="Dólares estadounidenses físicos o colocados">Saldo (U$)</th>
+                        <th class="th-moneda" matTooltip="Equivalente en dólares del saldo en pesos a la cotización oficial de corte">Saldo $ a U$</th>
+                        <th class="th-total-usd" matTooltip="Patrimonio total bimonetario unificado en dólares (Saldo U$ + Saldo $ a U$)">Total Saldo (U$)</th>
+                        <th class="th-deuda" matTooltip="Pasivos financieros y compromisos de pago registrados en el corte">Deuda / Bitcoin ($)</th>
+                        <th class="th-var" matTooltip="Variación neta en pesos respecto al corte de referencia">Variación ($)</th>
+                        <th class="th-var" matTooltip="Variación patrimonial en dólares respecto al corte de referencia">Variación (U$)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let c of reporteCortes()?.cortes; let i = index">
+                        <td class="td-num">{{ i + 1 }}</td>
+                        <td class="td-fecha">
+                          <span class="fecha-chip">
+                            <mat-icon>event</mat-icon>
+                            {{ c.fecha }}
+                          </span>
+                        </td>
+                        <td class="td-mes">
+                          <span class="mes-name">{{ c.mes }}</span>
+                        </td>
+                        <td class="td-moneda" [class.val-pos]="c.saldoPesos >= 0" [class.val-neg]="c.saldoPesos < 0">
+                          {{ formatearMoneda(c.saldoPesos, 'ARS') }}
+                        </td>
+                        <td class="td-moneda">
+                          {{ formatearMoneda(c.saldoUSD, 'USD') }}
+                        </td>
+                        <td class="td-moneda">
+                          {{ formatearMoneda(c.saldoPesosUSD, 'USD') }}
+                        </td>
+                        <td class="td-total-usd">
+                          <span class="total-usd-pill" [class.pos]="c.totalSaldoUSD >= 0" [class.neg]="c.totalSaldoUSD < 0">
+                            {{ formatearMoneda(c.totalSaldoUSD, 'USD') }}
+                          </span>
+                        </td>
+                        <td class="td-deuda">
+                          <span class="deuda-val">{{ formatearMoneda(c.deuda, 'ARS') }}</span>
+                        </td>
+                        <td class="td-var">
+                          <span class="var-badge" [class.pos]="c.variacionPesos >= 0" [class.neg]="c.variacionPesos < 0">
+                            <mat-icon>{{ c.variacionPesos >= 0 ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                            {{ formatearMoneda(c.variacionPesos, 'ARS') }}
+                          </span>
+                        </td>
+                        <td class="td-var">
+                          <span class="var-badge" [class.pos]="c.variacionUSD >= 0" [class.neg]="c.variacionUSD < 0">
+                            <mat-icon>{{ c.variacionUSD >= 0 ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+                            {{ formatearMoneda(c.variacionUSD, 'USD') }}
+                          </span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           SUBMENÚ 3: ANÁLISIS ANUAL (Saldos, Gastos Rojo/Azul y Préstamos)
+           ======================================================== -->
+      <section *ngIf="tabActiva() === 'anual'" class="subcard-section animate-fade">
+        <div class="sub-card info-card">
+          <div class="card-header-bar">
+            <div class="card-title-group">
+              <mat-icon class="card-icon indigo">insights</mat-icon>
+              <div>
+                <h2>Análisis Anual Reorganizado</h2>
+                <p class="card-description">
+                  Saldos anuales trasladados, gastos con coloración condicional rojo/azul y compromisos de préstamos.
+                </p>
+              </div>
+            </div>
+            <span class="status-pill status-ready">Subpaso 6.17.4</span>
+          </div>
+
+          <div class="card-body">
+            <div class="preview-metrics-grid">
+              <div class="metric-box">
+                <mat-icon class="metric-icon red">trending_up</mat-icon>
+                <div class="metric-details">
+                  <span class="metric-label">Gasto en Aumento (Rojo)</span>
+                  <span class="metric-status">Alerta cuando Gasto Mes > Mes Anterior</span>
+                </div>
+              </div>
+              <div class="metric-box">
+                <mat-icon class="metric-icon blue">trending_down</mat-icon>
+                <div class="metric-details">
+                  <span class="metric-label">Gasto en Descenso (Azul)</span>
+                  <span class="metric-status">Óptimo cuando Gasto Mes &le; Mes Anterior</span>
+                </div>
+              </div>
+              <div class="metric-box">
+                <mat-icon class="metric-icon purple">account_balance</mat-icon>
+                <div class="metric-details">
+                  <span class="metric-label">Préstamos Mensuales</span>
+                  <span class="metric-status">Amortizaciones y cuotas por mes</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="placeholder-container">
+              <div class="placeholder-graphic">
+                <mat-icon class="big-icon pulse indigo">bar_chart</mat-icon>
+                <h3>Análisis Anual Visual Desacoplado</h3>
+                <p>
+                  En el subpaso 6.17.4 se incorporará el gráfico condicional rojo/azul de gastos mes a mes
+                  y el gráfico de desembolsos y cuotas de préstamos anuales.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           SUBMENÚ 4: CONSULTAS Y REPORTES DINÁMICOS (Solo Admin)
+           ======================================================== -->
+      <section *ngIf="tabActiva() === 'dinamico'" class="subcard-section animate-fade">
+        <div class="sub-card info-card admin-border">
+          <div class="card-header-bar">
+            <div class="card-title-group">
+              <mat-icon class="card-icon violet">manage_search</mat-icon>
+              <div>
+                <h2>Explorador Analítico Multicriterio (Exclusivo Administradores)</h2>
+                <p class="card-description">
+                  Motor de consultas dinámicas sin SQL: filtra por fechas, entidades múltiples, montos y tipos.
+                </p>
+              </div>
+            </div>
+            <span class="status-pill status-admin">Fase 6.18</span>
+          </div>
+
+          <div class="card-body">
+            <div class="preview-metrics-grid">
+              <div class="metric-box">
+                <mat-icon class="metric-icon violet">filter_alt</mat-icon>
+                <div class="metric-details">
+                  <span class="metric-label">Filtros Cruzados</span>
+                  <span class="metric-status">Entidades, fechas, estados y montos</span>
+                </div>
+              </div>
+              <div class="metric-box">
+                <mat-icon class="metric-icon violet">pie_chart</mat-icon>
+                <div class="metric-details">
+                  <span class="metric-label">Gráficos Automáticos</span>
+                  <span class="metric-status">Barras, donas o series temporales al vuelo</span>
+                </div>
+              </div>
+              <div class="metric-box">
+                <mat-icon class="metric-icon violet">table_view</mat-icon>
+                <div class="metric-details">
+                  <span class="metric-label">Grilla de Resultados</span>
+                  <span class="metric-status">Totales consolidados y métricas KPI</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="placeholder-container">
+              <div class="placeholder-graphic">
+                <mat-icon class="big-icon pulse violet">manage_search</mat-icon>
+                <h3>Generador de Consultas y Reportes Dinámicos</h3>
+                <p>
+                  Protegido por verificación de rol ADMIN. Permitirá seleccionar entidades, períodos y conceptos
+                  generando gráficos y tablas en vivo con agregaciones en base de datos.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>

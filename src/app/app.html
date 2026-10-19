@@ -1,4 +1,16 @@
 <div class="app-shell">
+  <!-- BANNER GLOBAL REACTIVO DE AVISO SIN CONEXIÓN -->
+  <aside class="offline-global-banner" *ngIf="!connectivityService.isOnline()">
+    <div class="banner-content">
+      <mat-icon class="pulse-icon">wifi_off</mat-icon>
+      <span class="banner-text">Has perdido la conexión a Internet. ¡Puedes jugar a la Viborita mientras esperas!</span>
+      <button mat-button class="btn-play-snake" routerLink="/offline">
+        <mat-icon>sports_esports</mat-icon>
+        <span>Jugar Viborita</span>
+      </button>
+    </div>
+  </aside>
+
   <mat-toolbar color="primary">
     <!-- Brand / Título -->
     <span class="titulo-toolbar" [routerLink]="authService.isAuthenticated() ? '/' : '/login'" title="Control de Gastos">
@@ -27,6 +39,7 @@
         <button mat-button routerLink="/mensual">Mensual</button>
         <button mat-button routerLink="/estimativo">Estimativos</button>
         <button mat-button routerLink="/anual">Anual</button>
+        <button mat-button routerLink="/reportes">Reportes</button>
 
         <!-- Dropdown Configuración exclusivo para administradores con apertura al hacer hover -->
         <span class="dropdown-hover-wrapper" *ngIf="authService.isAdmin()" (mouseenter)="menuConfigTrigger.openMenu()">
@@ -116,6 +129,10 @@
           <button mat-menu-item routerLink="/anual">
             <mat-icon color="primary">date_range</mat-icon>
             <span>Anual</span>
+          </button>
+          <button mat-menu-item routerLink="/reportes">
+            <mat-icon color="primary">query_stats</mat-icon>
+            <span>Reportes</span>
           </button>
 
           <!-- Sección Configuración (Solo ADMIN) en Móvil -->

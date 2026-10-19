@@ -4,6 +4,78 @@
   flex-direction: column;
 }
 
+/* =========================================================
+   BANNER GLOBAL REACTIVO DE AVISO SIN CONEXIÓN
+   ========================================================= */
+.offline-global-banner {
+  background: linear-gradient(90deg, #dc2626 0%, #b91c1c 100%);
+  color: #ffffff;
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.88rem;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.35);
+  z-index: 1000;
+  animation: slideDownBanner 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  .banner-content {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+    justify-content: center;
+
+    .pulse-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      animation: pulseAlert 1.8s infinite ease-in-out;
+    }
+
+    .banner-text {
+      letter-spacing: 0.01em;
+    }
+
+    .btn-play-snake {
+      background: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 0 10px;
+      height: 28px;
+      line-height: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      transition: all 0.2s ease;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        margin-right: 4px;
+      }
+
+      &:hover {
+        background: #ffffff;
+        color: #b91c1c;
+      }
+    }
+  }
+}
+
+@keyframes slideDownBanner {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 .app-content {
   flex: 1 1 auto;
 }

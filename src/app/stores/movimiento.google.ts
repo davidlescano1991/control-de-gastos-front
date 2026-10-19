@@ -123,8 +123,6 @@ export const todosLosMeses = [
   'Octubre',
   'Noviembre',
   'Diciembre',
-  'Enero_2026',
-  'Febrero_2026',
 ];
 
 /**
@@ -414,14 +412,7 @@ export class MovimientosStoreGoogle {
    * Devuelve la lista de meses aplicable para un año (incorporando extensiones configuradas).
    */
   getMesesParaResumen(anio: number): string[] {
-    const base = this.base;
-    try {
-      return this.appConfig.getMesesForYear
-        ? this.appConfig.getMesesForYear(anio, base)
-        : [...base, ...(this.appConfig.raw?.mesesExtraPorAnio?.[String(anio)] ?? [])];
-    } catch {
-      return base;
-    }
+    return this.base;
   }
 
   /**

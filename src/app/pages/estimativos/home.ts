@@ -135,11 +135,6 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   //this.meses.set(this.storeGoogle.getMesesParaResumen(this.anioSeleccionado))
   meses = signal<string[]>([]);
   private appConfig = inject(AppConfigService);
-  /* meses = [
-    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-    'Enero_2026', 'Febrero_2026', 'Marzo_2026', 'Abril_2026'
-  ]; */
   anios: number[] = [];
   // Polling desactivado: delegado a la API con notificaciones SSE en tiempo real
   readonly refreshIntervalMs = 0;
