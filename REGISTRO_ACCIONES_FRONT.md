@@ -19,6 +19,250 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-20 00:55] - Migración Integral de Préstamos Históricos (2023, 2024, 2025) a PostgreSQL y Habilitación de Consulta Histórica Completa
+- **Problema Detectado / Requerimiento**:
+  - El usuario reportó: *"hay algo mal, pongo historico y me sigue trayendo 13 registros (los del 2026 nomas)"*, con captura de pantalla del Explorador Multicriterio en la pestaña Préstamos con el preset "Histórico" activo y únicamente 13 registros visibles.
+- **Causa Raíz**:
+  - La tabla `loans` en PostgreSQL contenía únicamente los 13 préstamos creados para el ejercicio fiscal 2026.
+  - Los compromisos crediticios de años anteriores (2023, 2024, 2025) estaban registrados exclusivamente en las hojas de cálculo locales (`templates/Cuentas claras_[Año].xlsx` y Google Sheets `Anual [Año]!L83:Z96`), de donde el Submenú 3 (Análisis Anual) los leía al vuelo como fallback, pero **nunca habían sido sembrados ni migrados a las tablas relacionales `loans` y `loan_installments` de la base de datos PostgreSQL**.
+  - Al seleccionar "Histórico" (o filtrar por años 2023, 2024 o 2025), el backend consultaba `prisma.loan.findMany()`. Al no existir registros de dichos años en la base de datos, cualquier consulta sin filtro de año devolvía invariablemente los mismos 13 préstamos de 2026, y al filtrar por 2025/2024/2023 devolvía 0 registros.
+- **Solución Técnica Aplicada**:
+  - **Migración y Siembra a Base de Datos PostgreSQL**:
+    - Se ejecutó un proceso de migración de alta precisión que extrajo la matriz de préstamos de cada ejercicio fiscal:
+      - **Año 2023**: 12 préstamos ($1.895.317,37 en cuotas y amortizaciones) con entidades Banco Galicia, Mercado Pago, Pareto y Familiar/Personal.
+      - **Año 2024**: 13 préstamos ($8.554.884,82 en cuotas) con Banco Galicia, Naranja X, Mercado Pago, Pareto y Bancor.
+      - **Año 2025**: 13 préstamos ($10.802.537,52 en cuotas) con Banco Galicia, Naranja X y Mercado Pago.
+      - **Año 2026**: 13 préstamos ($4.926.432,94 en cuotas).
+    - Total en base de datos PostgreSQL: **51 préstamos** con sus cronogramas mensuales completos de cuotas (`loan_installments`), identificadores únicos, fechas de toma y cálculo de deuda.
+  - **Optimización de Filtros en `ReportesService.getExplorador` (`reportes.service.ts`)**:
+    - Se refinó la combinación condicional de filtros para permitir queries independientes o combinadas de `year` y `desde`/`hasta`:
+      - Si se consulta "Histórico" (sin año ni rango de fechas): devuelve los **51 préstamos históricos** consolidados ($26.179.172,65 de deuda total acumulada y $20.085.000 de capital recibido).
+      - Si se filtra por año específico (ej. 2025, 2024, 2023): devuelve con exactitud los 13 o 12 préstamos correspondientes a dicho ejercicio contable.
+      - Si se combina año con rango de fechas: aplica la intersección estricta de ambos filtros.
+    - Se compiló la API limpiamente con `npm run build` (código 0).
+  - **Compilación Frontend**:
+    - Verificación con `npx ng build --configuration development` (Código 0, 0 errores, 0 advertencias).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - Base de Datos PostgreSQL (tablas `loans` y `loan_installments`)
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+- **Problema Detectado / Requerimiento**:
+  - El usuario indicó: *"En prestamos, creo que el error es que siempre trae 13 registros, por eso me filtra mal con los rangos de fechas"*, adjuntando una captura donde al filtrar por octubre de 2026 (`01/10/2026 a 31/10/2026`), el sistema continuaba devolviendo 13 registros con una deuda acumulada de $\$4.926.432,94$.
+- **Causa Raíz**:
+  - En `control-de-gastos-api/src/services/reportes.service.ts`, el filtro de préstamos aplicaba únicamente `year: { gte: desdeYear, lte: hastaYear }`. Como los 13 préstamos del ejercicio tienen `year: 2026`, se devolvían siempre los 13 préstamos para cualquier rango dentro de 2026, ignorando los meses consultados y trayendo incluso préstamos cuyas cuotas ya habían finalizado en meses anteriores (ej. cuotas finalizadas en enero, julio, agosto o septiembre).
+- **Solución Técnica Aplicada**:
+  - **Backend API (`reportes.service.ts`)**:
+    - Se integró `buildYearMesRange(filtros.desde, filtros.hasta, filtros.year)` sobre la relación `installments: { some: installmentCond }`.
+    - Al filtrar por un mes o rango específico (ej. Octubre 2026), el sistema consulta los préstamos que efectivamente tienen **cuotas activas o a vencer en ese período**, o que fueron tomados en dicho intervalo.
+    - Para Octubre 2026, la consulta filtra con precisión matemática devolviendo exactamente los **5 préstamos con cuotas activas** en ese mes (`ML 500K/ML 200K`, `Nx 900k/GL 150k`, `Nx 1M/NX 110k`, `Nx 250k/GL 400k` y `NX 1M/ML 400k`), con un total real de deuda de $\$1.597.110,97$ (en lugar de 13 y $\$4.9M$).
+    - Al consultar el año completo (`01/01/2026 a 31/12/2026`), se devuelven los 13 préstamos del ejercicio fiscal.
+    - En el detalle de cada préstamo filtrado, se informa el desglose de la cuota del período: `Capital en mano: $X | Cuota período: $Y | Plan: P de N cuotas pagadas`.
+    - Recompilación limpia de la API con `npm run build` (código 0).
+  - **Compilación Frontend**:
+    - `npx ng build --configuration development` (Código 0, 0 errores, 0 advertencias).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+
+### [2026-10-19 23:55] - Modelo Analítico de Variabilidad Diaria de Saldos en Movimientos y Estimativos
+- **Problema Detectado / Requerimiento**:
+  - El usuario observó: *"En movimientos y en estimativos, no tiene sentido que me hagas una sumatoria de los montos en crudo y un promedio de ellos, en ambos lo util es la viarabilidad de un dia con otro, esto se debe a que son saldos no movimientos en si de plata que ingresa o sale, por ejemplo si mi saldo es 300 y al otro dia es 350 y al dia siguiente es 325, entonce su variacion en esos tres dias es = 350 -300 = 50 --> 325 - 350 = -25 por lo que la sumatoria de las variaciones diarias seria 50 - 25 = 25 (balance de ingresos), se entiende? eso si me seria util"*.
+  - En las capturas enviadas, la sumatoria en crudo de saldos diarios acumulaba $90.486.818,38 en movimientos y $83.523.562,70 en estimativos, arrojando balances desproporcionados ($200M) al sumar existencias estáticas en lugar de flujos reales.
+- **Causa Raíz**:
+  - En la base de datos, tanto `Movement` como `DailyEstimate` registran instantáneas de saldos diarios de cuentas y tarjetas. Sumar aritméticamente el saldo de 1.435 días equivale a sumar 1.435 veces el dinero disponible en banco.
+  - El cálculo del balance aplicaba `totalIngresos += m.monto` si el tipo era `'INGRESO'`, cuando el verdadero ingreso o gasto diario es la **diferencia $\Delta$ entre el saldo de un día y el del día inmediatamente anterior**.
+- **Solución Técnica Aplicada**:
+  - **Backend API (`reportes.service.ts`)**:
+    - Se reescribió la lógica de agregación para `movimientos` y `estimativos`:
+      1. Se ordenan los registros cronológicamente por fecha (`fecha: 'asc'`). En movimientos, se consolida la suma de saldos de todas las entidades para cada fecha única.
+      2. Se computa la variabilidad día con día: $\Delta_k = S_{k+1} - S_k$.
+      3. Las variaciones positivas ($\Delta_k > 0$) se acumulan como **Subas / Ingresos Diarios** reales (`sumaVariacionesPositivas`).
+      4. Las variaciones negativas ($\Delta_k < 0$) se acumulan como **Bajas / Gastos Diarios** reales (`sumaVariacionesNegativas`).
+      5. La **Variación Neta Acumulada** es la sumatoria de variaciones: $\sum \Delta_k = S_{\text{final}} - S_{\text{inicial}}$ (exactamente coincidente con `Ingresos - Gastos`).
+      6. El monto total de la tarjeta 1 refleja el **Saldo de Cierre** ($S_{\text{final}}$), es decir, el saldo real en la última fecha del período.
+      7. El promedio refleja la **Variación Promedio Diaria**: $\frac{S_{\text{final}} - S_{\text{inicial}}}{N - 1}$ por día transcurrido.
+    - Recompilación limpia de la API con `npm run build` (código 0).
+  - **Frontend Angular (`reportes.service.ts`, `reportes.html`)**:
+    - Se agregaron a `ExploradorResumen` los campos `saldoInicial`, `saldoFinal`, `variacionNeta`, `variacionPromedioDiaria`, `sumaVariacionesPositivas` y `sumaVariacionesNegativas`.
+    - En `reportes.html`: se crearon tarjetas KPI especializadas para `movimientos` y `estimativos`:
+      - **Saldo de Cierre**: Saldo real a la última fecha filtrada (ej. $330.054,39).
+      - **Variación Neta (Balance)**: Crecimiento o reducción neta de fondos en el período (verde/rojo, ej. +$162.242,05 en octubre 2026).
+      - **Subas / Ingresos Diarios**: Suma de variaciones positivas acumuladas (ej. +$876.563,19).
+      - **Bajas / Gastos Diarios**: Suma de variaciones negativas acumuladas (ej. -$714.321,14).
+      - **Variación Promedio / Día**: Ritmo promedio de variación diaria (ej. $9.013,45 / día).
+      - **Registros Evaluados**: Días o registros procesados.
+    - Se conservó la grilla tradicional para `pagos_entidades`, `items_mensuales` y `prestamos`, donde las cifras sí representan flujos y deudas en valor absoluto.
+    - Se adaptó el banner pedagógico superior describiendo con claridad matemática el modelo de variabilidad diaria.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - `control-de-gastos-front/src/app/services/reportes.service.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.html`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+
+### [2026-10-19 23:45] - Eliminación Definitiva de Fecha Estática (09/12/2025) en Grilla de Préstamos
+- **Problema Detectado / Requerimiento**:
+  - El usuario indicó: *"En prestamos sigue mostrando lo del 9-12-2025"*, señalando que la columna `FECHA / PERÍODO` mostraba `Año 2026 (Tomado: 09/12/2025)`.
+- **Causa Raíz**:
+  - En la base de datos PostgreSQL, los 13 préstamos del ejercicio fiscal 2026 fueron registrados originalmente con un valor por defecto `fechaToma = 2025-12-09`. Al formatear el campo fecha en el backend como `Año ${l.year} (Tomado: ${fechaStr})`, el texto `09/12/2025` seguía mostrándose de forma repetitiva e irrelevante en cada fila de la grilla.
+- **Solución Técnica Aplicada**:
+  - **Backend API (`reportes.service.ts`)**:
+    - Se simplificó y limpió el mapeo del campo devuelto a `fecha: 'Año ' + l.year` (ej. `Año 2026`) y `fechaISO: l.year + '-01-01'`.
+    - Se erradicó por completo la inclusión del string `09/12/2025` de la vista de préstamos, mostrando de forma limpia y profesional el período anual contable al que pertenece cada crédito (`Año 2026`), junto a su plan de cuotas canceladas (`Capital en mano: $X | Plan: P de N cuotas pagadas`).
+    - Recompilación limpia de la API con `npm run build` (código 0).
+  - **Compilación Frontend**:
+    - `npx ng build --configuration development` (Código 0, 0 errores, 0 advertencias).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+
+### [2026-10-19 23:32] - Corrección de Graficación en Estimativos Diarios del Explorador de Reportes
+- **Problema Detectado / Requerimiento**:
+  - El usuario reportó: *"En estimativo diarios dentro del nuevo reporte no me grafica nada"*, adjuntando capturas donde el gráfico aparecía en blanco ($0 a $1 en el eje Y) al consultar 19 registros de octubre de 2026.
+- **Causa Raíz**:
+  - En `control-de-gastos-api/src/services/reportes.service.ts`:
+    - El bloque de `tabla === 'estimativos'` acumulaba `totalMonto` pero omitía por completo poblar `distribucionMap` (distribución por entidad/tipo) y `estadosMap`. Al no tener entidades bancarias asociadas, `distribucionPorEntidad` se devolvía como un arreglo vacío (`[]`).
+    - En la serie temporal, se agrupaba siempre por mes (`fechaISO.substring(0, 7)`), de modo que para un rango dentro de un mismo mes (ej. 1 al 19 de octubre) se generaba un único punto con la suma acumulada de saldos diarios en lugar de la trayectoria diaria.
+    - En el frontend (`reportes.ts`), el gráfico iniciaba por defecto en la dimensión `'entidad'`. Al ser `distribucionPorEntidad` vacía, Chart.js recibía 0 etiquetas y 0 valores, renderizando el canvas sin barras ni puntos.
+- **Solución Técnica Aplicada**:
+  - **Backend API (`reportes.service.ts`)**:
+    - Se pobló `distribucionMap` categorizando entre `'Saldo Registrado (Real)'` y `'Saldo Presupuestado'`, permitiendo ver la distribución comparativa si se elige la dimensión de tipo de saldo.
+    - Se pobló `estadosMap` (`POSITIVO`, `DEFICIT`, `PENDIENTE`) para alimentar el gráfico por estados.
+    - Se implementó granularidad diaria automática en `temporalMap`: si el rango es de 120 días o menor, cada día genera su punto individual con el saldo exacto del día (`YYYY-MM-DD`). Si el rango es mayor, se agrupa por mes calculando el saldo promedio representativo del período.
+    - Recompilación limpia de la API con `npm run build` (código 0).
+  - **Frontend Angular (`reportes.html`, `reportes.ts`)**:
+    - En `cambiarTablaExplorador`: al seleccionar `'estimativos'`, se conmuta automáticamente a la dimensión natural `'temporal'` y a tipo de gráfico de líneas `'line'`.
+    - En `actualizarGraficoExplorador`: se formatean las etiquetas de fecha diaria a formato legible `DD/MM` (ej. `01/10` a `19/10`), con curva suave, área sombreada y marcadores bicolor reactivos (verde para saldo positivo, rojo para saldo negativo/déficit).
+    - En `reportes.html`: se reordenaron los botones de dimensión para que `Evolución Temporal` aparezca en primer lugar y el botón secundario indique dinámicamente `Por Tipo de Saldo` en lugar de `Por Entidad`.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.html`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.ts`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+
+### [2026-10-19 23:25] - Tooltips Explicativos Universales, Banner Pedagógico y Clarificación Integral de Préstamos en Explorador de Reportes
+- **Problema Detectado / Requerimiento**:
+  - El usuario reportó: *"No se entiende nada, recorda de agregarle a todo tooltips y tene en cuenta que el usuario final no sabe nada como funciona y que representa cada dato. Otra cosa, en prestamos solo salen datos del 9 de diciembre de 2025"*.
+  - En la vista del Explorador Multicriterio (`/reportes`), faltaba contexto pedagógico para usuarios no técnicos: términos contables, fórmulas (`=Septiembre!A86`), siglas y criterios de cálculo no tenían explicación inmediata.
+  - En el dominio de **Préstamos Personales**:
+    - Al filtrar por año 2026, la consulta por `fechaToma` estricta descartaba los 13 préstamos del ejercicio fiscal 2026 debido a que su `fechaToma` original fue el `09/12/2025`.
+    - La grilla mostraba para todos ellos la fecha `09/12/2025` sin aclarar a qué año fiscal pertenecían ni cuál era el capital otorgado vs la deuda total con costo financiero.
+    - El tipo de movimiento figuraba erróneamente como `GASTO` en lugar de una categoría propia de financiamiento.
+- **Causa Raíz**:
+  - En `control-de-gastos-api/src/services/reportes.service.ts`:
+    - El filtro de préstamos aplicaba únicamente `fechaToma: { gte: desde, lte: hasta }`. Al seleccionar el año 2026, las fechas iban de 2026-01-01 a 2026-12-31, excluyendo los contratos tomados a fin de 2025 para el ejercicio 2026.
+    - La consulta a `prisma.loan.findMany` no incluía la relación `installments`, impidiendo informar el progreso real de cuotas canceladas (`P de N cuotas pagadas`).
+    - En el mapeo de ítems, el tipo se hardcodeaba en `'GASTO'` y el monto mostraba la deuda total sin explicar que incluía intereses ni cuánto capital neto se había cobrado.
+- **Solución Técnica Aplicada**:
+  - **Backend API (`reportes.service.ts`)**:
+    - Se flexibilizó el filtrado de préstamos combinando el año contable `year: { gte: desdeYear, lte: hastaYear }` y el rango de `fechaToma`.
+    - Se incluyó `installments: true` para computar en tiempo real las cuotas con `pagado: true`.
+    - Se formateó la fecha devuelta como `Año 2026 (Tomado: 09/12/2025)`.
+    - Se tipó la operación como `tipo: 'PRÉSTAMO'` y el detalle como `Capital en mano: $X | Plan: P de N cuotas pagadas (totalCuotas)`.
+    - Recompilación limpia de la API con `npm run build` (código 0).
+  - **Frontend Angular (`reportes.html`, `reportes.scss`)**:
+    - **Banner Explicativo Pedagógico (`.dominio-explicacion-card`)**: Tarjeta dinámica superior que explica en lenguaje simple qué representa el dominio activo (Movimientos Diarios, Liquidaciones de Tarjetas, Ítems y Cuotas Mensuales, Préstamos Personales o Estimativos Diarios).
+    - **Tooltips Universales (`matTooltip`)**: Incorporados en todos los chips de dominios, presets de fecha rápida, selectores de año, inputs y selects de filtros, botones de acción, tarjetas ejecutivas KPI (aclarando cómo se calcula cada monto y promedio), selector de dimensiones y tipos de gráfico, y encabezados `<th>` y celdas `<td>` de la grilla de datos.
+    - **Píldora y Colores Distintivos para Préstamos**: Nueva clase visual `.status-pill-badge.pill-prestamo` (fondo lavanda suave `#f3e8ff` con texto púrpura `#7e22ce`), y columna de monto coloreada con `.text-purple`.
+    - **Adaptación Integral a Modo Oscuro**: Reglas estilizadas en `:host-context(body.dark-mode)` para el banner pedagógico, tooltips, celdas y badges de préstamos.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.html`
+  - `control-de-gastos-front/src/app/pages/reportes/reportes.scss`
+  - `control-de-gastos-front/REGISTRO_ACCIONES_FRONT.md`
+
+
+### [2026-10-19 22:38] - Saneamiento de Codificación UTF-8 en Textos Dinámicos de Reportes
+- **Problema Detectado / Requerimiento**:
+  - En la grilla de resultados del Explorador de Reportes (`/reportes`), se detectaron textos con caracteres especiales/acentos mal codificados (mojibake): `FÃ³rmula`, `LiquidaciÃ³n`, `MÃ©todo`, `AÃ±o` y `ðŸ“Œ`.
+- **Causa Raíz**:
+  - Durante la inserción del método de filtrado en el backend `control-de-gastos-api/src/services/reportes.service.ts`, los literales en plantillas de cadenas se guardaron con doble codificación de bytes UTF-8 en lugar de caracteres directos limpios.
+- **Solución Técnica Aplicada**:
+  - **Saneamiento en Backend (`reportes.service.ts`)**:
+    - Reemplazo y normalización estricta a caracteres UTF-8 auténticos: `Fórmula:`, `Liquidación`, `Método:`, `Año` y `📌`.
+    - Verificación cruzada automatizada en todos los archivos de `control-de-gastos-api/src` y `control-de-gastos-front/src` confirmando 0 ocurrencias de caracteres corruptos.
+    - Recompilación limpia de la API con `npm run build` (código 0).
+  - **Prueba Unitaria de Salida**:
+    - Verificación en runtime mediante llamada directa a `reportesService.getExplorador`: salida comprobada limpia con `Fórmula: =...`, `Liquidación 2026-10` y `Método: Debito`.
+- **Compilación**:
+  - Backend: `npm run build` (código 0).
+  - Frontend: `npx ng build --configuration development` (código 0, 0 errores, 0 advertencias).
+
+### [2026-10-19 22:33] - Reordenamiento y Alineación Simétrica de Termómetros en Módulo de Estimativos
+- **Problema Detectado / Requerimiento**:
+  - El usuario solicitó invertir la posición de los termómetros superiores en `/estimativo` para que:
+    1. El termómetro de *Rendimiento positivo mensual* se ubique a la izquierda, alineado con la tarjeta de la tabla mensual (`.col-izquierda`).
+    2. El termómetro de *Días transcurridos* se ubique a la derecha, alineado con la tarjeta del gráfico (`.col-derecha`), por ser el contenedor más ancho.
+    3. El divisor vertical entre ambos termómetros quede perfectamente alineado con la división de las columnas inferiores.
+- **Solución Técnica Aplicada**:
+  - **Plantilla (`home.html`)**:
+    - Se invirtió el orden del DOM dentro de `.contenedor-termometros-grid`: primero `<app-termometro-rendimiento-positivo>` (columna izquierda) y luego `<app-grafico-dias-restantes-anual>` (columna derecha).
+    - Se vincularon dinámicamente las clases `[class.col-izq-contraida]` y `[class.col-der-contraida]` al contenedor de termómetros para sincronizar cualquier colapso de columna.
+  - **Estilos (`home.scss`)**:
+    - Se redefinió `.contenedor-termometros-grid` con la misma definición exacta de columnas que `.contenido-dos-columnas`: `grid-template-columns: minmax(320px, 40%) minmax(0, 1fr)` y `gap: 24px`.
+    - Se aplicó `transition: grid-template-columns 0.3s ease-in-out` y estilos de colapso a 60px para paridad absoluta con los contenedores inferiores.
+- **Compilación**:
+  - `npx ng build --configuration development` verificada con éxito (Código `0`, 0 errores, 0 advertencias).
+
+### [2026-10-19 22:28] - Corrección de Filtro de Fechas y Años en el Explorador Analítico (Submenú 4)
+- **Problema Detectado / Requerimiento**:
+  - Al cambiar las fechas o los años en el Explorador (`DESDE` / `HASTA`), la grilla continuaba devolviendo siempre la misma cantidad de registros (ej. 442 registros en *Ítems Mensuales*).
+- **Causa Raíz**:
+  1. En `control-de-gastos-api/src/services/reportes.service.ts`, los dominios `items_mensuales` y `pagos_entidades` no procesaban `filtros.desde` ni `filtros.hasta`, filtrando únicamente por `where.year = filtros.year` (o `where.fechaPago`, ignorando pagos pendientes sin fecha). Por ende, cualquier fecha enviada en `desde`/`hasta` era descartada.
+  2. En el frontend `reportes.ts`, el método `cargarExplorador()` siempre enviaba `year: this.anioSeleccionado()` (el año activo en el selector DeLorean superior, ej. 2022 o 2026), bloqueando la consulta e impidiendo navegar libremente por fechas o años distintos sin cambiar el DeLorean.
+- **Solución Técnica Aplicada**:
+  - **Backend (`reportes.service.ts`)**:
+    - Implementación de la función `buildYearMesRange(desdeStr, hastaStr, fallbackYear)` que descompone de manera inteligente los rangos `YYYY-MM-DD` en condiciones Prisma para los modelos que operan con `year` y `mes` (`MonthlyItem` y `EntityPayment`):
+      - Si `desde` y `hasta` están en el mismo año: `where.year = Y; where.mes = { gte: M1, lte: M2 }`.
+      - Si abarcan múltiples años: `where.OR = [ { year: Y1, mes: { gte: M1 } }, { year: { gt: Y1, lt: Y2 } }, { year: Y2, mes: { lte: M2 } } ]`.
+      - Si solo se define año: `where.year = Y`.
+    - En `movimientos`, `prestamos` y `estimativos`: Cuando se especifican `desde` y/o `hasta`, se filtra por `fecha`/`fechaToma` sin forzar `where.year`, eliminando conflictos de rango.
+  - **Frontend (`reportes.ts` y `reportes.html`)**:
+    - Se agregó el signal `filtroAnio = signal<string>('TODOS')` con método `cambiarFiltroAnio()`.
+    - Se incorporó en el formulario de filtros un nuevo selector explícito **"Año Contable"** (`Todos (o personalizado)`, `2026`, `2025`, `2024`, `2023`, `2022`) que sincroniza automáticamente las fechas `Desde` y `Hasta` al seleccionarlo.
+    - Se desacopló `cargarExplorador()` de `anioSeleccionado()`: si se ingresan fechas `desde`/`hasta`, se envían directamente para permitir cualquier intervalo temporal sin interferencia del DeLorean.
+- **Compilación**:
+  - Backend: `npm run build` con código 0.
+  - Frontend: `npx ng build --configuration development` con código 0, cero errores y cero advertencias.
+
+### [2026-10-19 22:12] - Subpaso 6.18: Explorador de Base de Datos y Generador de Reportes Multicriterio con Gráficos Dinámicos (Solo Administradores)
+- **Problema Detectado / Requerimiento**:
+  - Implementación completa del Subpaso 6.18 en la pestaña `/reportes` (Submenú 4 "Consultas y Reportes", protegido con `RoleGuard` y `adminOnly`): un motor analítico avanzado que permite consultar, filtrar, agregar y graficar datos en vivo sobre las 5 tablas clave de PostgreSQL (`movements`, `entity_payments`, `monthly_items`, `loans`, `daily_estimates`) sin necesidad de escribir sentencias SQL manuales.
+- **Causa Raíz / Necesidad**:
+  - Hasta el momento, el Submenú 4 de Reportes era un placeholder informativo. Se requería dotar a los administradores de una herramienta integral con filtros multicriterio (fechas, entidades múltiples, tipo, estado, palabras clave, montos), agregaciones contables inmediatas, gráficos dinámicos con Chart.js (barras, dona, líneas) y exportación a CSV.
+- **Solución Técnica Aplicada**:
+  - **Backend (`control-de-gastos-api`)**:
+    - **Ruta Segura**: `GET /api/reportes/explorador` protegida con `authenticateToken` y `requireAdmin` en `src/routes/reportes.routes.ts`.
+    - **Controlador**: `reportesController.getExplorador` en `src/controllers/reportes.controller.ts` con tipado de query params y saneamiento de filtros.
+    - **Servicio Analítico**: `reportesService.getExplorador` en `src/services/reportes.service.ts` con mapeo dinámico a los 5 modelos de Prisma (`movement`, `entityPayment`, `monthlyItem`, `loan`, `dailyEstimate`), cálculo de agregaciones KPI (`totalMonto`, `cantidad`, `promedio`, `totalGastos`, `totalIngresos`, `balanceNeto`), distribuciones analíticas (por entidad, temporal año-mes, por estado) y paginación (`skip`/`take`). Compilación limpia con `npm run build` (código `0`).
+  - **Frontend Service (`ReportesService`)**:
+    - Modelos e interfaces: `FiltrosExplorador`, `ExploradorRegistro`, `ExploradorResumen`, `ExploradorDistribucion`, `ExploradorResponse`.
+    - Método reactivo: `getExplorador(filtros: FiltrosExplorador)` con serialización de parámetros de consulta y manejo seguro de errores con `catchError`.
+  - **Frontend Component (`ReportesComponent`)**:
+    - **Gestión de Estado Reactiva**: Signals para `tablaExplorador`, filtros de fecha (`filtroDesde`, `filtroHasta`), `filtroEntidades`, `filtroTipo`, `filtroEstado`, `filtroConcepto`, `filtroMontoMin`, `filtroMontoMax`, `paginaActual`, `limitePorPagina`, `tipoGraficoExplorador`, `chartTypeExplorador` y `datosExplorador`.
+    - **Acciones y Presets**: `aplicarPresetFecha` ('mes_actual', 'mes_anterior', 'anio_actual', 'historico'), `limpiarFiltrosExplorador`, `cambiarTablaExplorador`, `cambiarTipoGraficoExplorador`, `cambiarChartTypeExplorador`, `cambiarPaginaExplorador`.
+    - **Exportador CSV**: `exportarCSVExplorador()` con codificación UTF-8 BOM (`\uFEFF`) y delimitador `;` para compatibilidad instantánea con Excel.
+    - **Gráficos Dinámicos**: `actualizarGraficoExplorador()` con paleta armónica del logo (`#4b5896`, `#706cd6`, `#10b981`, `#f59e0b`, `#ef4444`) y soporte visual adaptativo claro/oscuro.
+  - **Frontend UI & SCSS (`reportes.html` & `reportes.scss`)**:
+    - Reemplazo completo del placeholder por la interfaz operativa respetando estrictamente la **Regla de Oro** (`AGENTS.md`): tarjetas con esquinas redondeadas (`12px`), sombras suaves, ancho homogéneo al 100%, paleta institucional Slate Indigo y compatibilidad total con `body.dark-mode`.
+    - Selector visual de dominios por chips, barra de presets rápidos de fechas, grilla de filtros multicriterio, 4 KPI cards ejecutivas, contenedor de gráfico interactivo con alternancia de dimensión y tipo, grilla de resultados con badges de estado/tipo y paginador inferior.
+  - **Compilación Limpia Obligatoria**:
+    - Ejecución de `npx ng build --configuration development`: resultado exitoso con código `0`, cero errores TypeScript y cero advertencias de Angular.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/routes/reportes.routes.ts`
+  - `control-de-gastos-api/src/controllers/reportes.controller.ts`
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - `src/app/services/reportes.service.ts`
+  - `src/app/pages/reportes/reportes.ts`
+  - `src/app/pages/reportes/reportes.html`
+  - `src/app/pages/reportes/reportes.scss`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-10-19 20:55] - Subpaso 6.17.8: Termómetro de Porcentaje de Días Positivos en Módulo de Estimativos
 - **Problema Detectado / Requerimiento**:
   - En la vista `/estimativo`, se requería incorporar un segundo indicador tipo termómetro/gauge visual junto al termómetro de días transcurridos existente, que calcule y muestre el porcentaje de días con rendimiento positivo del mes (fiel a la celda `H53` de la hoja mensual y la tabla *Rendimientos positivos mensuales* de Anual en Excel).

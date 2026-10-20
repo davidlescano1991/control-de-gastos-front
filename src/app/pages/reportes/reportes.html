@@ -931,46 +931,599 @@
               <div>
                 <h2>Explorador Analítico Multicriterio (Exclusivo Administradores)</h2>
                 <p class="card-description">
-                  Motor de consultas dinámicas sin SQL: filtra por fechas, entidades múltiples, montos y tipos.
+                  Motor analítico de consultas y reportes en tiempo real sobre la base de datos PostgreSQL.
                 </p>
               </div>
             </div>
-            <span class="status-pill status-admin">Fase 6.18</span>
+            <div class="header-actions">
+              <button
+                type="button"
+                mat-stroked-button
+                class="btn-export-csv"
+                (click)="exportarCSVExplorador()"
+                [disabled]="!datosExplorador()?.items?.length"
+                matTooltip="Descargar registros filtrados en formato CSV">
+                <mat-icon>download</mat-icon>
+                <span>Exportar CSV</span>
+              </button>
+              <button
+                type="button"
+                mat-flat-button
+                class="btn-refresh-explorador"
+                (click)="cargarExplorador(true)"
+                [disabled]="isLoadingExplorador()"
+                matTooltip="Reejecutar consulta con los filtros seleccionados">
+                <mat-icon [class.spin]="isLoadingExplorador()">refresh</mat-icon>
+                <span>Consultar</span>
+              </button>
+            </div>
           </div>
 
-          <div class="card-body">
-            <div class="preview-metrics-grid">
-              <div class="metric-box">
-                <mat-icon class="metric-icon violet">filter_alt</mat-icon>
-                <div class="metric-details">
-                  <span class="metric-label">Filtros Cruzados</span>
-                  <span class="metric-status">Entidades, fechas, estados y montos</span>
+          <!-- Selector de Dominios / Tablas -->
+          <div class="dominios-selector-bar">
+            <button
+              type="button"
+              class="dominio-chip"
+              [class.active]="tablaExplorador() === 'movimientos'"
+              (click)="cambiarTablaExplorador('movimientos')"
+              matTooltip="Gastos e ingresos individuales diarios (efectivo, compras, transferencias, supermercado, servicios)">
+              <mat-icon>receipt_long</mat-icon>
+              <span>Movimientos</span>
+            </button>
+            <button
+              type="button"
+              class="dominio-chip"
+              [class.active]="tablaExplorador() === 'pagos_entidades'"
+              (click)="cambiarTablaExplorador('pagos_entidades')"
+              matTooltip="Resúmenes y liquidaciones mensuales de tarjetas de crédito y bancos (Visa, Mastercard, Naranja, Bancor, etc.)">
+              <mat-icon>payments</mat-icon>
+              <span>Liquidaciones & Tarjetas</span>
+            </button>
+            <button
+              type="button"
+              class="dominio-chip"
+              [class.active]="tablaExplorador() === 'items_mensuales'"
+              (click)="cambiarTablaExplorador('items_mensuales')"
+              matTooltip="Detalle de compras en cuotas (ej. 3/6) y servicios fijos programados mes a mes">
+              <mat-icon>calendar_view_month</mat-icon>
+              <span>Ítems Mensuales</span>
+            </button>
+            <button
+              type="button"
+              class="dominio-chip"
+              [class.active]="tablaExplorador() === 'prestamos'"
+              (click)="cambiarTablaExplorador('prestamos')"
+              matTooltip="Préstamos personales tomados, capital recibido en mano, plan de cuotas y deuda total">
+              <mat-icon>account_balance</mat-icon>
+              <span>Préstamos</span>
+            </button>
+            <button
+              type="button"
+              class="dominio-chip"
+              [class.active]="tablaExplorador() === 'estimativos'"
+              (click)="cambiarTablaExplorador('estimativos')"
+              matTooltip="Cálculo diario presupuestado vs. saldo real disponible en cuenta bancaria día a día">
+              <mat-icon>query_stats</mat-icon>
+              <span>Estimativos Diarios</span>
+            </button>
+          </div>
+
+          <!-- Banner Informativo Pedagógico del Dominio Seleccionado -->
+          <div class="dominio-explicacion-card">
+            <div class="explicacion-content" *ngIf="tablaExplorador() === 'movimientos'">
+              <mat-icon class="info-icon">receipt_long</mat-icon>
+              <div class="info-text">
+                <strong>¿Qué estás viendo? Saldos y Variaciones Diarias de Cuentas</strong>
+                <p>Registro de saldos día a día en cada entidad. Las métricas evalúan la <b>variabilidad diaria</b>: el <b>Saldo de Cierre</b> es el monto actual, y la <b>Variación Neta</b> es la sumatoria de subas y bajas entre días consecutivos (ingresos y egresos reales).</p>
+              </div>
+            </div>
+            <div class="explicacion-content" *ngIf="tablaExplorador() === 'pagos_entidades'">
+              <mat-icon class="info-icon">payments</mat-icon>
+              <div class="info-text">
+                <strong>¿Qué estás viendo? Liquidaciones y Resúmenes de Tarjetas</strong>
+                <p>Total a pagar de cada resumen mensual de tarjetas o bancos. El <b>Monto</b> indica lo efectivamente abonado y el <b>Estado</b> señala si se liquidó completo, parcial o sigue pendiente.</p>
+              </div>
+            </div>
+            <div class="explicacion-content" *ngIf="tablaExplorador() === 'items_mensuales'">
+              <mat-icon class="info-icon">calendar_view_month</mat-icon>
+              <div class="info-text">
+                <strong>¿Qué estás viendo? Ítems y Cuotas Mensuales</strong>
+                <p>Compras financiadas en cuotas (ej. 1/6, 3/12) y servicios fijos que integran el gasto mensual de cada entidad.</p>
+              </div>
+            </div>
+            <div class="explicacion-content" *ngIf="tablaExplorador() === 'prestamos'">
+              <mat-icon class="info-icon">account_balance</mat-icon>
+              <div class="info-text">
+                <strong>¿Qué estás viendo? Préstamos Personales</strong>
+                <p>Financiamientos tomados. La columna <b>Deuda Total</b> muestra el compromiso acumulado a devolver (capital + intereses), y en <b>Detalle</b> se desglosa el <b>Capital Recibido en Mano</b> y cuotas pagadas.</p>
+              </div>
+            </div>
+            <div class="explicacion-content" *ngIf="tablaExplorador() === 'estimativos'">
+              <mat-icon class="info-icon">query_stats</mat-icon>
+              <div class="info-text">
+                <strong>¿Qué estás viendo? Estimativos Diarios</strong>
+                <p>Evolución del saldo día a día en cuenta. El balance y los promedios se calculan a partir de la <b>variabilidad de un día con otro</b>, mostrando el saldo de cierre, las subas diarias (ingresos) y las bajas diarias (gastos).</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel de Filtros Multicriterio -->
+          <div class="explorador-filtros-card">
+            <div class="filtros-top-row">
+              <span class="filtros-title" matTooltip="Aplica múltiples criterios simultáneos para encontrar exactamente lo que buscas">
+                <mat-icon>filter_list</mat-icon>
+                Filtros Multicriterio
+              </span>
+              <div class="presets-fechas-group">
+                <span class="presets-label">Rango rápido:</span>
+                <button
+                  type="button"
+                  class="preset-btn"
+                  (click)="aplicarPresetFecha('mes_actual')"
+                  matTooltip="Filtrar registros desde el día 1 hasta el último día del mes corriente">
+                  Este Mes
+                </button>
+                <button
+                  type="button"
+                  class="preset-btn"
+                  (click)="aplicarPresetFecha('mes_anterior')"
+                  matTooltip="Filtrar registros del mes calendario inmediatamente anterior">
+                  Mes Anterior
+                </button>
+                <button
+                  type="button"
+                  class="preset-btn"
+                  (click)="aplicarPresetFecha('anio_actual')"
+                  matTooltip="Filtrar del 1 de enero al 31 de diciembre del año seleccionado">
+                  Año Actual
+                </button>
+                <button
+                  type="button"
+                  class="preset-btn"
+                  (click)="aplicarPresetFecha('historico')"
+                  matTooltip="Ver todos los registros históricos de la base de datos sin límite de fechas">
+                  Histórico
+                </button>
+              </div>
+            </div>
+
+            <div class="filtros-grid">
+              <div class="filtro-item">
+                <label matTooltip="Selecciona un año fiscal específico o déjalo en 'Todos' para usar fechas libres">Año Contable</label>
+                <select
+                  class="filtro-select"
+                  [ngModel]="filtroAnio()"
+                  (ngModelChange)="cambiarFiltroAnio($event)"
+                  matTooltip="Selecciona un año para autocompletar las fechas Desde y Hasta">
+                  <option value="TODOS">Todos (o personalizado)</option>
+                  <option *ngFor="let a of aniosDisponibles()" [value]="a">{{ a }}</option>
+                </select>
+              </div>
+
+              <div class="filtro-item">
+                <label matTooltip="Fecha inicial del período de búsqueda">Desde</label>
+                <input
+                  type="date"
+                  class="filtro-input"
+                  [ngModel]="filtroDesde()"
+                  (ngModelChange)="filtroDesde.set($event); cargarExplorador(true)"
+                  matTooltip="Ingresa la fecha desde la cual consultar" />
+              </div>
+
+              <div class="filtro-item">
+                <label matTooltip="Fecha final del período de búsqueda">Hasta</label>
+                <input
+                  type="date"
+                  class="filtro-input"
+                  [ngModel]="filtroHasta()"
+                  (ngModelChange)="filtroHasta.set($event); cargarExplorador(true)"
+                  matTooltip="Ingresa la fecha hasta la cual consultar" />
+              </div>
+
+              <div class="filtro-item" *ngIf="tablaExplorador() !== 'estimativos'">
+                <label matTooltip="Filtra por una o más tarjetas, bancos o cuentas simultáneamente">Entidades</label>
+                <mat-select
+                  class="filtro-mat-select"
+                  multiple
+                  placeholder="Todas las entidades"
+                  [ngModel]="filtroEntidades()"
+                  (ngModelChange)="filtroEntidades.set($event); cargarExplorador(true)"
+                  matTooltip="Selecciona una o varias entidades bancarias o tarjetas">
+                  <mat-option *ngFor="let ent of entidadesDisponibles" [value]="ent">
+                    {{ ent }}
+                  </mat-option>
+                </mat-select>
+              </div>
+
+              <div class="filtro-item" *ngIf="tablaExplorador() === 'movimientos'">
+                <label matTooltip="Filtra según sea entrada de dinero (Ingreso) o salida (Gasto)">Tipo</label>
+                <select
+                  class="filtro-select"
+                  [ngModel]="filtroTipo()"
+                  (ngModelChange)="filtroTipo.set($event); cargarExplorador(true)"
+                  matTooltip="Filtrar por naturaleza contable">
+                  <option value="TODOS">Todos</option>
+                  <option value="GASTO">Gastos</option>
+                  <option value="INGRESO">Ingresos</option>
+                </select>
+              </div>
+
+              <div class="filtro-item" *ngIf="tablaExplorador() === 'pagos_entidades' || tablaExplorador() === 'prestamos'">
+                <label matTooltip="Filtra por estado de la operación (Pagado, Pendiente, Activo, Finalizado)">Estado</label>
+                <select
+                  class="filtro-select"
+                  [ngModel]="filtroEstado()"
+                  (ngModelChange)="filtroEstado.set($event); cargarExplorador(true)"
+                  matTooltip="Filtrar por estado contable">
+                  <option value="TODOS">Todos los estados</option>
+                  <option value="PAGADO" *ngIf="tablaExplorador() === 'pagos_entidades'">Pagado</option>
+                  <option value="PENDIENTE" *ngIf="tablaExplorador() === 'pagos_entidades'">Pendiente</option>
+                  <option value="PARCIAL" *ngIf="tablaExplorador() === 'pagos_entidades'">Parcial</option>
+                  <option value="ACTIVO" *ngIf="tablaExplorador() === 'prestamos'">Activo</option>
+                  <option value="FINALIZADO" *ngIf="tablaExplorador() === 'prestamos'">Finalizado</option>
+                </select>
+              </div>
+
+              <div class="filtro-item">
+                <label matTooltip="Escribe palabras clave para buscar en el nombre, motivo o comercio">Buscar Concepto</label>
+                <input
+                  type="text"
+                  class="filtro-input"
+                  placeholder="Texto o descripción..."
+                  [ngModel]="filtroConcepto()"
+                  (ngModelChange)="filtroConcepto.set($event)"
+                  (keyup.enter)="cargarExplorador(true)"
+                  matTooltip="Presiona Enter para buscar por palabra clave" />
+              </div>
+
+              <div class="filtro-item">
+                <label matTooltip="Filtrar operaciones con importe mayor o igual a este monto">Monto Mín ($)</label>
+                <input
+                  type="number"
+                  class="filtro-input"
+                  placeholder="0"
+                  [ngModel]="filtroMontoMin()"
+                  (ngModelChange)="filtroMontoMin.set($event ? +$event : null)"
+                  (keyup.enter)="cargarExplorador(true)"
+                  matTooltip="Límite inferior de importe en pesos" />
+              </div>
+
+              <div class="filtro-item">
+                <label matTooltip="Filtrar operaciones con importe menor o igual a este monto">Monto Máx ($)</label>
+                <input
+                  type="number"
+                  class="filtro-input"
+                  placeholder="Sin límite"
+                  [ngModel]="filtroMontoMax()"
+                  (ngModelChange)="filtroMontoMax.set($event ? +$event : null)"
+                  (keyup.enter)="cargarExplorador(true)"
+                  matTooltip="Límite superior de importe en pesos" />
+              </div>
+            </div>
+
+            <div class="filtros-actions-bar">
+              <button
+                type="button"
+                mat-button
+                class="btn-limpiar"
+                (click)="limpiarFiltrosExplorador()"
+                matTooltip="Restablecer todos los filtros a sus valores predeterminados">
+                <mat-icon>clear_all</mat-icon>
+                <span>Limpiar filtros</span>
+              </button>
+              <button
+                type="button"
+                mat-raised-button
+                color="primary"
+                class="btn-aplicar"
+                (click)="cargarExplorador(true)"
+                matTooltip="Ejecutar la consulta con los filtros configurados">
+                <mat-icon>filter_alt</mat-icon>
+                <span>Aplicar filtros</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Spinner de carga -->
+          <div *ngIf="isLoadingExplorador()" class="loading-state-box">
+            <mat-spinner diameter="44"></mat-spinner>
+            <p>Procesando consulta analítica en base de datos...</p>
+          </div>
+
+          <div *ngIf="!isLoadingExplorador() && datosExplorador() as data">
+            <!-- Métricas KPI Especializadas para Saldos y Variaciones Diarias (Movimientos y Estimativos) -->
+            <div class="kpi-explorador-grid" *ngIf="tablaExplorador() === 'movimientos' || tablaExplorador() === 'estimativos'">
+              <div class="kpi-card" matTooltip="Saldo registrado en cuenta al cierre de la última fecha del período consultado">
+                <div class="kpi-icon-wrap violet">
+                  <mat-icon>account_balance_wallet</mat-icon>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Saldo de Cierre</span>
+                  <span class="kpi-val">$ {{ (data.resumen.saldoFinal !== undefined ? data.resumen.saldoFinal : data.resumen.totalMonto) | number:'1.2-2':'es-AR' }}</span>
                 </div>
               </div>
-              <div class="metric-box">
-                <mat-icon class="metric-icon violet">pie_chart</mat-icon>
-                <div class="metric-details">
-                  <span class="metric-label">Gráficos Automáticos</span>
-                  <span class="metric-status">Barras, donas o series temporales al vuelo</span>
+
+              <div class="kpi-card" matTooltip="Sumatoria de variaciones diarias (Saldo Final - Saldo Inicial). Representa el balance neto real del período: positivo = crecimiento de fondos, negativo = reducción de fondos">
+                <div class="kpi-icon-wrap" [class.emerald]="(data.resumen.balanceNeto || 0) >= 0" [class.rose]="(data.resumen.balanceNeto || 0) < 0">
+                  <mat-icon>{{ (data.resumen.balanceNeto || 0) >= 0 ? 'trending_up' : 'trending_down' }}</mat-icon>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Variación Neta (Balance)</span>
+                  <span class="kpi-val" [class.positive]="(data.resumen.balanceNeto || 0) >= 0" [class.negative]="(data.resumen.balanceNeto || 0) < 0">
+                    $ {{ (data.resumen.balanceNeto || 0) | number:'1.2-2':'es-AR' }}
+                  </span>
                 </div>
               </div>
-              <div class="metric-box">
-                <mat-icon class="metric-icon violet">table_view</mat-icon>
-                <div class="metric-details">
-                  <span class="metric-label">Grilla de Resultados</span>
-                  <span class="metric-status">Totales consolidados y métricas KPI</span>
+
+              <div class="kpi-card" matTooltip="Suma total de todas las variaciones diarias positivas (dinero que ingresó al saldo día a día)">
+                <div class="kpi-icon-wrap emerald">
+                  <mat-icon>arrow_upward</mat-icon>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Subas / Ingresos Diarios</span>
+                  <span class="kpi-val text-emerald">+$ {{ (data.resumen.totalIngresos || 0) | number:'1.2-2':'es-AR' }}</span>
+                </div>
+              </div>
+
+              <div class="kpi-card" matTooltip="Suma total de todas las variaciones diarias negativas (dinero que salió del saldo día a día)">
+                <div class="kpi-icon-wrap rose">
+                  <mat-icon>arrow_downward</mat-icon>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Bajas / Gastos Diarios</span>
+                  <span class="kpi-val text-negativo">-$ {{ (data.resumen.totalGastos || 0) | number:'1.2-2':'es-AR' }}</span>
+                </div>
+              </div>
+
+              <div class="kpi-card" matTooltip="Variación promedio por cada día de diferencia registrado en el período">
+                <div class="kpi-icon-wrap blue">
+                  <mat-icon>timeline</mat-icon>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Variación Promedio / Día</span>
+                  <span class="kpi-val">$ {{ (data.resumen.promedio || 0) | number:'1.2-2':'es-AR' }}</span>
+                </div>
+              </div>
+
+              <div class="kpi-card" matTooltip="Cantidad de registros o fechas evaluadas en el período">
+                <div class="kpi-icon-wrap blue">
+                  <mat-icon>format_list_numbered</mat-icon>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Registros Evaluados</span>
+                  <span class="kpi-val">{{ (data.resumen.cantidad || 0) | number:'1.0-0':'es-AR' }}</span>
                 </div>
               </div>
             </div>
 
-            <div class="placeholder-container">
-              <div class="placeholder-graphic">
-                <mat-icon class="big-icon pulse violet">manage_search</mat-icon>
-                <h3>Generador de Consultas y Reportes Dinámicos</h3>
-                <p>
-                  Protegido por verificación de rol ADMIN. Permitirá seleccionar entidades, períodos y conceptos
-                  generando gráficos y tablas en vivo con agregaciones en base de datos.
-                </p>
+            <!-- Métricas KPI Estándar para Flujos y Obligaciones (Liquidaciones, Cuotas Mensuales, Préstamos) -->
+            <div class="kpi-explorador-grid" *ngIf="tablaExplorador() !== 'movimientos' && tablaExplorador() !== 'estimativos'">
+              <div class="kpi-card" matTooltip="Suma total de dinero de todos los registros que coinciden con los filtros aplicados">
+                <div class="kpi-icon-wrap violet">
+                  <mat-icon>monetization_on</mat-icon>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">
+                    {{ tablaExplorador() === 'prestamos' ? 'Total Deuda' : 'Total Monto' }}
+                  </span>
+                  <span class="kpi-val">$ {{ (data.resumen.totalMonto || 0) | number:'1.2-2':'es-AR' }}</span>
+                </div>
+              </div>
+
+              <div class="kpi-card" matTooltip="Número total de transacciones o registros encontrados">
+                <div class="kpi-icon-wrap blue">
+                  <mat-icon>format_list_numbered</mat-icon>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Registros</span>
+                  <span class="kpi-val">{{ (data.resumen.cantidad || 0) | number:'1.0-0':'es-AR' }}</span>
+                </div>
+              </div>
+
+              <div class="kpi-card" matTooltip="Monto promedio calculado dividiendo el total acumulado entre la cantidad de registros">
+                <div class="kpi-icon-wrap emerald">
+                  <mat-icon>functions</mat-icon>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Promedio / Registro</span>
+                  <span class="kpi-val">$ {{ (data.resumen.promedio || 0) | number:'1.2-2':'es-AR' }}</span>
+                </div>
+              </div>
+
+              <div class="kpi-card" *ngIf="tablaExplorador() === 'prestamos'" matTooltip="Capital recibido en cuenta bancaria en mano al momento de tomar los préstamos">
+                <div class="kpi-icon-wrap emerald">
+                  <mat-icon>account_balance_wallet</mat-icon>
+                </div>
+                <div class="kpi-info">
+                  <span class="kpi-label">Capital en Mano</span>
+                  <span class="kpi-val">$ {{ (data.resumen.totalIngresos || 0) | number:'1.2-2':'es-AR' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Gráfico Dinámico -->
+            <div class="explorador-chart-card">
+              <div class="chart-header-controls">
+                <div class="chart-dimension-selector">
+                  <span class="control-label" matTooltip="Selecciona el criterio de agrupación para generar el gráfico">Dimensión:</span>
+                  <button
+                    type="button"
+                    class="btn-chart-mode"
+                    [class.active]="tipoGraficoExplorador() === 'temporal'"
+                    (click)="cambiarTipoGraficoExplorador('temporal')"
+                    matTooltip="Ver la serie temporal cronológica día a día o mes a mes">
+                    Evolución Temporal
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-chart-mode"
+                    [class.active]="tipoGraficoExplorador() === 'entidad'"
+                    (click)="cambiarTipoGraficoExplorador('entidad')"
+                    matTooltip="Agrupar y comparar los montos por entidad o tipo de saldo">
+                    {{ tablaExplorador() === 'estimativos' ? 'Por Tipo de Saldo' : 'Por Entidad' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-chart-mode"
+                    *ngIf="data.distribuciones.distribucionEstados && data.distribuciones.distribucionEstados.length > 0"
+                    [class.active]="tipoGraficoExplorador() === 'estados'"
+                    (click)="cambiarTipoGraficoExplorador('estados')"
+                    matTooltip="Comparar la proporción de montos según el estado contable">
+                    Por Estados
+                  </button>
+                </div>
+
+                <div class="chart-type-selector">
+                  <button
+                    type="button"
+                    class="btn-type-chip"
+                    [class.active]="chartTypeExplorador() === 'bar'"
+                    (click)="cambiarChartTypeExplorador('bar')"
+                    matTooltip="Cambiar a Gráfico de Barras comparativas">
+                    <mat-icon>bar_chart</mat-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-type-chip"
+                    [class.active]="chartTypeExplorador() === 'doughnut'"
+                    (click)="cambiarChartTypeExplorador('doughnut')"
+                    matTooltip="Cambiar a Gráfico Circular de Dona (proporción porcentual)">
+                    <mat-icon>pie_chart</mat-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-type-chip"
+                    [class.active]="chartTypeExplorador() === 'line'"
+                    (click)="cambiarChartTypeExplorador('line')"
+                    matTooltip="Cambiar a Gráfico de Líneas con marcadores">
+                    <mat-icon>show_chart</mat-icon>
+                  </button>
+                </div>
+              </div>
+
+              <div class="chart-wrapper">
+                <canvas
+                  baseChart
+                  [data]="chartDataExplorador"
+                  [options]="chartOptionsExplorador"
+                  [type]="chartTypeExplorador()">
+                </canvas>
+              </div>
+            </div>
+
+            <!-- Grilla / Tabla de Resultados -->
+            <div class="explorador-table-card">
+              <div class="table-card-header">
+                <div class="table-title">
+                  <mat-icon>table_view</mat-icon>
+                  <h3>Registros Filtrados ({{ data.totalRegistros }} en total)</h3>
+                </div>
+                <div class="table-pagination-top">
+                  <span>Página {{ data.paginaActual }} de {{ data.totalPaginas || 1 }}</span>
+                </div>
+              </div>
+
+              <div class="table-responsive-container">
+                <table class="reportes-data-table" *ngIf="data.items && data.items.length > 0">
+                  <thead>
+                    <tr>
+                      <th matTooltip="Fecha en que se registró la operación o año fiscal del contrato">Fecha / Período</th>
+                      <th matTooltip="Banco, tarjeta de crédito o billetera">Entidad</th>
+                      <th matTooltip="Concepto o descripción del gasto, ingreso o préstamo">Concepto / Descripción</th>
+                      <th matTooltip="Tipo de movimiento y estado de pago">Tipo / Estado</th>
+                      <th class="text-right" matTooltip="Importe en pesos ($). En préstamos representa la deuda total a pagar">
+                        {{ tablaExplorador() === 'prestamos' ? 'Deuda Total ($)' : 'Monto ($)' }}
+                      </th>
+                      <th matTooltip="Información complementaria (capital en mano, cuotas, fórmulas o métodos de pago)">Detalle Adicional</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let item of data.items">
+                      <td class="font-mono">
+                        <span class="fecha-text">{{ item.fecha }}</span>
+                      </td>
+                      <td>
+                        <span class="entidad-pill" [matTooltip]="'Entidad financiera: ' + item.entidad">{{ item.entidad }}</span>
+                      </td>
+                      <td class="cell-concepto">
+                        <span class="concepto-text" [matTooltip]="item.concepto.startsWith('=') ? 'Fórmula contable importada: ' + item.concepto : item.concepto">
+                          {{ item.concepto.startsWith('=') ? 'Fila contable ' + item.concepto.substring(1) : item.concepto }}
+                        </span>
+                        <small *ngIf="item.categoria" class="sub-categoria">{{ item.categoria }}</small>
+                      </td>
+                      <td>
+                        <span
+                          *ngIf="item.tipo"
+                          class="status-pill-badge"
+                          [class.pill-ingreso]="item.tipo === 'INGRESO'"
+                          [class.pill-gasto]="item.tipo === 'GASTO'"
+                          [class.pill-prestamo]="item.tipo === 'PRÉSTAMO'"
+                          [matTooltip]="item.tipo === 'PRÉSTAMO' ? 'Contrato de financiamiento personal' : (item.tipo === 'INGRESO' ? 'Entrada de dinero a favor' : 'Salida o compromiso de dinero')">
+                          {{ item.tipo }}
+                        </span>
+                        <span
+                          *ngIf="item.estado"
+                          class="status-pill-badge pill-estado"
+                          [matTooltip]="'Estado actual: ' + item.estado">
+                          {{ item.estado }}
+                        </span>
+                      </td>
+                      <td class="text-right font-mono font-bold"
+                        [class.text-emerald]="item.tipo === 'INGRESO'"
+                        [class.text-purple]="item.tipo === 'PRÉSTAMO'"
+                        [matTooltip]="item.tipo === 'PRÉSTAMO' ? 'Deuda total a devolver (capital inicial + costo financiero): $' + (item.monto | number:'1.2-2':'es-AR') : 'Importe de la operación: $' + (item.monto | number:'1.2-2':'es-AR')">
+                        $ {{ item.monto | number:'1.2-2':'es-AR' }}
+                      </td>
+                      <td class="cell-detalle">
+                        <span class="text-muted" [matTooltip]="item.detalle || 'Sin detalle adicional'">
+                          {{ item.detalle || '—' }}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div class="empty-state-box" *ngIf="!data.items || data.items.length === 0">
+                  <mat-icon>search_off</mat-icon>
+                  <h4>No se encontraron registros con los filtros seleccionados</h4>
+                  <p>Prueba ampliando el rango de fechas o limpiando los criterios de búsqueda.</p>
+                </div>
+              </div>
+
+              <!-- Paginador Inferior -->
+              <div class="table-pagination-footer" *ngIf="data.totalRegistros > 0">
+                <div class="limit-selector">
+                  <label>Mostrar:</label>
+                  <select
+                    class="limit-select"
+                    [ngModel]="limitePorPagina()"
+                    (ngModelChange)="limitePorPagina.set(+$event); cargarExplorador(true)">
+                    <option [value]="10">10 por página</option>
+                    <option [value]="25">25 por página</option>
+                    <option [value]="50">50 por página</option>
+                    <option [value]="100">100 por página</option>
+                  </select>
+                </div>
+
+                <div class="pagination-buttons">
+                  <button
+                    type="button"
+                    mat-icon-button
+                    [disabled]="data.paginaActual <= 1"
+                    (click)="cambiarPaginaExplorador(-1)"
+                    matTooltip="Página anterior">
+                    <mat-icon>chevron_left</mat-icon>
+                  </button>
+                  <span class="page-indicator">Página {{ data.paginaActual }} de {{ data.totalPaginas || 1 }}</span>
+                  <button
+                    type="button"
+                    mat-icon-button
+                    [disabled]="data.paginaActual >= data.totalPaginas"
+                    (click)="cambiarPaginaExplorador(1)"
+                    matTooltip="Página siguiente">
+                    <mat-icon>chevron_right</mat-icon>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

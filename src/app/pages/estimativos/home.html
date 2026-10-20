@@ -32,20 +32,24 @@
         </mat-card-content>
       </mat-card>
 
-      <div class="contenedor-termometros-grid">
-        <app-grafico-dias-restantes-anual
-          [modo]="'estimativo'"
-          [mesSeleccionado]="mesSeleccionado()"
-          [estimativoFilas]="estimativoFilas()"
-          [anioSeleccionado]="anioSeleccionado()"
-        ></app-grafico-dias-restantes-anual>
-
+      <div
+        class="contenedor-termometros-grid"
+        [class.col-izq-contraida]="colIzquierdaContraida()"
+        [class.col-der-contraida]="colDerechaContraida()"
+      >
         <app-termometro-rendimiento-positivo
           [mesSeleccionado]="mesSeleccionado()"
           [estimativoFilas]="estimativoFilas()"
           [anioSeleccionado]="anioSeleccionado()"
           [porcentajeExcel]="porcentajeRendimientoExcel()"
         ></app-termometro-rendimiento-positivo>
+
+        <app-grafico-dias-restantes-anual
+          [modo]="'estimativo'"
+          [mesSeleccionado]="mesSeleccionado()"
+          [estimativoFilas]="estimativoFilas()"
+          [anioSeleccionado]="anioSeleccionado()"
+        ></app-grafico-dias-restantes-anual>
       </div>
 
       <div
