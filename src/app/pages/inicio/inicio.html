@@ -36,7 +36,7 @@
       @if (!colIzquierdaContraida()) {
         @if (anio === anioSeleccionado() && resumenPorDia().length > 0) {
           <app-lista-saldo-diario
-            [anio]="anio"
+            [anio]="anioSeleccionado()"
             [resumenPorDiaUSD]="resumenConDolar()"
             [isColIzquierdaContraida]="colIzquierdaContraida()"
             (toggleHorizontalCollapse)="toggleColIzquierdaHorizontal()"
@@ -59,7 +59,7 @@
         @if (anio === anioSeleccionado()) {
           @if (resumenPorDia().length > 0) {
             <app-movimientos
-              [anio]="anio"
+              [anio]="anioSeleccionado()"
               [resumenPorDia]="resumenPorDia()"
               [isColDerechaContraida]="colDerechaContraida()"
               (toggleHorizontalCollapse)="toggleColDerechaHorizontal()"
@@ -67,7 +67,7 @@
             </app-movimientos>
           }
           <app-movimientos-usd
-            [anio]="anio"
+            [anio]="anioSeleccionado()"
             [resumen]="resumenConDolar()"
             [isColDerechaContraida]="colDerechaContraida()"
             (toggleHorizontalCollapse)="toggleColDerechaHorizontal()"

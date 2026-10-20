@@ -11,6 +11,9 @@ import { CotizacionStore } from './dolar.store';
 import { formatFechaEsAR, parseFechaEsAR } from '../utils/grafico.utils';
 import { SseService } from '../services/sse.service';
 import { MovimientosService } from '../services/movimientos.service';
+import { MensualItemsService } from '../services/mensual-items.service';
+import { ReportesService } from '../services/reportes.service';
+import { LoansService, Loan } from '../services/loans.service';
 
 /**
  * Respuesta devuelta por la API de Google Sheets para consultas estándar.
@@ -222,6 +225,9 @@ export class MovimientosStoreGoogle {
   private cotizacionStore = inject(CotizacionStore);
   private sseService = inject(SseService);
   private movimientosService = inject(MovimientosService);
+  private mensualItemsService = inject(MensualItemsService);
+  private reportesService = inject(ReportesService);
+  private loansService = inject(LoansService);
 
   constructor() {
     console.log('🧠 MovimientosStoreGoogle instanciado');
@@ -773,13 +779,98 @@ export class MovimientosStoreGoogle {
    */
   async cargarTablaAnualAllXAnio(anio: number, force = false): Promise<void> {
     if (!this.appConfig.isSheetsActivo(anio)) {
-      console.log(`ℹ️ [MovimientosStoreGoogle] Año ${anio} en modo BD: tabla anual aún no migrada a la BD, sin información.`);
-      this.tablaAnual.set([]);
-      this.tablaSecundaria.set([]);
-      this.valorOtorgado.set(0);
-      this.tablaGastosMensualesPorAnio.set(anio, signal([]));
-      this.tablaGastosDiarioPromedioPorAnio.set(anio, signal([]));
-      return;
+      console.log(`ℹ️ [MovimientosStoreGoogle] Año ${anio} en modo BD: cargando desde PostgreSQL y API unificada...`);
+      try {
+        const [rep, resLoans] = await Promise.all([
+          firstValueFrom(this.reportesService.getAnalisisAnual(anio, force)),
+          firstValueFrom(this.loansService.getLoans(anio)),
+        ]);
+
+        const gastosMensuales = (rep?.gastos || []).map((g) => ({
+          mes: g.mes,
+          total: g.total,
+        }));
+
+        const gastosDiarioPromedio = (rep?.gastos || []).map((g) => {
+          const dias = new Date(anio, g.numeroMes, 0).getDate();
+          return {
+            mes: g.mes,
+            total: Number((g.total / dias).toFixed(2)),
+          };
+        });
+
+        const filasSecundarias: Prestamo[] = (rep?.rendimientosPositivos || []).map((rp) => ({
+          nombreFila: rp.mes,
+          valores: { rendimiento: rp.porcentaje },
+          valoresPrestamo: { rendimiento: rp.porcentaje },
+          colores: { rendimiento: '#000000' },
+        }));
+
+        let tablaPrestamos: Prestamo[] = [];
+        if (resLoans?.data && resLoans.data.length > 0) {
+          const loans = resLoans.data;
+          const nombresMeses = [
+            'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+          ];
+          const filaPrestado: Prestamo = { nombreFila: 'Prestado', valores: {}, valoresPrestamo: {}, colores: {} };
+          for (const loan of loans) {
+            filaPrestado.valores[loan.nombre] = loan.capitalTomado;
+            filaPrestado.valoresPrestamo[loan.nombre] = loan.capitalTomado;
+            filaPrestado.colores[loan.nombre] = '#000000';
+          }
+          const filasMeses: Prestamo[] = [];
+          for (let m = 1; m <= 12; m++) {
+            const filaMes: Prestamo = { nombreFila: nombresMeses[m - 1], valores: {}, valoresPrestamo: {}, colores: {} };
+            for (const loan of loans) {
+              const cuota = loan.installments?.find((i) => i.year === anio && i.mes === m);
+              if (cuota) {
+                filaMes.valores[loan.nombre] = cuota.monto;
+                filaMes.valoresPrestamo[loan.nombre] = cuota.monto;
+                filaMes.colores[loan.nombre] = cuota.pagada ? '#0000ff' : '#000000';
+              } else {
+                filaMes.valores[loan.nombre] = 0;
+                filaMes.valoresPrestamo[loan.nombre] = 0;
+                filaMes.colores[loan.nombre] = '#000000';
+              }
+            }
+            filasMeses.push(filaMes);
+          }
+          const filaDevolver: Prestamo = { nombreFila: 'Total a devolver', valores: {}, valoresPrestamo: {}, colores: {} };
+          for (const loan of loans) {
+            const sumaCuotas = loan.installments
+              ?.filter((i) => i.year === anio)
+              .reduce((acc, i) => acc + (i.monto || 0), 0) ?? loan.deudaTotal;
+            filaDevolver.valores[loan.nombre] = sumaCuotas;
+            filaDevolver.valoresPrestamo[loan.nombre] = sumaCuotas;
+            filaDevolver.colores[loan.nombre] = '#000000';
+          }
+          tablaPrestamos = [filaPrestado, ...filasMeses, filaDevolver];
+        }
+
+        const montoTotalOtorgado = tablaPrestamos[0]
+          ? Object.values(tablaPrestamos[0].valores).reduce((acc, v) => acc + (v || 0), 0)
+          : 0;
+
+        this.tablaAnual.set(tablaPrestamos);
+        this.tablaSecundaria.set(filasSecundarias);
+        this.valorOtorgado.set(montoTotalOtorgado);
+        this.tablaGastosMensualesPorAnio.set(anio, signal(gastosMensuales));
+        this.tablaGastosDiarioPromedioPorAnio.set(anio, signal(gastosDiarioPromedio));
+        this.tablaAnualPorAnio.set(anio, signal(tablaPrestamos));
+        this.tablaSecundariaPorAnio.set(anio, signal(filasSecundarias));
+        this.valorOtorgadoPorAnio.set(anio, signal(montoTotalOtorgado));
+        this.setAnualCargado(anio, true);
+        return;
+      } catch (err) {
+        console.warn(`Error al cargar datos anuales desde BD para año ${anio}:`, err);
+        this.tablaAnual.set([]);
+        this.tablaSecundaria.set([]);
+        this.valorOtorgado.set(0);
+        this.tablaGastosMensualesPorAnio.set(anio, signal([]));
+        this.tablaGastosDiarioPromedioPorAnio.set(anio, signal([]));
+        return;
+      }
     }
 
     const clave = `Anual ${anio}`;
@@ -1224,6 +1315,14 @@ export class MovimientosStoreGoogle {
     force = false,
   ): Promise<{ mes: string; total: number }[]> {
     if (!this.appConfig.isSheetsActivo(anio)) {
+      try {
+        const rep = await firstValueFrom(this.reportesService.getAnalisisAnual(anio, force));
+        if (rep?.saldos && rep.saldos.length > 0) {
+          return rep.saldos.map((s) => ({ mes: s.mes, total: s.saldo }));
+        }
+      } catch (err) {
+        console.warn(`Error al obtener saldos anuales desde BD para año ${anio}:`, err);
+      }
       return [];
     }
 
@@ -1314,7 +1413,68 @@ export class MovimientosStoreGoogle {
     { mes: string; subtotal: number; desglose: Record<string, number>; compensaciones: number }[]
   > {
     if (!this.appConfig.isSheetsActivo(anio)) {
-      return [];
+      try {
+        const res = await firstValueFrom(this.mensualItemsService.getItems(anio));
+        const allItems = res?.items || [];
+        const MESES_BASE = [
+          'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+        ];
+        const resultados: {
+          mes: string;
+          subtotal: number;
+          desglose: Record<string, number>;
+          compensaciones: number;
+        }[] = [];
+
+        for (let m = 1; m <= 12; m++) {
+          const mesNombre = MESES_BASE[m - 1];
+          const itemsMes = allItems.filter((it) => it.mes === m);
+          let subtotalMes = 0;
+          let compensacionesMes = 0;
+          const desgloseMes: Record<string, number> = {};
+
+          for (const it of itemsMes) {
+            const desc = (it.concepto || '').trim();
+            const monto = Number(it.monto) || 0;
+            if (monto === 0) continue;
+
+            const entidadKey = (it.entidad || '').toLowerCase().trim();
+            if (entidadKey === 'reembolsables') continue;
+
+            if (this.normalizar(desc).includes('compensacion')) {
+              compensacionesMes += monto;
+            }
+
+            let cuotasRestantes = 1;
+            if (it.esCuota && it.cuotaActual && it.totalCuotas) {
+              cuotasRestantes = it.totalCuotas - it.cuotaActual + 1;
+            } else {
+              const matchCuota = desc.match(/(\d+)\/(\d+)/);
+              if (matchCuota) {
+                const actual = parseInt(matchCuota[1], 10);
+                const total = parseInt(matchCuota[2], 10);
+                cuotasRestantes = total - actual + 1;
+              }
+            }
+
+            const subtotalItem = monto * cuotasRestantes;
+            desgloseMes[entidadKey] = (desgloseMes[entidadKey] || 0) + subtotalItem;
+            subtotalMes += subtotalItem;
+          }
+
+          resultados.push({
+            mes: mesNombre,
+            subtotal: subtotalMes,
+            desglose: desgloseMes,
+            compensaciones: compensacionesMes,
+          });
+        }
+        return resultados;
+      } catch (err) {
+        console.warn(`Error al obtener proyección futuros desde BD para año ${anio}:`, err);
+        return [];
+      }
     }
 
     if (force) {

@@ -62,6 +62,9 @@ export class ListaSaldoDiario implements OnChanges {
       // cargarDatosPorAnio2 se disparará via el setter de resumenPorDiaUSD cuando lleguen los datos.
     }
   }
+  get anio(): number {
+    return this._anio();
+  }
 
   private _resumenPorDia = signal<
     { fecha: string; total: number; diferencia: number; deudaPesos: number }[]
