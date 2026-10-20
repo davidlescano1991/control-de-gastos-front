@@ -1204,11 +1204,12 @@ gantt
           - Asignar una etiqueta o tipo de evento (presets: "Feriado", "Cobro", "Vencimiento", "Viaje", "Cumpleaños", "Ajuste" o texto libre).
           - Seleccionar un color personalizado (paleta armónica de muestras y color picker nativo HTML).
         - Persistir la configuración en base de datos (`DailyEstimate.evento` y `color`), retornarla en la API y pintar dinámicamente la fila con acento izquierdo y badge píldora `.badge-evento-dia` junto a la fecha en modo Claro y Oscuro. *(Completado)*
-      * **6.17.8**: Módulo de Estimativos (`/estimativo`): Termómetro de Porcentaje de Días Positivos:
+      * **6.17.8**: Módulo de Estimativos (`/estimativo`): Termómetro de Porcentaje de Días Positivos *(Completado)*:
         - Incorporar en `/estimativo` un segundo indicador tipo termómetro/gauge visual (junto al termómetro de días transcurridos existente).
-        - El termómetro calculará y mostrará el **porcentaje de días con rendimiento positivo del mes**, tomando los datos de la tabla de *Rendimientos positivos mensuales* de la vista Anual (celda `H53` de cada mes en Excel).
+        - El termómetro calcula y muestra el **porcentaje de días con rendimiento positivo del mes**, tomando los datos de la tabla de *Rendimientos positivos mensuales* de la vista Anual (celda `H53` de cada mes en Excel) con fallback dinámico desde `estimativoFilas` (`real > saldoPesos`).
+        - Diseño con layout simétrico en grilla responsive (`.contenedor-termometros-grid`), barra animada fluida con cubic-bezier, marcas en el eje, badges coloreados de porcentaje dinámico (`getColorPorcentaje`) y tooltip descriptivo con desglose de días cargados y días del ciclo. Cumplimiento total de la Regla de Oro (`AGENTS.md`) y compatibilidad con Dark Mode. *(Completado)*
 
-  * **6.18**: Explorador de Base de Datos y Generador de Reportes Multicriterio con Gráficos Dinámicos (Solo Administradores) *(PENDIENTE)*:
+  * **6.18**: Explorador de Base de Datos y Generador de Reportes Multicriterio con Gráficos Dinámicos (Solo Administradores) *(COMPLETADO)*:
     * **¿Qué es y por qué se hace de esta manera?**:
       * Brinda una herramienta analítica de alto impacto operativa directamente desde la interfaz web, permitiendo al usuario administrador consultar, cruzar y graficar cualquier conjunto de datos del sistema sin necesidad de acceder a la base de datos ni escribir complejas sentencias SQL (`SELECT`, `JOIN`, `WHERE`, `GROUP BY`):
         1. **Acceso Exclusivo para Administradores**: Protegido por `RoleGuard` en el frontend y middleware de autorización en el backend, siendo invisible e inaccesible para usuarios estándar.
@@ -1230,26 +1231,26 @@ gantt
              - Proporción de estados de pago (gráfico circular/porcentual).
         5. **Tabla de Resultados Consolidados con Métricas**: Grilla interactiva con totales acumulados, subtotales por entidad, cantidad de operaciones y promedios, aportando total autonomía de auditoría y análisis financiero.
     * **Subpasos de Ejecución**:
-      * **6.18.1**: Backend: Endpoint Analítico Multicriterio y Motor de Consultas Dinámicas (`GET /api/reportes/explorador`):
+      * **6.18.1**: Backend: Endpoint Analítico Multicriterio y Motor de Consultas Dinámicas (`GET /api/reportes/explorador`): *(Completado)*
         - Implementación en `control-de-gastos-api` con middleware `requireAdmin` y `authenticateToken`.
         - Soporte para filtros dinámicos en Prisma ORM construyendo cláusulas `where` compuestas según parámetros de consulta (`tabla`, `desde`, `hasta`, `entidades[]`, `estados[]`, `concepto`, `montoMin`, `montoMax`).
         - Agregaciones automáticas en base de datos (`_sum`, `_avg`, `_count`) para máxima velocidad de respuesta.
-      * **6.18.2**: Frontend: Creación del Submenú "Consultas y Reportes" en `/reportes` con `RoleGuard`:
+      * **6.18.2**: Frontend: Creación del Submenú "Consultas y Reportes" en `/reportes` con `RoleGuard`: *(Completado)*
         - Integración de la pestaña protegida en `ReportesComponent`, visible exclusivamente si el usuario autenticado posee rol `ADMIN`.
         - Estructura visual basada en la Regla de Oro (`AGENTS.md`) con `.movimientos-wrapper`, tarjetas con bordes suaves y diseño adaptativo.
-      * **6.18.3**: Frontend: Formulario Interactivo de Filtros Multicriterio:
+      * **6.18.3**: Frontend: Formulario Interactivo de Filtros Multicriterio: *(Completado)*
         - Selector de tabla / dominio con chips de selección rápida.
         - Datepicker de rango de fechas con presets mensuales y anuales.
         - Dropdown multi-select con checkboxes para entidades (`Visa`, `Mastercard`, `Naranja`, `Bancor`, `Mercado Libre`, etc.).
         - Selector de estados y campos de búsqueda de texto y rango de importes.
         - Botones de acción: `Aplicar Filtros` (con indicador de carga) y `Limpiar Filtros`.
-      * **6.18.4**: Frontend: Motor Generador de Gráficos Dinámicos con Chart.js:
+      * **6.18.4**: Frontend: Motor Generador de Gráficos Dinámicos con Chart.js: *(Completado)*
         - Componente reactivo que escucha los resultados filtrados y ensambla la configuración óptima de gráfico (barras, dona o líneas).
         - Tooltips con formateo de moneda argentina, leyendas interactivas y paletas de colores coherentes con el tema Claro y Oscuro.
-      * **6.18.5**: Frontend: Grilla de Resultados Analíticos y Resumen Ejecutivo:
+      * **6.18.5**: Frontend: Grilla de Resultados Analíticos y Resumen Ejecutivo: *(Completado)*
         - Tarjetas KPI superiores: `Total Monto Filtrado`, `Cantidad de Registros`, `Promedio por Operación`.
         - Tabla paginada de resultados con ordenamiento por columnas (Fecha, Entidad, Concepto, Importe, Estado).
-        - Botón de exportación rápida de la consulta filtrada.
+        - Botón de exportación rápida de la consulta filtrada en formato CSV.
 
   * **6.19**: Sistema de Multi-Abonos Acumulativos por Entidad con Historial de Pagos y Sincronización Automática de Compensaciones *(COMPLETADO)*:
     * **¿Qué es y por qué se implementó?**:

@@ -11,10 +11,14 @@ import {
   Inject,
 } from '@angular/core';
 import { CommonModule, isPlatformBrowser, DecimalPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartOptions, Plugin } from 'chart.js';
 import { SelectorAnioDelorean } from '../../common/selector-anio-delorean/selector-anio-delorean';
@@ -31,6 +35,11 @@ import {
   MesSaldoItem,
   MesGastoItem,
   MesPrestamoItem,
+  FiltrosExplorador,
+  ExploradorRegistro,
+  ExploradorResponse,
+  ExploradorResumen,
+  ExploradorDistribucion,
 } from '../../services/reportes.service';
 import { calcularTendencia, getGridColor, getLineWidth } from '../../utils/grafico.utils';
 
@@ -86,10 +95,14 @@ export const googleSheetsDataLabelsPlugin: Plugin = {
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     MatIconModule,
     MatButtonModule,
     MatTooltipModule,
     MatProgressSpinnerModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
     BaseChartDirective,
     SelectorAnioDelorean,
   ],
@@ -130,6 +143,94 @@ export class ReportesComponent implements OnInit, OnDestroy {
   public subTabAnalisis = signal<'todos' | 'saldo' | 'gastos' | 'prestamos'>('todos');
   public mesProximoAPagarNombre = signal<string>('');
   public gastosPlugins = [googleSheetsDataLabelsPlugin];
+
+  // =========================================================================
+  // SUBMENÚ 4: EXPLORADOR ANALÍTICO DINÁMICO MULTICRITERIO (Fase 6.18)
+  // =========================================================================
+  public isLoadingExplorador = signal<boolean>(false);
+  public datosExplorador = signal<ExploradorResponse | null>(null);
+
+  // Filtros interactivos
+  public tablaExplorador = signal<'movimientos' | 'pagos_entidades' | 'items_mensuales' | 'prestamos' | 'estimativos'>('movimientos');
+  public filtroAnio = signal<string>('TODOS');
+  public filtroDesde = signal<string>('');
+  public filtroHasta = signal<string>('');
+  public filtroEntidades = signal<string[]>([]);
+  public filtroTipo = signal<string>('TODOS');
+  public filtroEstado = signal<string>('TODOS');
+  public filtroConcepto = signal<string>('');
+  public filtroMontoMin = signal<number | null>(null);
+  public filtroMontoMax = signal<number | null>(null);
+  public paginaActual = signal<number>(1);
+  public limitePorPagina = signal<number>(25);
+
+  // Visualización del gráfico
+  public tipoGraficoExplorador = signal<'entidad' | 'temporal' | 'estados'>('entidad');
+  public chartTypeExplorador = signal<'bar' | 'doughnut' | 'line'>('bar');
+
+  public readonly entidadesDisponibles: string[] = [
+    'Visa Galicia',
+    'Master Card Galicia',
+    'Naranja X',
+    'Naranja',
+    'Bancor',
+    'Mercado Libre',
+    'Santander',
+    'Galicia',
+    'Efectivo',
+    'Otros',
+  ];
+
+  public chartDataExplorador: ChartConfiguration<'bar' | 'doughnut' | 'line'>['data'] = {
+    labels: [],
+    datasets: [],
+  };
+
+  public chartOptionsExplorador: ChartConfiguration<'bar' | 'doughnut' | 'line'>['options'] = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top',
+        labels: {
+          usePointStyle: true,
+          boxWidth: 8,
+          boxHeight: 8,
+          font: { size: 12, weight: 'bold', family: 'Inter, system-ui, sans-serif' },
+          color: '#475569',
+        },
+      },
+      tooltip: {
+        backgroundColor: 'rgba(15, 23, 42, 0.92)',
+        titleColor: '#90caf9',
+        bodyColor: '#ffffff',
+        titleFont: { size: 13, weight: 'bold' },
+        bodyFont: { size: 12 },
+        padding: 12,
+        cornerRadius: 8,
+        callbacks: {
+          label: (ctx) => {
+            const val = ctx.raw as number;
+            return ` Total: $${Number(val || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { color: '#64748b', font: { size: 11, weight: 'bold' } },
+      },
+      y: {
+        grid: { color: 'rgba(226, 232, 240, 0.6)' },
+        ticks: {
+          color: '#64748b',
+          callback: (val) => `$${Number(val).toLocaleString('es-AR')}`,
+        },
+      },
+    },
+  };
 
   // Filtros interactivos de la vista de Saldo
   public serieActiva = signal<'pesos' | 'usd' | 'deuda' | 'comparativa'>('pesos');
@@ -724,6 +825,8 @@ export class ReportesComponent implements OnInit, OnDestroy {
       this.cargarReporteCortes();
     } else if (id === 'anual' && !this.reporteAnalisis()) {
       this.cargarReporteAnalisis();
+    } else if (id === 'dinamico' && !this.datosExplorador()) {
+      this.cargarExplorador();
     }
   }
 
@@ -1254,4 +1357,279 @@ export class ReportesComponent implements OnInit, OnDestroy {
     this.chart?.update();
   }
 
+  // =========================================================================
+  // MÉTODOS DEL SUBMENÚ 4: EXPLORADOR ANALÍTICO DINÁMICO MULTICRITERIO
+  // =========================================================================
+
+  public cargarExplorador(resetPage = false): void {
+    if (resetPage) {
+      this.paginaActual.set(1);
+    }
+    this.isLoadingExplorador.set(true);
+
+    const desde = this.filtroDesde().trim() || undefined;
+    const hasta = this.filtroHasta().trim() || undefined;
+
+    // Solo enviamos year si el usuario seleccionó un año específico en filtroAnio o si no hay rango desde/hasta
+    let yearParam: number | undefined;
+    if (this.filtroAnio() !== 'TODOS') {
+      yearParam = Number(this.filtroAnio());
+    }
+
+    const filtros: FiltrosExplorador = {
+      tabla: this.tablaExplorador(),
+      year: yearParam,
+      desde,
+      hasta,
+      entidades: this.filtroEntidades().length > 0 ? this.filtroEntidades() : undefined,
+      tipo: this.filtroTipo() !== 'TODOS' ? this.filtroTipo() : undefined,
+      estados: this.filtroEstado() !== 'TODOS' ? [this.filtroEstado()] : undefined,
+      concepto: this.filtroConcepto().trim() || undefined,
+      montoMin: this.filtroMontoMin() !== null ? this.filtroMontoMin()! : undefined,
+      montoMax: this.filtroMontoMax() !== null ? this.filtroMontoMax()! : undefined,
+      page: this.paginaActual(),
+      limit: this.limitePorPagina(),
+      sortBy: 'fecha',
+      sortOrder: 'desc',
+    };
+
+    this.reportesService.getExplorador(filtros).subscribe({
+      next: (data) => {
+        this.datosExplorador.set(data);
+        this.isLoadingExplorador.set(false);
+        this.actualizarGraficoExplorador();
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('[ReportesComponent] Error en cargarExplorador:', err);
+        this.isLoadingExplorador.set(false);
+      },
+    });
+  }
+
+  public cambiarFiltroAnio(anioStr: string): void {
+    this.filtroAnio.set(anioStr);
+    if (anioStr === 'TODOS') {
+      this.filtroDesde.set('');
+      this.filtroHasta.set('');
+    } else {
+      this.filtroDesde.set(`${anioStr}-01-01`);
+      this.filtroHasta.set(`${anioStr}-12-31`);
+    }
+    this.cargarExplorador(true);
+  }
+
+  public limpiarFiltrosExplorador(): void {
+    this.filtroAnio.set('TODOS');
+    this.filtroDesde.set('');
+    this.filtroHasta.set('');
+    this.filtroEntidades.set([]);
+    this.filtroTipo.set('TODOS');
+    this.filtroEstado.set('TODOS');
+    this.filtroConcepto.set('');
+    this.filtroMontoMin.set(null);
+    this.filtroMontoMax.set(null);
+    this.cargarExplorador(true);
+  }
+
+  public aplicarPresetFecha(preset: 'mes_actual' | 'mes_anterior' | 'anio_actual' | 'historico'): void {
+    const ahora = new Date();
+    const y = this.filtroAnio() !== 'TODOS' ? Number(this.filtroAnio()) : this.anioSeleccionado();
+
+    if (preset === 'mes_actual') {
+      const m = String(ahora.getMonth() + 1).padStart(2, '0');
+      this.filtroDesde.set(`${y}-${m}-01`);
+      this.filtroHasta.set(`${y}-${m}-${new Date(y, ahora.getMonth() + 1, 0).getDate()}`);
+    } else if (preset === 'mes_anterior') {
+      const mesPrevIdx = ahora.getMonth() === 0 ? 11 : ahora.getMonth() - 1;
+      const anioPrev = ahora.getMonth() === 0 ? y - 1 : y;
+      const m = String(mesPrevIdx + 1).padStart(2, '0');
+      this.filtroDesde.set(`${anioPrev}-${m}-01`);
+      this.filtroHasta.set(`${anioPrev}-${m}-${new Date(anioPrev, mesPrevIdx + 1, 0).getDate()}`);
+    } else if (preset === 'anio_actual') {
+      this.filtroDesde.set(`${y}-01-01`);
+      this.filtroHasta.set(`${y}-12-31`);
+    } else if (preset === 'historico') {
+      this.filtroAnio.set('TODOS');
+      this.filtroDesde.set('');
+      this.filtroHasta.set('');
+    }
+    this.cargarExplorador(true);
+  }
+
+  public cambiarTablaExplorador(t: 'movimientos' | 'pagos_entidades' | 'items_mensuales' | 'prestamos' | 'estimativos'): void {
+    this.tablaExplorador.set(t);
+    if (t === 'estimativos') {
+      this.tipoGraficoExplorador.set('temporal');
+      this.chartTypeExplorador.set('line');
+    } else {
+      this.tipoGraficoExplorador.set('entidad');
+      this.chartTypeExplorador.set('bar');
+    }
+    this.cargarExplorador(true);
+  }
+
+  public cambiarTipoGraficoExplorador(t: 'entidad' | 'temporal' | 'estados'): void {
+    this.tipoGraficoExplorador.set(t);
+    this.actualizarGraficoExplorador();
+  }
+
+  public cambiarChartTypeExplorador(type: 'bar' | 'doughnut' | 'line'): void {
+    this.chartTypeExplorador.set(type);
+    this.actualizarGraficoExplorador();
+  }
+
+  public cambiarPaginaExplorador(delta: number): void {
+    const totalPags = this.datosExplorador()?.totalPaginas || 1;
+    const nueva = this.paginaActual() + delta;
+    if (nueva >= 1 && nueva <= totalPags) {
+      this.paginaActual.set(nueva);
+      this.cargarExplorador(false);
+    }
+  }
+
+  public actualizarGraficoExplorador(): void {
+    const data = this.datosExplorador();
+    if (!data) return;
+
+    const modo = this.tipoGraficoExplorador();
+    const chartType = this.chartTypeExplorador();
+    const isDark = typeof document !== 'undefined' && document.body.classList.contains('dark-mode');
+    const isEstimativos = this.tablaExplorador() === 'estimativos';
+
+    const paleta = [
+      '#4b5896', '#706cd6', '#10b981', '#f59e0b', '#ef4444',
+      '#06b6d4', '#8b5cf6', '#ec4899', '#64748b', '#14b8a6',
+    ];
+
+    if (modo === 'entidad') {
+      const topEntidades = (data.distribuciones.distribucionPorEntidad || []).slice(0, 10);
+      const labels = topEntidades.map((e) => e.entidad);
+      const valores = topEntidades.map((e) => e.monto);
+
+      this.chartDataExplorador = {
+        labels,
+        datasets: [
+          {
+            type: chartType as any,
+            label: isEstimativos ? 'Saldo por Tipo ($)' : 'Monto por Entidad ($)',
+            data: valores,
+            backgroundColor: chartType === 'doughnut' ? paleta.slice(0, labels.length) : (isDark ? '#706cd6' : '#4b5896'),
+            borderColor: chartType === 'doughnut' ? (isDark ? '#1e293b' : '#ffffff') : '#4b5896',
+            borderWidth: chartType === 'doughnut' ? 2 : 1,
+            borderRadius: chartType === 'bar' ? 6 : 0,
+          },
+        ],
+      };
+    } else if (modo === 'temporal') {
+      const temporales = data.distribuciones.distribucionTemporal || [];
+      const labels = temporales.map((t) => {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(t.periodo)) {
+          const parts = t.periodo.split('-');
+          return `${parts[2]}/${parts[1]}`;
+        }
+        return t.periodo;
+      });
+      const valores = temporales.map((t) => t.monto);
+      const labelSerie = isEstimativos ? 'Saldo Diario ($)' : 'Evolución de Montos ($)';
+
+      const pointColors = isEstimativos
+        ? valores.map((v) => (v >= 0 ? '#10b981' : '#ef4444'))
+        : '#4b5896';
+
+      this.chartDataExplorador = {
+        labels,
+        datasets: [
+          {
+            type: chartType === 'doughnut' ? 'bar' : (chartType as any),
+            label: labelSerie,
+            data: valores,
+            backgroundColor: chartType === 'line' ? 'rgba(112, 108, 214, 0.18)' : '#706cd6',
+            borderColor: '#706cd6',
+            borderWidth: 2,
+            fill: chartType === 'line',
+            tension: 0.35,
+            pointRadius: isEstimativos ? 4.5 : 4,
+            pointHoverRadius: 6.5,
+            pointBackgroundColor: pointColors,
+            pointBorderColor: isEstimativos ? '#ffffff' : '#706cd6',
+            borderRadius: 6,
+          },
+        ],
+      };
+    } else if (modo === 'estados') {
+      const estados = data.distribuciones.distribucionEstados || [];
+      const labels = estados.map((e) => e.estado);
+      const valores = estados.map((e) => e.monto);
+
+      this.chartDataExplorador = {
+        labels,
+        datasets: [
+          {
+            type: chartType as any,
+            label: 'Monto por Estado ($)',
+            data: valores,
+            backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#706cd6'],
+            borderColor: isDark ? '#1e293b' : '#ffffff',
+            borderWidth: 2,
+            borderRadius: chartType === 'bar' ? 6 : 0,
+          },
+        ],
+      };
+    }
+
+    if (chartType === 'doughnut') {
+      this.chartOptionsExplorador = {
+        ...this.chartOptionsExplorador,
+        scales: undefined,
+      };
+    } else {
+      this.chartOptionsExplorador = {
+        ...this.chartOptionsExplorador,
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: isDark ? '#94a3b8' : '#64748b', font: { size: 11, weight: 'bold' } },
+          },
+          y: {
+            grid: { color: isDark ? 'rgba(51, 65, 85, 0.5)' : 'rgba(226, 232, 240, 0.6)' },
+            ticks: {
+              color: isDark ? '#94a3b8' : '#64748b',
+              callback: (val) => `$${Number(val).toLocaleString('es-AR')}`,
+            },
+          },
+        },
+      };
+    }
+
+    this.cdr.detectChanges();
+    this.chart?.update();
+  }
+
+  public exportarCSVExplorador(): void {
+    const data = this.datosExplorador();
+    if (!data || !data.items || data.items.length === 0) return;
+
+    const headers = ['ID', 'Fecha', 'Entidad', 'Concepto', 'Monto', 'Tipo', 'Estado', 'Detalle'];
+    const rows = data.items.map((it) => [
+      `"${it.id}"`,
+      `"${it.fecha}"`,
+      `"${it.entidad.replace(/"/g, '""')}"`,
+      `"${it.concepto.replace(/"/g, '""')}"`,
+      it.monto,
+      `"${it.tipo || ''}"`,
+      `"${it.estado || ''}"`,
+      `"${(it.detalle || '').replace(/"/g, '""')}"`,
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `reporte_explorador_${this.tablaExplorador()}_${new Date().toISOString().substring(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 }

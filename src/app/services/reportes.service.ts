@@ -109,6 +109,68 @@ export interface ReporteAnalisisAnualResponse {
   };
 }
 
+export interface FiltrosExplorador {
+  tabla?: 'movimientos' | 'pagos_entidades' | 'items_mensuales' | 'prestamos' | 'estimativos';
+  year?: number;
+  desde?: string;
+  hasta?: string;
+  entidades?: string[];
+  tipo?: string;
+  estados?: string[];
+  concepto?: string;
+  montoMin?: number;
+  montoMax?: number;
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface ExploradorRegistro {
+  id: string;
+  fecha: string;
+  fechaISO: string;
+  entidad: string;
+  concepto: string;
+  monto: number;
+  tipo?: string;
+  estado?: string;
+  categoria?: string;
+  detalle?: string;
+}
+
+export interface ExploradorResumen {
+  totalMonto: number;
+  cantidad: number;
+  promedio: number;
+  totalGastos?: number;
+  totalIngresos?: number;
+  balanceNeto?: number;
+  saldoInicial?: number;
+  saldoFinal?: number;
+  variacionNeta?: number;
+  variacionPromedioDiaria?: number;
+  sumaVariacionesPositivas?: number;
+  sumaVariacionesNegativas?: number;
+  totalDiasConSaldo?: number;
+}
+
+export interface ExploradorDistribucion {
+  distribucionPorEntidad: Array<{ entidad: string; monto: number; cantidad: number }>;
+  distribucionTemporal: Array<{ periodo: string; monto: number }>;
+  distribucionEstados?: Array<{ estado: string; cantidad: number; monto: number }>;
+}
+
+export interface ExploradorResponse {
+  tabla: string;
+  resumen: ExploradorResumen;
+  distribuciones: ExploradorDistribucion;
+  items: ExploradorRegistro[];
+  totalRegistros: number;
+  totalPaginas: number;
+  paginaActual: number;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -157,6 +219,49 @@ export class ReportesService {
       })
     );
   }
+
+  /**
+   * Ejecuta consultas dinámicas multicriterio en el Explorador Analítico de Base de Datos (Exclusivo Administradores).
+   */
+  getExplorador(filtros: FiltrosExplorador): Observable<ExploradorResponse | null> {
+    let params: string[] = [];
+    if (filtros.tabla) params.push(`tabla=${encodeURIComponent(filtros.tabla)}`);
+    if (filtros.year) params.push(`year=${encodeURIComponent(filtros.year)}`);
+    if (filtros.desde) params.push(`desde=${encodeURIComponent(filtros.desde)}`);
+    if (filtros.hasta) params.push(`hasta=${encodeURIComponent(filtros.hasta)}`);
+    if (filtros.entidades && filtros.entidades.length > 0) {
+      params.push(`entidades=${encodeURIComponent(filtros.entidades.join(','))}`);
+    }
+    if (filtros.tipo && filtros.tipo !== 'TODOS') params.push(`tipo=${encodeURIComponent(filtros.tipo)}`);
+    if (filtros.estados && filtros.estados.length > 0) {
+      params.push(`estados=${encodeURIComponent(filtros.estados.join(','))}`);
+    }
+    if (filtros.concepto && filtros.concepto.trim()) {
+      params.push(`concepto=${encodeURIComponent(filtros.concepto.trim())}`);
+    }
+    if (filtros.montoMin !== undefined && filtros.montoMin !== null) {
+      params.push(`montoMin=${encodeURIComponent(filtros.montoMin)}`);
+    }
+    if (filtros.montoMax !== undefined && filtros.montoMax !== null) {
+      params.push(`montoMax=${encodeURIComponent(filtros.montoMax)}`);
+    }
+    if (filtros.page) params.push(`page=${encodeURIComponent(filtros.page)}`);
+    if (filtros.limit) params.push(`limit=${encodeURIComponent(filtros.limit)}`);
+    if (filtros.sortBy) params.push(`sortBy=${encodeURIComponent(filtros.sortBy)}`);
+    if (filtros.sortOrder) params.push(`sortOrder=${encodeURIComponent(filtros.sortOrder)}`);
+
+    const queryString = params.length > 0 ? `?${params.join('&')}` : '';
+    const url = `${this.apiUrl}/reportes/explorador${queryString}`;
+
+    return this.http.get<{ status: string; data: ExploradorResponse }>(url).pipe(
+      map((res) => res.data),
+      catchError((err) => {
+        console.warn('[ReportesService] Error al consultar explorador dinámico:', err);
+        return of(null);
+      })
+    );
+  }
 }
+
 
 
