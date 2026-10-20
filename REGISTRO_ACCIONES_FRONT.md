@@ -19,6 +19,20 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-20 11:15] - Sincronización de Versión V1.1 en Workflow de Compilación (`build.yml`)
+- **Problema Detectado**:
+  - En producción (Firebase Hosting), el pie de página continuaba mostrando `V1.0.69` a pesar de haber modificado `deploy.yml` a `V1.1`.
+- **Causa Raíz**:
+  - En la arquitectura de CI/CD del repositorio, `deploy.yml` descarga el bundle previamente compilado por `build.yml` (`gh run download --name dist-control-gastos-front`). El paso de compilación de `deploy.yml` es únicamente un fallback condicional (`if: hashFiles(...) == ''`) que nunca se ejecutaba porque la descarga del artefacto era exitosa.
+  - El verdadero punto donde se inyectaba la versión en `src/index.html` durante la compilación de la rama `develop` es el paso `Inyectar version de despliegue` en `.github/workflows/build.yml`, el cual conservaba hardcodeado `V1.0.${{ github.run_number }}`.
+- **Solución Técnica Aplicada**:
+  - En `.github/workflows/build.yml`, se actualizó la inyección a `V1.1.${{ github.run_number }}`.
+  - Ahora cualquier compilación en `develop` generará el artefacto con el prefijo `V1.1.x`, y al desplegarse en `main` reflejará fielmente la versión 1.1 en producción.
+- **Archivos Afectados**:
+  - `.github/workflows/build.yml`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+
 ### [2026-10-20 10:25] - Corrección de Budgets de Compilación de Producción en Angular CLI (`angular.json`)
 - **Problema Detectado**:
   - Al ejecutar el flujo de CI en GitHub Actions (`build.yml`), el paso `ng build --configuration production` falló con el error:

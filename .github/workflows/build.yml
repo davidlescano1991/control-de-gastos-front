@@ -32,7 +32,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Inyectar version de despliegue
-        run: sed -i "s/__APP_VERSION_VALUE__/V1.0.${{ github.run_number }}/g" src/index.html
+        run: sed -i "s/__APP_VERSION_VALUE__/V1.1.${{ github.run_number }}/g" src/index.html
 
       - name: Build proyecto Angular
         run: pnpm exec -- ng build --configuration production --base-href "/"
