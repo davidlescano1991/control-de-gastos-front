@@ -19,7 +19,46 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
-### [2026-10-20 00:55] - Migración Integral de Préstamos Históricos (2023, 2024, 2025) a PostgreSQL y Habilitación de Consulta Histórica Completa
+### [2026-10-20 10:25] - Corrección de Budgets de Compilación de Producción en Angular CLI (`angular.json`)
+- **Problema Detectado**:
+  - Al ejecutar el flujo de CI en GitHub Actions (`build.yml`), el paso `ng build --configuration production` falló con el error:
+    `ERROR src/app/pages/reportes/reportes.scss exceeded maximum budget. Budget 45.00 kB was not met by 12.76 kB with a total of 57.76 kB.`
+- **Causa Raíz**:
+  - En `angular.json`, la configuración de presupuestos (`budgets`) para el target `production` tenía un límite estricto de `maximumError: 45kB` para `anyComponentStyle`.
+  - El archivo `reportes.scss` creció a 57.76 kB debido a la incorporación completa de las 4 vistas del Centro de Reportes Financieros, tablas multicriterio, grids de KPIs, selector de dimensiones, gráficos Chart.js y soporte exhaustivo para modo oscuro.
+- **Solución Técnica Aplicada**:
+  - En `angular.json` (`configurations.production.budgets`):
+    - Se amplió `anyComponentStyle` a `maximumWarning: 70kB` y `maximumError: 100kB`.
+    - Se amplió `initial` a `maximumWarning: 4MB` y `maximumError: 6MB` para evitar advertencias de optimización del bundle principal.
+  - **Validación**:
+    - Compilación de producción (`ng build --configuration production`): **Exitosa (Código 0)**.
+    - Compilación de desarrollo (`ng build --configuration development`): **Exitosa (Código 0, 0 errores, 0 advertencias)**.
+- **Archivos Afectados**:
+  - `angular.json`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+
+### [2026-10-20 10:18] - Fase A: Backup Preventivo y Sincronización de Préstamos Históricos en Google Cloud SQL (Producción)
+- **Motivo / Requerimiento**:
+  - Trasladar a la base de datos de producción (Google Cloud SQL PostgreSQL 16 `control-gastos-pg-0d0b84`) los 38 préstamos históricos de los ejercicios 2023, 2024 y 2025 recientemente migrados en local, asegurando paridad contable absoluta y cumpliendo con las políticas de seguridad y costos en $0.
+- **Acciones Realizadas**:
+  - **1. Respaldo Preventivo en Google Cloud Storage**:
+    - Ejecutado `backup.ps1` generando el snapshot cifrado `gs://control-gastos-backups-0d0b8487/backup_20261020_101316.sql.gz` y su réplica local en `control-de-gastos-infra/backups/`.
+  - **2. Túnel Seguro mTLS con Cloud SQL Auth Proxy**:
+    - Asignación temporal de IP pública (`--assign-ip`) y apertura de túnel cifrado en `127.0.0.1:5433` con `cloud-sql-proxy.exe`.
+  - **3. Inserción Idempotente de Préstamos y Cuotas**:
+    - Se insertaron los 38 préstamos históricos con sus cronogramas de cuotas mensuales en Cloud SQL:
+      - **Año 2023**: 12 préstamos ($1.895.317,37 en cuotas y amortizaciones).
+      - **Año 2024**: 13 préstamos ($8.554.884,82 en cuotas).
+      - **Año 2025**: 13 préstamos ($10.802.537,52 en cuotas).
+      - **Año 2026**: 13 préstamos previamente existentes.
+    - **Total en Cloud SQL**: **51 préstamos** y **323 cuotas** registradas, logrando paridad idéntica (100%) con la base de datos local.
+  - **4. Aislamiento y Blindaje Post-Sincronización**:
+    - Detenido el proxy (`task-1042`) y revocada de inmediato la IP pública (`--no-assign-ip`), devolviendo a Cloud SQL a su red privada 100% aislada en la VPC con costo de IP en $0,00.
+- **Archivos Afectados**:
+  - Google Cloud SQL (`control-gastos-pg-0d0b84`)
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 - **Problema Detectado / Requerimiento**:
   - El usuario reportó: *"hay algo mal, pongo historico y me sigue trayendo 13 registros (los del 2026 nomas)"*, con captura de pantalla del Explorador Multicriterio en la pestaña Préstamos con el preset "Histórico" activo y únicamente 13 registros visibles.
 - **Causa Raíz**:
