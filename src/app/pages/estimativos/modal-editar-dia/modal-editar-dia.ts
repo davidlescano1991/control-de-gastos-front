@@ -172,6 +172,7 @@ export class ModalEditarDiaComponent {
             evento: this.editEvento().trim() || null,
             color: this.editColor().trim() || null,
             propagarDeuda: this.editPropagarDeuda,
+            fecha: this.fila.fecha,
           })
         );
         this.snackbar.open(`✅ Día ${this.fila.fecha} actualizado correctamente`, 'Cerrar', { duration: 3000 });

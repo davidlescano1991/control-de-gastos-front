@@ -155,6 +155,7 @@ export class EstimatesService {
       propagarDeuda?: boolean;
       evento?: string | null;
       color?: string | null;
+      fecha?: string;
     }
   ): Observable<any> {
     return this.http.put(`${this.apiUrl}/daily/${id}`, payload);

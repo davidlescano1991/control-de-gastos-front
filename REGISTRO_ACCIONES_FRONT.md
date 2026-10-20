@@ -19,6 +19,58 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-20 13:00] - Optimización de Rendimiento en Estimativos (0ms) y Corrección de Guardado de Eventos Diarios
+- **Problema Detectado**:
+  - En la vista de Estimativos (`/estimativo`), la pantalla tardaba excesivamente en actualizarse mostrando el spinner `Cargando estimativo mensual...` durante varios segundos.
+  - Al abrir el modal de edición de un día particular (ej. 09/10/2026) para registrar una etiqueta/evento (*"Cumpleaños de Susan"*) con color (*`#ec4899`*), el guardado fallaba con el error: `❌ Fila diaria no encontrada`.
+- **Causa Raíz**:
+  1. **Lentitud de Carga**: La interfaz bloqueaba la visualización de la tabla con `isCargando = true` hasta que finalizaban todas las llamadas de red remotas, a pesar de que los datos ya se encontraban en memoria/`localStorage`. Asimismo, `cargaInicial` descargaba en bucle los 12 meses de todos los años históricos (2026, 2025, 2024, 2023, 2022) saturando el pool de conexiones del navegador, y cada evento SSE forzaba la re-descarga de todo el universo multianual.
+  2. **Error al Guardar Evento**: Para el año en curso (2026), los días leídos desde Google Sheets contenían identificadores sintéticos temporales (`sheets_est_2026_10_2`). El backend en `updateDailyReal` buscaba estrictamente por UUID de PostgreSQL (`prisma.dailyEstimate.findUnique({ where: { id } })`). Al no coincidir con una clave primaria relacional, rechazaba la actualización con `Fila diaria no encontrada`.
+- **Solución Técnica Aplicada**:
+  - **1. Backend API (`estimate.service.ts` y `estimate.controller.ts`)**:
+    - Se dotó a `updateDailyReal` de salvaguarda inteligente: si el `id` comienza con `sheets_est_` o se envía la `fecha`, la API extrae el año, mes y día, garantiza la existencia del ciclo en `monthly_estimate_configs` y ejecuta un `upsert` atómico en `daily_estimates`.
+    - Se persiste con total fidelidad el evento, el color del día, el saldo real y la deuda con propagación, emitiendo el evento SSE `DATA_UPDATED`.
+    - Compilación limpia con `npm run build` (código 0).
+  - **2. Frontend Angular (`home.ts`, `estimates.service.ts`, `modal-editar-dia.ts`)**:
+    - **Patrón Stale-While-Revalidate (0ms)**: Si existen datos en caché, se renderizan al instante ocultando el spinner `isCargando` de inmediato (0ms). Las llamadas remotas se realizan en segundo plano sin bloquear la UI.
+    - **Optimización de Carga Inicial**: `cargaInicial` reutiliza la caché local antes de realizar llamadas de red de años históricos.
+    - **Optimización SSE**: Ante `DATA_UPDATED`, se refresca únicamente el mes activo en pantalla en lugar de disparar la re-descarga de todos los años históricos.
+    - En `ModalEditarDiaComponent`, se pasa la propiedad `fecha` en el payload de `updateDaily`.
+  - **Validación**:
+    - Compilación TypeScript y Angular (`npx ng build --configuration development`): **Exitosa (Código 0, 0 errores, 0 advertencias)**.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/estimate.service.ts`
+  - `control-de-gastos-api/src/controllers/estimate.controller.ts`
+  - `control-de-gastos-front/src/app/pages/estimativos/home.ts`
+  - `control-de-gastos-front/src/app/pages/estimativos/modal-editar-dia/modal-editar-dia.ts`
+  - `control-de-gastos-front/src/app/services/estimates.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+
+
+### [2026-10-20 12:05] - Migración Integral de Datos del Año 2023 a PostgreSQL Local y Auditoría Contable Aprobada
+- **Motivo / Requerimiento**:
+  - Migración completa del ejercicio fiscal 2023 desde el archivo Excel `"C:\Users\u900670\Downloads\Cuentas claras_2023.xlsx"`, primero a la base de datos local para validación y pruebas antes del paso a producción.
+- **Acciones y Resultados**:
+  - **1. Pipeline ETL de Movimientos y Estimativos (`migrate_excel_year.ts`)**:
+    - **Simulación (`--dry-run`)**: 232 movimientos de 2023 analizados, 12 meses de estimativos y 364 días de seguimiento diario identificados.
+    - **Migración Real Local (`--target=local`)**: Inserción atómica ACID de 232 movimientos en `movements`, 12 configuraciones mensuales en `monthly_estimate_configs` y 364 filas diarias de seguimiento en `daily_estimates` vinculados a `david@admin.com`.
+  - **2. Pipeline ETL de Ítems Mensuales, Cuotas y Fórmulas (`migrate_monthly_items.ts`)**:
+    - **Migración Real Local (`--target=local`)**: Inserción de 623 ítems mensuales en `monthly_items`, 318 compras en cuotas con propagación y 188 fórmulas matemáticas preservadas.
+  - **3. Auditoría y Conciliación Matemática Cruzada (`audit_reconciliation.ts`)**:
+    - **Resultado**: **CONCILIACIÓN MATEMÁTICA 100% APROBADA (DIFERENCIA $0,00)**.
+    - **Total Gastos**: Excel ($27.769.685,45) vs BD ($27.769.685,45) ➔ Diferencia: **$0,00**.
+    - **Total Ingresos**: Excel ($155.239,00) vs BD ($155.239,00) ➔ Diferencia: **$0,00**.
+    - **Meses (Enero a Diciembre)**: Los 12 meses con discrepancia exacta de **$0,00**.
+    - **Movimientos**: 232 de 232 movimientos conciliados al centavo.
+    - **Días de Seguimiento**: 364 de 364 días de seguimiento verificados en 12 meses.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/scripts/audit_reconciliation.ts`
+  - Base de datos PostgreSQL Local (`movements`, `monthly_estimate_configs`, `daily_estimates`, `monthly_items`)
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+
+
 ### [2026-10-20 11:15] - Sincronización de Versión V1.1 en Workflow de Compilación (`build.yml`)
 - **Problema Detectado**:
   - En producción (Firebase Hosting), el pie de página continuaba mostrando `V1.0.69` a pesar de haber modificado `deploy.yml` a `V1.1`.

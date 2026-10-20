@@ -1275,7 +1275,26 @@ gantt
     * **Subpasos Ejecutados**:
       * **6.20.1**: Frontend Store: Extensión de rango de consulta batch a `A1:N500` en `MovimientosStoreGoogle`, lectura y parseo de fila 0 (columnas I, J, K, L), persistencia en memoria y caché local con `EstimativoConfigData`.
       * **6.20.2**: Frontend Component: Signals reactivos `gastoDiarioEstimado`, `interesDiarioBilleteras` y `gastoEstimadoMes` en `HomeEstimativo`, hidratación inmediata desde caché (0ms) y sincronización con `EstimatesService.getMonthly()` tanto para Google Sheets como para BD.
-      * **6.20.3**: Frontend UI: Tarjeta colapsable `.parametros-estimativo-card` con grilla `.parametros-chips-grid`, iconos temáticos (`trending_down`, `savings`, `receipt_long`), tooltips informativos y compatibilidad completa con Dark Mode.
-
-
-
+  * **6.21**: Migración de Datos Históricos del Año 2023 a PostgreSQL Local y Conciliación Matemática *(COMPLETADO EN LOCAL)*:
+    * **¿Qué es y por qué se hace?**:
+      - Continuación del proceso de consolidación de datos históricos en la arquitectura relacional PostgreSQL:
+      - Migración integral de la operatoria de 2023 desde el archivo Excel `"C:\Users\u900670\Downloads\Cuentas claras_2023.xlsx"`, probada y auditada en la base de datos local antes de su promoción a producción en Google Cloud SQL.
+    * **Resultados de la Ejecución**:
+      - **Movimientos y Estimativos (`migrate_excel_year.ts`)**:
+        - 232 movimientos migrados a la tabla `movements`.
+        - 12 configuraciones mensuales en `monthly_estimate_configs`.
+        - 364 filas diarias de seguimiento en `daily_estimates` vinculadas a `david@admin.com`.
+      - **Ítems Mensuales y Cuotas (`migrate_monthly_items.ts`)**:
+        - 623 ítems mensuales en `monthly_items`.
+        - 318 compras en cuotas con propagación detectadas y normalizadas.
+        - 188 fórmulas matemáticas extraídas y preservadas intactas en PostgreSQL.
+      - **Auditoría y Conciliación Matemática (`audit_reconciliation.ts`)**:
+        - **CONCILIACIÓN MATEMÁTICA 100% APROBADA (DIFERENCIA $0,00)**.
+        - Total Gastos Excel ($27.769.685,45) vs BD ($27.769.685,45) ➔ Diferencia: **$0,00**.
+        - Total Ingresos Excel ($155.239,00) vs BD ($155.239,00) ➔ Diferencia: **$0,00**.
+  * **6.22**: Optimización de Rendimiento en Estimativos (0ms) y Salvaguarda Universal en Guardado de Eventos *(COMPLETADO)*:
+    * **¿Qué es y por qué se implementó?**:
+      - Erradicar la lentitud de carga y los errores al registrar eventos y colores sobre días del estimativo:
+        1. **Patrón Stale-While-Revalidate (0ms)**: Si existen datos en caché, se renderizan al instante ocultando el spinner `isCargando` de inmediato (0ms). Las llamadas remotas se ejecutan en segundo plano.
+        2. **Optimización de Carga Histórica y SSE**: `cargaInicial` reutiliza la caché local y evita el bombardeo de peticiones por red. Ante eventos SSE, se refresca exclusivamente el mes activo en pantalla.
+        3. **Salvaguarda Inteligente en Backend (`updateDailyReal`)**: Si un día proviene de Google Sheets o llega con identificador sintético (`sheets_est_`), la API extrae el año, mes y día, garantiza el ciclo en `monthly_estimate_configs`, ejecuta un `upsert` en `daily_estimates` y persiste inmediatamente el evento y el color.

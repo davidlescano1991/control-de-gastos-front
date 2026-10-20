@@ -210,7 +210,6 @@ export class HomeEstimativo implements OnInit, OnDestroy {
       if (msg.event === 'DATA_UPDATED' || msg.event === 'ESTIMATE_UPDATED') {
         console.log('⚡ [Estimativos] Actualización en tiempo real recibida vía SSE. Recargando...', msg.data);
         void this.refrescarAutomaticamente();
-        void this.cargaInicial(false, true);
       }
     });
   }
@@ -258,12 +257,15 @@ export class HomeEstimativo implements OnInit, OnDestroy {
           continue;
         }
         try {
-          this.logEstado(
-            `...inicia storeGoogle.asegurarMensualPorAnioRange(anio: ${anio}, mesesDelAnio: ${JSON.stringify(mesesDelAnio)}, 'mensual');`,
-          );
-          await this.storeGoogle.asegurarEstimativoAnioRange(anio, mesesDelAnio, 'mensual', force);
-          const fila = await this.storeGoogle.getEstimadosRange(anio, mesesDelAnio);
-          filas.push(...fila);
+          let fila = await this.storeGoogle.getEstimadosRange(anio, mesesDelAnio);
+          if ((!fila || fila.length === 0) || force) {
+            this.logEstado(`...cargando estimativos de ${anio}`);
+            await this.storeGoogle.asegurarEstimativoAnioRange(anio, mesesDelAnio, 'mensual', force);
+            fila = await this.storeGoogle.getEstimadosRange(anio, mesesDelAnio);
+          }
+          if (fila && fila.length > 0) {
+            filas.push(...fila);
+          }
         } catch (e) {
           console.warn(`⚠️ Error cargando año ${anio} en cargaInicial estimativos:`, e);
         }
@@ -298,16 +300,20 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   }
 
   async seleccionarMes(mes: string, mostrarCarga = true, force = false) {
-    if (mostrarCarga) {
+    this.mesSeleccionado.set(mes);
+    const hoja = 'Estimativo ' + mes;
+    const anio = this.anioSeleccionado();
+    const filasCache = await this.storeGoogle.getEstimados(anio, hoja);
+    const tieneCache = filasCache && filasCache.length > 0;
+
+    // Solo activamos spinner si NO hay datos en caché para mostrar
+    if (mostrarCarga && !tieneCache) {
       this.isCargando.set(true);
     }
     try {
-      this.mesSeleccionado.set(mes);
       await this.seleccionarMesMensual(mes, force);
     } finally {
-      if (mostrarCarga) {
-        this.isCargando.set(false);
-      }
+      this.isCargando.set(false);
     }
   }
 
@@ -370,6 +376,7 @@ export class HomeEstimativo implements OnInit, OnDestroy {
     if (filasCache && filasCache.length > 0) {
       this.setSignalIfChanged(this.estimativoFilas, filasCache);
       this.actualizarFilasEnHistorico(filasCache);
+      this.isCargando.set(false); // Mostramos la tabla en 0ms
     }
     const cfgCache = this.storeGoogle.getEstimativoConfig(anio, hoja);
     if (cfgCache) {
