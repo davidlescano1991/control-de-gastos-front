@@ -1204,9 +1204,10 @@ gantt
           - Asignar una etiqueta o tipo de evento (presets: "Feriado", "Cobro", "Vencimiento", "Viaje", "Cumpleaños", "Ajuste" o texto libre).
           - Seleccionar un color personalizado (paleta armónica de muestras y color picker nativo HTML).
         - Persistir la configuración en base de datos (`DailyEstimate.evento` y `color`), retornarla en la API y pintar dinámicamente la fila con acento izquierdo y badge píldora `.badge-evento-dia` junto a la fecha en modo Claro y Oscuro. *(Completado)*
-      * **6.17.8**: Módulo de Estimativos (`/estimativo`): Termómetro de Porcentaje de Días Positivos:
+      * **6.17.8**: Módulo de Estimativos (`/estimativo`): Termómetro de Porcentaje de Días Positivos *(Completado)*:
         - Incorporar en `/estimativo` un segundo indicador tipo termómetro/gauge visual (junto al termómetro de días transcurridos existente).
-        - El termómetro calculará y mostrará el **porcentaje de días con rendimiento positivo del mes**, tomando los datos de la tabla de *Rendimientos positivos mensuales* de la vista Anual (celda `H53` de cada mes en Excel).
+        - El termómetro calcula y muestra el **porcentaje de días con rendimiento positivo del mes**, tomando los datos de la tabla de *Rendimientos positivos mensuales* de la vista Anual (celda `H53` de cada mes en Excel) con fallback dinámico desde `estimativoFilas` (`real > saldoPesos`).
+        - Diseño con layout simétrico en grilla responsive (`.contenedor-termometros-grid`), barra animada fluida con cubic-bezier, marcas en el eje, badges coloreados de porcentaje dinámico (`getColorPorcentaje`) y tooltip descriptivo con desglose de días cargados y días del ciclo. Cumplimiento total de la Regla de Oro (`AGENTS.md`) y compatibilidad con Dark Mode. *(Completado)*
 
   * **6.18**: Explorador de Base de Datos y Generador de Reportes Multicriterio con Gráficos Dinámicos (Solo Administradores) *(PENDIENTE)*:
     * **¿Qué es y por qué se hace de esta manera?**:

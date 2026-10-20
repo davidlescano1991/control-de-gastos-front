@@ -35,6 +35,7 @@ interface EstimativoRow {
 import { SelectorAnioDelorean } from '../../common/selector-anio-delorean/selector-anio-delorean';
 import { ModalConfigEstimativo } from './modal-config-estimativo/modal-config-estimativo';
 import { ModalEditarDiaComponent } from './modal-editar-dia/modal-editar-dia';
+import { TermometroRendimientoPositivoComponent } from './termometro-rendimiento-positivo/termometro-rendimiento-positivo';
 
 @Component({
   selector: 'app-home-estimativo',
@@ -53,6 +54,7 @@ import { ModalEditarDiaComponent } from './modal-editar-dia/modal-editar-dia';
     MatStepperModule,
     GraficoHistorico,
     GraficoDiasRestantesAnual,
+    TermometroRendimientoPositivoComponent,
     SelectorAnioDelorean,
     ModalConfigEstimativo,
     ModalEditarDiaComponent,
@@ -64,6 +66,9 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   modalConfigVisible = signal(false);
   diaParaEditar = signal<any | null>(null);
   modalEditarDiaVisible = signal(false);
+
+  // Termómetro de rendimiento positivo (celda H53 Sheets / cálculo dinámico)
+  porcentajeRendimientoExcel = signal<number | null>(null);
 
   // Parámetros clave del estimativo (Fila 1 Google Sheets / Config BD: I, J, L)
   gastoDiarioEstimado = signal<number>(0);
@@ -315,6 +320,7 @@ export class HomeEstimativo implements OnInit, OnDestroy {
     if (mesNumero <= 0) mesNumero = 1;
 
     if (!this.appConfig.isSheetsActivo(anio)) {
+      this.porcentajeRendimientoExcel.set(null);
       try {
         const res = await firstValueFrom(this.estimatesService.getMonthly(anio, mesNumero));
         if (res && res.filas && res.filas.length > 0) {
@@ -348,6 +354,18 @@ export class HomeEstimativo implements OnInit, OnDestroy {
     }
 
     // 1. Hidratar de inmediato desde cache para mostrar datos instantáneos (0ms)
+    const pctExcel = this.storeGoogle.getPorcentajeRendimientoPositivo(anio, mes);
+    if (pctExcel !== null) {
+      this.porcentajeRendimientoExcel.set(pctExcel);
+    } else {
+      void this.storeGoogle.cargarTablaAnualAllXAnio(anio).then(() => {
+        const actualizado = this.storeGoogle.getPorcentajeRendimientoPositivo(anio, mes);
+        if (actualizado !== null) {
+          this.porcentajeRendimientoExcel.set(actualizado);
+        }
+      });
+    }
+
     const filasCache = await this.storeGoogle.getEstimados(anio, hoja);
     if (filasCache && filasCache.length > 0) {
       this.setSignalIfChanged(this.estimativoFilas, filasCache);

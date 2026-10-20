@@ -65,10 +65,23 @@
   border-radius: 2px;
 }
 
-.contenedor-dias-restantes {
+.contenedor-dias-restantes,
+.contenedor-termometros-grid {
   width: 100%;
   padding: 2rem 2rem 0;
   box-sizing: border-box;
+}
+
+.contenedor-termometros-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+
+  @media (max-width: 960px) {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
 }
 
 /* Nueva estructura de contenido */
@@ -334,7 +347,8 @@ app-bancor {
     white-space: nowrap;
   }
 
-  .contenedor-dias-restantes {
+  .contenedor-dias-restantes,
+  .contenedor-termometros-grid {
     padding: 1.5rem 1.5rem 0;
   }
 
@@ -383,7 +397,8 @@ app-bancor {
     display: none;
   }
 
-  .contenedor-dias-restantes {
+  .contenedor-dias-restantes,
+  .contenedor-termometros-grid {
     padding: 1rem 1rem 0;
   }
 

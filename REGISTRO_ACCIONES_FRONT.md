@@ -19,6 +19,35 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-19 20:55] - Subpaso 6.17.8: Termómetro de Porcentaje de Días Positivos en Módulo de Estimativos
+- **Problema Detectado / Requerimiento**:
+  - En la vista `/estimativo`, se requería incorporar un segundo indicador tipo termómetro/gauge visual junto al termómetro de días transcurridos existente, que calcule y muestre el porcentaje de días con rendimiento positivo del mes (fiel a la celda `H53` de la hoja mensual y la tabla *Rendimientos positivos mensuales* de Anual en Excel).
+- **Causa Raíz / Necesidad**:
+  - La vista de estimativos únicamente mostraba el avance temporal de días transcurridos en el ciclo, pero no la eficacia o salud financiera de la operatoria diaria (días donde el saldo real superó al saldo estimado).
+- **Solución Técnica Aplicada**:
+  - **Componente Dedicado (`TermometroRendimientoPositivoComponent`)**:
+    - Creado en `src/app/pages/estimativos/termometro-rendimiento-positivo/` con arquitectura standalone.
+    - Cumplimiento estricto de la **Regla de Oro** (`AGENTS.md`): estructura `.movimientos-wrapper`, tarjeta colapsable con microinteracciones y compatibilidad nativa con Modo Oscuro (`body.dark-mode`).
+    - Barra animada con cubic-bezier fluida (`porcentajeAnimado`), marcas numéricas en el eje de días y cálculo de color dinámico (`getColorPorcentaje`: gradiente de rojo a ámbar y verde esmeralda).
+    - Leyenda explicativa ("Rendimiento positivo" en verde vs "Restante / No positivo" en coral).
+    - Tooltip interactivo con desglose enriquecido: `X días con rendimiento positivo sobre Y días del ciclo (Z% del mes). Representa el W% de los N días registrados hasta el momento`.
+  - **Extracción Híbrida y Sincronización en `MovimientosStoreGoogle`**:
+    - Se incorporaron los métodos `getTablaSecundariaXAnio` y `getPorcentajeRendimientoPositivo(anio, mesNombre)` en `MovimientosStoreGoogle` para leer el valor exacto de `H53` cargado en la tabla secundaria anual de Google Sheets.
+    - Fallback reactivo y en tiempo real: Si el valor aún no está cargado en caché o la aplicación opera en modo Base de Datos (ej. 2022 o 2027), el componente calcula dinámicamente el ratio a partir de `estimativoFilas` (`real !== null && real - saldoPesos > 0`).
+  - **Layout Sincronizado en Grilla (`home.html`, `home.scss`)**:
+    - Se reestructuró el contenedor superior a `.contenedor-termometros-grid`, posicionando ambos termómetros en una grilla simétrica de 2 columnas en pantallas medianas/grandes (`repeat(2, minmax(0, 1fr))`) y colapsando a 1 columna en móviles (< 960px).
+  - **Compilación**: Verificada obligatoriamente con `npx ng build --configuration development` (Código `0`, 0 errores, 0 advertencias en 45.3s).
+- **Archivos Afectados**:
+  - `src/app/stores/movimiento.google.ts`
+  - `src/app/pages/estimativos/termometro-rendimiento-positivo/termometro-rendimiento-positivo.ts`
+  - `src/app/pages/estimativos/termometro-rendimiento-positivo/termometro-rendimiento-positivo.html`
+  - `src/app/pages/estimativos/termometro-rendimiento-positivo/termometro-rendimiento-positivo.scss`
+  - `src/app/pages/estimativos/home.ts`
+  - `src/app/pages/estimativos/home.html`
+  - `src/app/pages/estimativos/home.scss`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-10-19 19:54] - Fondo Pastel Traslúcido con Columnas Alternadas al Tono de la Etiqueta
 - **Problema Detectado / Requerimiento**:
   - El usuario solicitó no utilizar bordes duros/perimetrales y en su lugar replicar la misma lógica cromática de los feriados (fondo pastel suave/traslúcido), pero generado a partir del color de la etiqueta del evento (ej. verde `#10b981`), alternando a un tono del mismo color ligeramente más oscuro para las columnas destacadas de Saldo Estimado y Deuda.

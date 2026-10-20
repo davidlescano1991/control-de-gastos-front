@@ -866,6 +866,29 @@ export class MovimientosStoreGoogle {
   }
 
   /**
+   * Obtiene la tabla secundaria de rendimientos positivos mensuales para el año indicado.
+   */
+  getTablaSecundariaXAnio(anio: number): Prestamo[] {
+    return this.tablaSecundariaPorAnio.get(anio)?.() ?? [];
+  }
+
+  /**
+   * Obtiene el porcentaje de días con rendimiento positivo del mes indicado (celda H53 de Sheets / tabla secundaria Anual).
+   */
+  getPorcentajeRendimientoPositivo(anio: number, mesNombre: string): number | null {
+    const filas = this.tablaSecundariaPorAnio.get(anio)?.() ?? this.tablaSecundaria() ?? [];
+    if (!filas || filas.length === 0) return null;
+    const mesLimpio = (mesNombre || '').split('_')[0].trim().toLowerCase();
+    const fila = filas.find((f) => f.nombreFila?.trim().toLowerCase() === mesLimpio);
+    if (!fila || !fila.valores) return null;
+    const cats = Object.keys(fila.valores);
+    if (cats.length === 0) return null;
+    const val = fila.valores[cats[0]];
+    if (val === undefined || val === null) return null;
+    return Math.round(Number(val) * 10000) / 100;
+  }
+
+  /**
    * Obtiene los gastos mensuales consolidados para el año indicado.
    */
   getGastosMensualesAnio(anio: number): { mes: string; total: number }[] {
