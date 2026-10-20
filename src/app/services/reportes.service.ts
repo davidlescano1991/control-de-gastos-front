@@ -97,6 +97,8 @@ export interface ReporteAnalisisAnualResponse {
   gastos: MesGastoItem[];
   prestamos: MesPrestamoItem[];
   nafta?: number[];
+  ingresosNetos?: Array<{ mes: string; total: number }>;
+  rendimientosPositivos?: Array<{ mes: string; porcentaje: number }>;
   metrics: {
     saldoPromedio: number;
     totalGastosAnual: number;

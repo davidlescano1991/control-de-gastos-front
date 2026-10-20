@@ -12,6 +12,7 @@ import { firstValueFrom, Subscription } from 'rxjs';
 import { Prestamo } from '../../../models/prestamo';
 import { LoansService, Loan } from '../../../services/loans.service';
 import { EntityPaymentService } from '../../../services/entity-payment.service';
+import { ReportesService } from '../../../services/reportes.service';
 import { GraficoDiasRestantesAnual } from '../grafico-dias-restantes-anual/grafico-dias-restantes-anual';
 
 import { RendimientosPositivosMensuales } from '../rendimientos-positivos-mensuales/rendimientos-positivos-mensuales';
@@ -112,6 +113,7 @@ export class Anual implements OnInit, OnDestroy {
   private sseService = inject(SseService);
   private loansService = inject(LoansService);
   private entityPaymentService = inject(EntityPaymentService);
+  private reportesService = inject(ReportesService);
   private sseSub: Subscription | null = null;
   anios: number[] = [];
   readonly anioActual = new Date().getFullYear();
@@ -268,41 +270,6 @@ export class Anual implements OnInit, OnDestroy {
   private cacheDeudaAnualPorAnio = new Map<number, DeudaTotalMes[]>();
 
   private async CargarTablaAnual(anio: number, force = false) {
-    if (!this.appConfig.isSheetsActivo(anio)) {
-      // 1. Cargar préstamos reales desde PostgreSQL para años en modo BD
-      try {
-        const resLoans = await firstValueFrom(this.loansService.getLoans(anio));
-        if (resLoans && resLoans.data && resLoans.data.length > 0) {
-          const { filas, categorias } = this.construirTablaPrestamosDesdeBD(resLoans.data, anio);
-          this.setSignalIfChanged(this.filas, filas);
-          this.setSignalIfChanged(this.categorias, categorias);
-          this.setSignalIfChanged(this.resultado, this.porcentajeRestanteFinalRefactorizado());
-        } else {
-          this.setSignalIfChanged(this.filas, []);
-          this.setSignalIfChanged(this.categorias, []);
-          this.setSignalIfChanged(this.resultado, {});
-        }
-      } catch (err) {
-        console.warn(`Error al cargar préstamos de BD para año ${anio}:`, err);
-        this.setSignalIfChanged(this.filas, []);
-        this.setSignalIfChanged(this.categorias, []);
-        this.setSignalIfChanged(this.resultado, {});
-      }
-
-      this.setSignalIfChanged(this.filasSecundarias, []);
-      this.setSignalIfChanged(this.categoriasSecundarias, []);
-      this.setSignalIfChanged(this.gastosMensuales, []);
-      this.setSignalIfChanged(this.gastosDiarioPromedio, []);
-      this.setSignalIfChanged(this.graficoAnual, []);
-      this.setSignalIfChanged(this.deudaTotalAnual, []);
-      this.setSignalIfChanged(this.ingresoNetoAnual, []);
-      this.setSignalIfChanged(this.resumenPositivo, []);
-      this.storeGoogle.tablaAnual.set([]);
-      this.storeGoogle.tablaSecundaria.set([]);
-      this.storeGoogle.valorOtorgado.set(0);
-      return;
-    }
-
     try {
       await this.storeGoogle.cargarTablaAnualAllXAnio(anio, force);
     } catch (err) {
@@ -329,7 +296,7 @@ export class Anual implements OnInit, OnDestroy {
     const gastosProm = this.storeGoogle.getGastosDiarioPromedioAnio(anio);
     this.setSignalIfChanged(this.gastosDiarioPromedio, gastosProm);
 
-    this.setSignalIfChanged(this.resumenPositivo, this.storeGoogle.tablaAnual());
+    this.setSignalIfChanged(this.resumenPositivo, this.storeGoogle.tablaSecundaria());
 
     // Carga de gráfico de saldo anual con captura aislada
     try {
@@ -357,9 +324,6 @@ export class Anual implements OnInit, OnDestroy {
   }
 
   async calcularDeudaTotalParaAnio(anio: number, force = false): Promise<DeudaTotalMes[]> {
-    if (!this.appConfig.isSheetsActivo(anio)) {
-      return [];
-    }
 
     if (force) {
       this.cacheDeudaAnualPorAnio.delete(anio);
@@ -625,8 +589,11 @@ export class Anual implements OnInit, OnDestroy {
   }
 
   async calcularIngresoNetoParaAnio(anio: number, force = false): Promise<IngresoNetoMes[]> {
-    if (!this.appConfig.isSheetsActivo(anio)) {
-      return [];
+    if (force) {
+      this.cacheIngresoNetoAnualPorAnio.delete(anio);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(`ingreso_neto_meses_${anio}`);
+      }
     }
 
     if (!force && this.cacheIngresoNetoAnualPorAnio.has(anio)) {
@@ -645,6 +612,55 @@ export class Anual implements OnInit, OnDestroy {
         }
       } catch (err) {
         console.warn(`Error reading ingreso_neto_meses_${anio}`, err);
+      }
+    }
+
+    if (!this.appConfig.isSheetsActivo(anio)) {
+      try {
+        const rep = await firstValueFrom(this.reportesService.getAnalisisAnual(anio, force));
+        const MESES_BASE = [
+          'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+        ];
+        const cotizacionesMensuales = await this.cotizacionStore.obtenerCotizacionesMensualesParaAnio(
+          anio,
+          MESES_BASE,
+        );
+
+        const ingresosList = rep?.ingresosNetos || [];
+        const resultado: IngresoNetoMes[] = MESES_BASE.map((mes) => {
+          const item = ingresosList.find(
+            (it) => it.mes.toLowerCase().trim() === mes.toLowerCase().trim(),
+          );
+          const ingresoNeto = item ? Math.abs(item.total) : 0;
+          const cotizacionMes = cotizacionesMensuales.get(mes) ?? 0;
+          const ingresoNetoUSD =
+            cotizacionMes > 0 && ingresoNeto > 0
+              ? Number((ingresoNeto / cotizacionMes).toFixed(2))
+              : undefined;
+
+          return {
+            mes,
+            ingresoNeto,
+            ingresoNetoUSD,
+            cotizacionUSD: cotizacionMes > 0 ? cotizacionMes : undefined,
+          };
+        });
+
+        if (resultado.length > 0) {
+          this.cacheIngresoNetoAnualPorAnio.set(anio, resultado);
+          if (typeof localStorage !== 'undefined') {
+            try {
+              localStorage.setItem(`ingreso_neto_meses_${anio}`, JSON.stringify(resultado));
+            } catch (e) {
+              console.warn(`Error saving ingreso_neto_meses_${anio}`, e);
+            }
+          }
+        }
+        return resultado;
+      } catch (err) {
+        console.warn(`⚠️ Error calculando ingreso neto desde BD para año ${anio}:`, err);
+        return [];
       }
     }
 
