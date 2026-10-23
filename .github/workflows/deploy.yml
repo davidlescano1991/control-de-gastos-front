@@ -19,20 +19,24 @@ jobs:
       - name: Checkout de repo privado
         uses: actions/checkout@v4
 
-      - name: Descargar artefacto compilado previo (generado por Build en develop)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh run download --name dist-control-gastos-front --dir dist/control-gastos-front/browser || echo "No se encontró artefacto remoto, ejecutando fallback..."
+      - name: Setup Node 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
 
-      - name: Fallback Build (solo si no existía el artefacto previo)
-        if: hashFiles('dist/control-gastos-front/browser/index.html') == ''
+      - name: Enable corepack and setup pnpm
         run: |
           corepack enable
           corepack prepare pnpm@latest --activate
-          pnpm install --frozen-lockfile
-          sed -i "s/__APP_VERSION_VALUE__/V1.1.${{ github.run_number }}/g" src/index.html
-          pnpm exec -- ng build --configuration production --base-href "/"
+
+      - name: Instalacion de dependencias (pnpm)
+        run: pnpm install --frozen-lockfile
+
+      - name: Inyectar version de despliegue
+        run: sed -i "s/__APP_VERSION_VALUE__/V1.1.${{ github.run_number }}/g" src/index.html
+
+      - name: Compilación directa para producción (Firebase Hosting)
+        run: pnpm exec -- ng build --configuration production --base-href "/"
 
       - name: Deploy a Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0

@@ -19,6 +19,33 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-23 08:15] - Corrección Integral y Definitiva: Pipeline de Despliegue y Purga de Caché de Deuda Anual
+- **Problema Reportado**:
+  - En producción (`https://control-gastos-dml.web.app/anual`), continuaba visualizándose el pico anómalo de deuda y compensaciones en Octubre 2026 ($12.160.128,64).
+- **Causas Raíz Detectadas**:
+  - 1. **Fallo en Pipeline GitHub Actions (`deploy.yml`)**: El paso anterior ejecutaba `gh run download --name dist-control-gastos-front`, descargando un artefacto compilado previo (desactualizado) en lugar de compilar el commit nuevo de `main`. Debido a la condición `hashFiles(...) == ''`, se saltaba la compilación y se re-desplegaba la versión antigua a Firebase Hosting.
+  - 2. **Persistencia en LocalStorage del Cliente**: Tanto `deuda_total_meses_v2_2026` como `deudaTotalHistorico_cache` habían almacenado el valor inflado de Octubre en los navegadores de los usuarios. La vista cargaba dicho snapshot al iniciar antes de cualquier refresco.
+  - 3. **Sobreescritura Residual de `unpaidPorMes`**: La lógica de `unpaidPorMes` (proveniente de un endpoint que fallaba con `relation "entity_payment_records" does not exist`) no pertenecía a la arquitectura original de la vista Anual.
+- **Solución Técnica Aplicada**:
+  - 1. **Pipeline de Despliegue Directo (`.github/workflows/deploy.yml`)**:
+     - Se eliminó la descarga de artefactos remotos (`gh run download`). El flujo ahora compila de forma directa y limpia siempre desde el código fuente con `pnpm exec -- ng build --configuration production --base-href "/"`, asegurando que cada deploy a `main` sea 100% fresco e idéntico al commit.
+  - 2. **Eliminación Total de `unpaidPorMes` en Anual (`anual.ts`)**:
+     - Se removió cualquier intento de sobreescritura de `compRaw` con datos de `unpaidPorMes`.
+     - El cálculo vuelve estrictamente al estándar original del frontend: `compRaw = item.compensaciones ?? 0; deudaCompensacion = -compRaw;`.
+  - 3. **Purga Automática y Detección de Datos Anómalos (`anual.ts`)**:
+     - Se elevó la clave de caché a `deuda_total_meses_v4_${anio}`.
+     - Se añadió validación activa: si en `deudaTotalHistorico_cache` o `deuda_total_meses_v4_*` se detecta un valor anómalo (Compensaciones > $10.000.000 o Deuda > $16.000.000 para Octubre 2026), se purga automáticamente de `localStorage` y se recalculan los datos genuinos desde Google Sheets.
+  - 4. **Respaldo Defensivo de Configuración (`app-config.service.ts` y `years-and-ranges.json`)**:
+     - Se integró `origenPorAnio` estático en `years-and-ranges.json` y un fallback defensivo en `isSheetsActivo(anio)` para garantizar que 2023..2026 siempre se identifiquen como hojas activas de Sheets aun si la API demorara en responder.
+- **Validación de Compilación**:
+  - Frontend: `npx ng build --configuration development` (**Código 0, 0 errores, 0 advertencias**).
+- **Archivos Afectados**:
+  - `.github/workflows/deploy.yml`
+  - `src/app/pages/anual/anual/anual.ts`
+  - `src/app/services/app-config.service.ts`
+  - `src/assets/years-and-ranges.json`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-10-22 23:10] - Corrección de Deuda Total a Pagar y Compensaciones en Vista Anual (Octubre 2026)
 - **Problema Reportado**:
   - En producción (`https://control-gastos-dml.web.app/anual`), la tabla "Deuda total a pagar" para Octubre 2026 mostraba montos discordantes respecto al frontend original:

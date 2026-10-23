@@ -247,8 +247,11 @@ export class AppConfigService {
     if (!anio) return false;
     const anioStr = String(anio);
     const info = this.config?.origenPorAnio?.[anioStr];
-    if (!info) return false;
-    return info.activo === true;
+    if (info !== undefined) {
+      return info.activo === true;
+    }
+    // Fallback defensivo si origenPorAnio aún no estuviera poblado: 2023..2026 son hojas Sheets activas
+    return anio >= 2023 && anio <= 2026;
   }
 
   /**
