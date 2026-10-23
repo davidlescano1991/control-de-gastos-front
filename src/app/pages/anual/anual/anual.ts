@@ -324,10 +324,12 @@ export class Anual implements OnInit, OnDestroy {
   }
 
   async calcularDeudaTotalParaAnio(anio: number, force = false): Promise<DeudaTotalMes[]> {
+    const cacheKey = `deuda_total_meses_v2_${anio}`;
 
     if (force) {
       this.cacheDeudaAnualPorAnio.delete(anio);
       if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(cacheKey);
         localStorage.removeItem(`deuda_total_meses_${anio}`);
       }
     }
@@ -338,7 +340,10 @@ export class Anual implements OnInit, OnDestroy {
 
     if (!force && typeof localStorage !== 'undefined') {
       try {
-        const cached = localStorage.getItem(`deuda_total_meses_${anio}`);
+        // Limpiar caché legacy si existe
+        localStorage.removeItem(`deuda_total_meses_${anio}`);
+
+        const cached = localStorage.getItem(cacheKey);
         if (cached) {
           const parsed = JSON.parse(cached);
           // Si está versionado con timestamp
@@ -352,15 +357,14 @@ export class Anual implements OnInit, OnDestroy {
               this.cacheDeudaAnualPorAnio.set(anio, parsed.data);
               return parsed.data;
             } else {
-              localStorage.removeItem(`deuda_total_meses_${anio}`);
+              localStorage.removeItem(cacheKey);
             }
           } else {
-            // Formato viejo no versionado: invalidar de inmediato para leer Google Sheets actualizado
-            localStorage.removeItem(`deuda_total_meses_${anio}`);
+            localStorage.removeItem(cacheKey);
           }
         }
       } catch (err) {
-        console.warn(`Error reading deuda_total_meses_${anio}`, err);
+        console.warn(`Error reading ${cacheKey}`, err);
       }
     }
 
@@ -423,13 +427,16 @@ export class Anual implements OnInit, OnDestroy {
       );
 
       let unpaidPorMes: Record<number, number> = {};
-      try {
-        const unpaidRes = await firstValueFrom(this.entityPaymentService.getUnpaid(anio));
-        if (unpaidRes?.success && unpaidRes.unpaid && typeof unpaidRes.unpaid === 'object') {
-          unpaidPorMes = unpaidRes.unpaid as Record<number, number>;
+      // Solo consultar deuda impaga de BD para años que NO están gestionados por Google Sheets
+      if (!this.appConfig.isSheetsActivo(anio)) {
+        try {
+          const unpaidRes = await firstValueFrom(this.entityPaymentService.getUnpaid(anio));
+          if (unpaidRes?.success && unpaidRes.unpaid && typeof unpaidRes.unpaid === 'object') {
+            unpaidPorMes = unpaidRes.unpaid as Record<number, number>;
+          }
+        } catch (e) {
+          // En caso de no poder conectar a la API, continúa con las compensaciones del store
         }
-      } catch (e) {
-        // En caso de no poder conectar a la API, continúa con las compensaciones del store
       }
 
       const resultado = proyeccionFutura.map((item, mesIdx) => {
@@ -479,7 +486,7 @@ export class Anual implements OnInit, OnDestroy {
 
         const numMes = MESES_BASE.indexOf(mesNorm) + 1;
         let compRaw = item.compensaciones ?? 0;
-        if (numMes >= 1 && unpaidPorMes[numMes] !== undefined && unpaidPorMes[numMes] > 0) {
+        if (!this.appConfig.isSheetsActivo(anio) && numMes >= 1 && unpaidPorMes[numMes] !== undefined && unpaidPorMes[numMes] > 0) {
           compRaw = -unpaidPorMes[numMes];
         }
         // Si compRaw es negativo (ej. -$3.149.113,74), representa saldo impago de tarjetas y es deuda
@@ -513,9 +520,9 @@ export class Anual implements OnInit, OnDestroy {
               savedAt: Date.now(),
               data: resultado,
             };
-            localStorage.setItem(`deuda_total_meses_${anio}`, JSON.stringify(cacheEntry));
+            localStorage.setItem(cacheKey, JSON.stringify(cacheEntry));
           } catch (e) {
-            console.warn(`Error saving deuda_total_meses_${anio}`, e);
+            console.warn(`Error saving ${cacheKey}`, e);
           }
         }
       }

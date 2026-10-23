@@ -19,6 +19,26 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-22 23:10] - Corrección de Deuda Total a Pagar y Compensaciones en Vista Anual (Octubre 2026)
+- **Problema Reportado**:
+  - En producción (`https://control-gastos-dml.web.app/anual`), la tabla "Deuda total a pagar" para Octubre 2026 mostraba montos discordantes respecto al frontend original:
+    - `COMPENSACIONES`: mostraba `$ 12.160.128,64` (cuando debía ser `$ 3.739.691,44`).
+    - `DEUDA TOTAL`: mostraba `$ 16.975.119,77` (en vez de `$ 8.554.682,57`).
+    - `DEUDA TOTAL USD`: figuraba en `$ 10.951,69` (en vez de `$ 5.519,15`).
+- **Causa Raíz**:
+  - En `anual.ts`, el método `calcularDeudaTotalParaAnio()` realizaba una petición a `entityPaymentService.getUnpaid(anio)` consultando los pagos impagas de la base de datos PostgreSQL (`entity_payments`), y sobreescribía incondicionalmente el valor de compensaciones del mes (`compRaw = -unpaidPorMes[numMes]`).
+  - Para años gestionados por Google Sheets (como 2026), `item.compensaciones` de la hoja de cálculo ya contiene el valor fiel proyectado (`-$3.739.691,44`), por lo que la sobreescritura de la base de datos inflaba erróneamente la deuda.
+- **Solución Técnica Aplicada**:
+  - En `src/app/pages/anual/anual/anual.ts`:
+    - Se condicionó la consulta y aplicación de `unpaidPorMes`: solo se consulta y sobreescribe si el año NO está gestionado activamente por Google Sheets (`!this.appConfig.isSheetsActivo(anio)`).
+    - Para años activos de Google Sheets (2026, etc.), `item.compensaciones` se mantiene intacto como fuente única de la verdad.
+    - Se actualizó la clave de caché de localStorage a `deuda_total_meses_v2_${anio}` e implementó la limpieza automática de la clave obsoleta anterior (`deuda_total_meses_${anio}`), asegurando que los clientes reciban el cálculo corregido inmediatamente sin datos residuales en el navegador.
+- **Validación de Compilación**:
+  - Frontend: `npx ng build --configuration development` (**Código 0, 0 errores, 0 advertencias**).
+- **Archivos Afectados**:
+  - `src/app/pages/anual/anual/anual.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-10-22 21:55] - Eliminación de Redirección Forzada Offline e Inicio en Pausa del Minijuego
 - **Problema Reportado**:
   - Los usuarios manifestaron que la redirección automática forzada hacia `/offline` al cortarse Internet resultaba invasiva e interrumpía las tareas o visualización en la pantalla activa.
