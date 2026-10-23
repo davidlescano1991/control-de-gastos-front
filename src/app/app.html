@@ -1,6 +1,6 @@
 <div class="app-shell">
   <!-- BANNER GLOBAL REACTIVO DE AVISO SIN CONEXIÓN -->
-  <aside class="offline-global-banner" *ngIf="!connectivityService.isOnline()">
+  <aside class="offline-global-banner" *ngIf="!connectivityService.isOnline() && !router.url.includes('/offline')">
     <div class="banner-content">
       <mat-icon class="pulse-icon">wifi_off</mat-icon>
       <span class="banner-text">Has perdido la conexión a Internet. ¡Puedes jugar a la Viborita mientras esperas!</span>

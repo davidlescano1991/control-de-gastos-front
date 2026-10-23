@@ -1275,19 +1275,21 @@ gantt
     * **Subpasos Ejecutados**:
       * **6.20.1**: Frontend Store: Extensión de rango de consulta batch a `A1:N500` en `MovimientosStoreGoogle`, lectura y parseo de fila 0 (columnas I, J, K, L), persistencia en memoria y caché local con `EstimativoConfigData`.
       * **6.20.2**: Frontend Component: Signals reactivos `gastoDiarioEstimado`, `interesDiarioBilleteras` y `gastoEstimadoMes` en `HomeEstimativo`, hidratación inmediata desde caché (0ms) y sincronización con `EstimatesService.getMonthly()` tanto para Google Sheets como para BD.
-  * **6.21**: Migración de Datos Históricos del Año 2023 a PostgreSQL Local y Conciliación Matemática *(COMPLETADO EN LOCAL)*:
+  * **6.21**: Migración de Datos Históricos del Año 2023 a PostgreSQL Local y Producción (Google Cloud SQL) *(COMPLETADO)*:
     * **¿Qué es y por qué se hace?**:
       - Continuación del proceso de consolidación de datos históricos en la arquitectura relacional PostgreSQL:
-      - Migración integral de la operatoria de 2023 desde el archivo Excel `"C:\Users\u900670\Downloads\Cuentas claras_2023.xlsx"`, probada y auditada en la base de datos local antes de su promoción a producción en Google Cloud SQL.
-    * **Resultados de la Ejecución**:
+      - Migración integral de la operatoria de 2023 desde el archivo Excel `"C:\Users\u900670\Downloads\Cuentas claras_2023.xlsx"`, probada y auditada en la base de datos local y sincronizada al 100% en producción sobre Google Cloud SQL (`control-gastos-pg-0d0b84`) con túnel seguro mTLS Cloud SQL Auth Proxy.
+    * **Resultados de la Ejecución en Local y Google Cloud SQL**:
       - **Movimientos y Estimativos (`migrate_excel_year.ts`)**:
-        - 232 movimientos migrados a la tabla `movements`.
+        - 232 movimientos migrados a la tabla `movements` (con columna `deuda` normalizada).
         - 12 configuraciones mensuales en `monthly_estimate_configs`.
         - 364 filas diarias de seguimiento en `daily_estimates` vinculadas a `david@admin.com`.
       - **Ítems Mensuales y Cuotas (`migrate_monthly_items.ts`)**:
-        - 623 ítems mensuales en `monthly_items`.
+        - 654 ítems mensuales en `monthly_items` (incluyendo 31 ítems de gastos reembolsables Sep-Dic 2023).
         - 318 compras en cuotas con propagación detectadas y normalizadas.
         - 188 fórmulas matemáticas extraídas y preservadas intactas en PostgreSQL.
+      - **Préstamos Personales (`loans` & `loan_installments`)**:
+        - 12 préstamos y 37 cuotas activas/amortizaciones migradas a Cloud SQL.
       - **Auditoría y Conciliación Matemática (`audit_reconciliation.ts`)**:
         - **CONCILIACIÓN MATEMÁTICA 100% APROBADA (DIFERENCIA $0,00)**.
         - Total Gastos Excel ($27.769.685,45) vs BD ($27.769.685,45) ➔ Diferencia: **$0,00**.
