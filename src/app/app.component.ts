@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatGridListModule } from '@angular/material/grid-list';
@@ -55,6 +55,7 @@ export class AppComponent {
   public authService = inject(AuthService);
   public connectivityService = inject(ConnectivityService);
   private wakeLockService = inject(WakeLockService);
+  public router = inject(Router);
 
   constructor() {
     this.wakeLockService.requestWakeLock();

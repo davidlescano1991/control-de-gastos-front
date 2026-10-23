@@ -142,7 +142,21 @@
           width="440"
           height="440"
           class="snake-canvas"
+          (click)="togglePlayPause()"
+          title="Haz clic para iniciar o pausar"
         ></canvas>
+
+        <!-- Overlay flotante para Iniciar o Reanudar con un toque o clic -->
+        <div
+          class="canvas-interactive-overlay"
+          *ngIf="(!hasStarted() || isPaused()) && !isGameOver()"
+          (click)="togglePlayPause()"
+        >
+          <button type="button" class="btn-overlay-start" [class.is-init]="!hasStarted()">
+            <mat-icon>{{ !hasStarted() ? 'play_arrow' : 'play_arrow' }}</mat-icon>
+            <span>{{ !hasStarted() ? 'Iniciar Juego' : 'Reanudar Partida' }}</span>
+          </button>
+        </div>
       </div>
 
       <!-- BARRA DE CONTROLES INFERIOR Y D-PAD TÁCTIL -->
@@ -152,11 +166,12 @@
           <button
             type="button"
             class="btn-game-action"
-            (click)="pauseGame()"
+            [class.start-primary]="!hasStarted()"
+            (click)="togglePlayPause()"
             [disabled]="isGameOver()"
           >
             <mat-icon>{{ isPaused() ? 'play_arrow' : 'pause' }}</mat-icon>
-            <span>{{ isPaused() ? 'Reanudar' : 'Pausa' }}</span>
+            <span>{{ !hasStarted() ? 'Iniciar Juego' : (isPaused() ? 'Reanudar' : 'Pausa') }}</span>
           </button>
 
           <button
@@ -193,8 +208,8 @@
             <button
               type="button"
               class="dpad-btn center-action"
-              (click)="pauseGame()"
-              aria-label="Pausa/Play"
+              (click)="togglePlayPause()"
+              [attr.aria-label]="!hasStarted() ? 'Iniciar' : (isPaused() ? 'Reanudar' : 'Pausa')"
             >
               <mat-icon>{{ isPaused() ? 'play_arrow' : 'pause' }}</mat-icon>
             </button>

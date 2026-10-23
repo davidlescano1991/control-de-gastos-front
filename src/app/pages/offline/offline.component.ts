@@ -53,7 +53,8 @@ export class OfflineComponent implements OnInit, OnDestroy {
 
   // Estado del juego
   public isPlaying = signal<boolean>(false);
-  public isPaused = signal<boolean>(false);
+  public isPaused = signal<boolean>(true);
+  public hasStarted = signal<boolean>(false);
   public isGameOver = signal<boolean>(false);
   public score = signal<number>(0);
   public highScore = signal<number>(0);
@@ -85,7 +86,7 @@ export class OfflineComponent implements OnInit, OnDestroy {
 
       setTimeout(() => {
         this.initGame();
-        this.startGame();
+        // El juego comienza en pausa esperando a que el usuario elija iniciar
       }, 200);
     }
   }
@@ -141,7 +142,9 @@ export class OfflineComponent implements OnInit, OnDestroy {
     this.nextDirection = 'RIGHT';
     this.score.set(0);
     this.isGameOver.set(false);
-    this.isPaused.set(false);
+    this.hasStarted.set(false);
+    this.isPaused.set(true);
+    this.isPlaying.set(false);
     this.spawnFood();
     this.renderCanvas();
   }
@@ -149,6 +152,7 @@ export class OfflineComponent implements OnInit, OnDestroy {
   public startGame(): void {
     if (!this.isBrowser) return;
     this.stopGameLoop();
+    this.hasStarted.set(true);
     this.isPlaying.set(true);
     this.isPaused.set(false);
     this.isGameOver.set(false);
@@ -157,10 +161,11 @@ export class OfflineComponent implements OnInit, OnDestroy {
     this.gameInterval = setInterval(() => {
       this.gameStep();
     }, speed);
+    this.renderCanvas();
   }
 
   public pauseGame(): void {
-    if (!this.isPlaying() || this.isGameOver()) return;
+    if (!this.hasStarted() || this.isGameOver()) return;
     this.isPaused.set(!this.isPaused());
     if (this.isPaused()) {
       this.stopGameLoop();
@@ -170,6 +175,19 @@ export class OfflineComponent implements OnInit, OnDestroy {
       this.gameInterval = setInterval(() => {
         this.gameStep();
       }, speed);
+      this.renderCanvas();
+    }
+  }
+
+  public togglePlayPause(): void {
+    if (this.isGameOver()) {
+      this.restartGame();
+      return;
+    }
+    if (!this.hasStarted()) {
+      this.startGame();
+    } else {
+      this.pauseGame();
     }
   }
 
@@ -305,7 +323,9 @@ export class OfflineComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.isPaused()) {
+    if (!this.hasStarted()) {
+      this.startGame();
+    } else if (this.isPaused()) {
       this.pauseGame();
     }
 
@@ -333,9 +353,13 @@ export class OfflineComponent implements OnInit, OnDestroy {
     } else if (key === 'ArrowRight' || key === 'd' || key === 'D') {
       this.changeDirection('RIGHT');
     } else if (key === ' ') {
-      this.pauseGame();
-    } else if (key === 'Enter' && this.isGameOver()) {
-      this.restartGame();
+      this.togglePlayPause();
+    } else if (key === 'Enter') {
+      if (this.isGameOver()) {
+        this.restartGame();
+      } else if (!this.hasStarted()) {
+        this.startGame();
+      }
     }
   }
 
@@ -437,8 +461,24 @@ export class OfflineComponent implements OnInit, OnDestroy {
       }
     });
 
-    // Cartel de Pausa
-    if (this.isPaused() && !this.isGameOver()) {
+    // Cartel de Pausa Inicial / Listo para jugar
+    if (!this.hasStarted() && !this.isGameOver()) {
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.fillStyle = '#22c55e';
+      ctx.font = 'bold 22px "Press Start 2P", monospace, system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText('VIBORITA', width / 2, height / 2 - 30);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 15px system-ui, sans-serif';
+      ctx.fillText('Partida en pausa', width / 2, height / 2);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '13px system-ui, sans-serif';
+      ctx.fillText('Pulsa Iniciar Juego, Espacio o Flechas', width / 2, height / 2 + 28);
+    } else if (this.isPaused() && !this.isGameOver()) {
       ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
       ctx.fillRect(0, 0, width, height);
 
@@ -449,7 +489,7 @@ export class OfflineComponent implements OnInit, OnDestroy {
 
       ctx.fillStyle = '#94a3b8';
       ctx.font = '13px system-ui, sans-serif';
-      ctx.fillText('Presiona Espacio o Play para continuar', width / 2, height / 2 + 25);
+      ctx.fillText('Presiona Espacio o Reanudar para continuar', width / 2, height / 2 + 25);
     }
 
     // Cartel de Game Over

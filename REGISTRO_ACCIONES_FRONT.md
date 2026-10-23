@@ -19,6 +19,150 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-22 21:55] - Eliminación de Redirección Forzada Offline e Inicio en Pausa del Minijuego
+- **Problema Reportado**:
+  - Los usuarios manifestaron que la redirección automática forzada hacia `/offline` al cortarse Internet resultaba invasiva e interrumpía las tareas o visualización en la pantalla activa.
+  - Al ingresar al minijuego de la Viborita, la partida arrancaba de forma inmediata sin dar tiempo al usuario para prepararse.
+- **Solución Técnica Aplicada**:
+  - **1. Supresión de Auto-Redirección**:
+    - Se eliminó la navegación imperativa automática (`this.router.navigate(['/offline'])`) en `connectivity.service.ts` ante caídas de conexión nativas, pruebas de sondeo o simulación.
+    - Se conservó el aviso no invasivo a través del banner superior rojo (`.offline-global-banner`), el cual se activa reactivamente informando la falta de conexión e incluyendo el botón interactivo para que el usuario decida si desea entrar a la pantalla del minijuego (`/offline`).
+    - En `app.html`, se acondicionó el banner para ocultarse cuando el usuario ya se encuentra en `/offline`.
+  - **2. Minijuego de la Viborita en Pausa Inicial**:
+    - Se modificó `OfflineComponent` para que al ingresar inicie en estado de pausa explícita (`hasStarted = false`, `isPaused = true`, `isPlaying = false`).
+    - Se integró una capa visual en el canvas con el aviso *"Partida en pausa - Pulsa Iniciar Juego, Espacio o Flechas"*, junto a un botón flotante y pulsable *"Iniciar Juego"*.
+    - El usuario puede iniciar el juego haciendo clic en el botón *"Iniciar Juego"*, pulsando la barra espaciadora, presionando `Enter`, tocando el canvas o utilizando las teclas de dirección / D-Pad.
+    - Los controles de pie y el centro del D-Pad se sincronizaron con el método `togglePlayPause()`, alternando fluidamente entre *"Iniciar Juego"*, *"Reanudar"* y *"Pausa"*.
+- **Validación de Compilación**:
+  - Frontend: `npx ng build --configuration development` (**Código 0, 0 errores, 0 advertencias**).
+- **Archivos Afectados**:
+  - `src/app/services/connectivity.service.ts`
+  - `src/app/app.component.ts`
+  - `src/app/app.html`
+  - `src/app/pages/offline/offline.component.ts`
+  - `src/app/pages/offline/offline.component.html`
+  - `src/app/pages/offline/offline.component.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-21 09:12] - Corrección Definitiva: Aislamiento de Reintegros de BD y Despliegue en Cloud Run
+- **Problema Reportado**:
+  - En la vista Inicio (`/`) de producción, el total diario del 20/10/2026 se mostraba en `$684.390,95` (con un salto de `+$24.282,17` y pico en el gráfico de saldos), mientras que en localhost se visualizaba correctamente en `$660.337,60`. Además, en días anteriores (16/10, 15/10, etc.) se sumaban los saldos de la base de datos duplicando los montos.
+- **Causa Raíz**:
+  - 1. En producción, la imagen de Cloud Run aún no tenía desplegado el filtrado de categorías y seguía combinando todos los saldos sincronizados de PostgreSQL con los de Google Sheets.
+  - 2. Además, al consultar movimientos generales del año sin filtro de categoría (utilizados por la vista Inicio para computar los saldos bancarios por día), la consulta a PostgreSQL incluía el registro de "Reintegro Mamá" ($24.053,35), sumando ese reintegro a los saldos bancarios del 20/10/2026 ($660.337,60 + $24.053,35 = $684.390,95).
+- **Solución Técnica Aplicada**:
+  - Se modificó `control-de-gastos-api/src/services/movement.service.ts`: para años administrados por Google Sheets (ej. 2026), los movimientos de PostgreSQL solo se consultan si la petición incluye explícitamente un filtro de categoría (`filters.categoria`, como ocurre al consultar `categoria: 'Reintegro'` desde Gastos Reembolsables).
+  - Al no haber filtro de categoría (como en la pantalla de Inicio), se devuelven exclusivamente los movimientos de saldos bancarios de Google Sheets sin contaminar los totales diarios ni los gráficos.
+  - Se fusionaron los cambios a la rama `main` y se realizó el push (`a4a8b26`), activando el flujo de GitHub Actions para compilar y desplegar la nueva imagen de contenedor en Cloud Run.
+- **Validación de Compilación**:
+  - Backend: `npx tsc --noEmit` exitoso (**Código 0**).
+  - Frontend: `npx ng build --configuration development` exitoso (**Código 0, 0 errores, 0 advertencias**).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/movement.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-20 21:55] - Unificación de Movimientos Registrados en BD con Sheets y Eliminación de Duplicado de Reintegro
+- **Problema Reportado**:
+  - Al presionar *"Registrar Devolución"* en la sección Gastos Reembolsables (Aporte Mamá) en producción, no se reflejaba el cambio (seguía figurando "Pendiente por devolver: $ 24.053,35") y se generó un registro duplicado por reintentos.
+- **Causa Raíz**:
+  - El movimiento se insertaba correctamente en PostgreSQL vía `POST /api/movimientos`, pero para los años con Google Sheets activo (ej. 2026), `movementService.listMovements()` delegaba la lectura al 100% en Google Sheets sin incluir los movimientos registrados directamente en PostgreSQL (como los reintegros contables). Al consultar los reintegros para verificar el estado de la devolución, la API devolvía 0 registros.
+- **Solución Técnica Aplicada**:
+  - **1. Eliminación de Duplicado en Cloud SQL**:
+    - Se conectó temporalmente mediante Cloud SQL Proxy y se eliminó el registro redundante con ID `a1eca967-bc21-4ca0-8110-389e61d75d93`, preservando el movimiento original legítimo `289768af-a1ed-45a9-b05c-82134e03fe06` ($24.053,35 a Mercado Pago).
+    - Se revocó la IP pública de Cloud SQL devolviéndola a su estado privado para garantizar costo $0.
+  - **2. Unificación en Backend (`movement.service.ts`)**:
+    - Se actualizó `movementService.listMovements()`: para años con Google Sheets configurado, ahora combina los movimientos leídos de la hoja con los movimientos registrados en PostgreSQL (filtrados por año, mes, tipo, categoría y entidad), ordenándolos cronológicamente por fecha descendente y consolidando los totales del resumen.
+    - Se probó exitosamente de extremo a extremo en local confirmando que `GET /api/movimientos?year=2026&mes=10&categoria=Reintegro` ahora devuelve el reintegro de BD.
+  - **3. Validación de Compilación**:
+    - Backend: `npx tsc --noEmit` exitoso (Código 0).
+    - Frontend: `npx ng build --configuration development` exitoso (Código 0, 0 errores, 0 advertencias).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/movement.service.ts`
+  - Base de Datos Cloud SQL (`movements` - eliminación de duplicado)
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-20 20:00] - Resumen Anual 2022/2023 persistido en BD (`annual_summaries`) para Producción
+- **Problema Reportado**:
+  - En producción, la vista Anual de 2023 (y 2022) mostraba "Rendimientos positivos" sin datos, "Ingreso Neto" en $0, y saldos/gastos distintos a los de local.
+- **Causa Raíz**:
+  - `ReportesService.fetchAnalisisFromDatabase` (API) leía en runtime `templates/Cuentas claras_YYYY.xlsx` (hoja Anual filas 34/38/42, columna O y celda K21 de cada mes).
+  - La carpeta `templates/` no está versionada en git ni se copia en el `Dockerfile`, así que en Cloud Run caía a un fallback por agregados Prisma sin ingresos netos ni rendimientos (y con gastos de 2022 duplicados).
+- **Solución Técnica Aplicada**:
+  - Nuevo modelo Prisma `AnnualSummary` (tabla `annual_summaries`: year, mes, saldo, gasto, nafta, ingresoNeto, rendimiento; único `year+mes`).
+  - Nuevo script `src/scripts/migrate_annual_summary.ts --year=YYYY --target=local|cloud` (crea la tabla si no existe y hace upsert idempotente).
+  - `fetchAnalisisFromDatabase` ahora consulta primero `annual_summaries` (`fetchAnalisisFromResumenAnual`); la plantilla .xlsx y el fallback Prisma quedan como respaldo.
+  - Migración ejecutada en Local y en Cloud SQL (IP pública temporal → Cloud SQL Proxy :5433 → migración → cierre del túnel → `--no-assign-ip`). 24 filas (2022 + 2023).
+  - Verificación local: `/reportes/analisis-anual` devuelve `Base de Datos (Resumen Anual)` con valores idénticos a la plantilla.
+- **Pendiente**: push del API a `develop` y merge a `main` para que Cloud Run use la nueva lectura.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/prisma/schema.prisma`
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - `control-de-gastos-api/src/scripts/migrate_annual_summary.ts`
+  - Base de Datos Local y Google Cloud SQL (`annual_summaries`)
+
+### [2026-10-20 19:55] - Inyección Automática de Compensación / Saldo Impago del Mes Pasado al Cargar Ítems de Entidad
+- **Requerimiento del Usuario**:
+  - Al cargar una entidad existente en un nuevo mes/año (por ejemplo, habiendo cargado Marzo 2027 y queriendo cargar Abril 2027), en la lista de ítems sugeridos debe figurar automáticamente la compensación del mes anterior (es decir, el remanente impago: total de la entidad en el mes anterior menos el monto pagado / intención de pago).
+- **Causa Raíz / Comportamiento Anterior**:
+  - `getPreviewMesAnterior` y `precargarMesAnterior` únicamente transferían ítems recurrentes regulares y cuotas activas, pero no consideraban el saldo pendiente de liquidación (`montoRestante` o diferencia entre el total del resumen y la intención de pago registrada en `entityPayment`), ni inyectaban el ítem de Compensación para el nuevo período.
+- **Solución Técnica Aplicada**:
+  - **1. Backend API (`monthly-item.service.ts`)**:
+    - Se implementó la detección de pagos registrados (`prisma.entityPayment`) en el mes inmediatamente anterior (`sourceYear`, `sourceMes`).
+    - Si el pago anterior de la entidad no fue `'COMPLETO'`, se calcula la compensación pendiente:
+      $$\text{compensacion} = \text{montoRestante} > 0 \ ? \ \text{montoRestante} : \max(0, \text{totalMesAnterior} - \text{montoPagado})$$
+    - Se inyecta en la lista de ítems sugeridos el ítem con concepto `'Compensación'`, el monto pendiente y la nota `"Compensación / saldo impago de [Mes anterior]"`.
+    - Se excluyen compensaciones previas de la lista de ítems fijos para evitar duplicar o arrastrar saldos obsoletos.
+  - **2. Frontend (`modal-cargar-item.html` & `.scss`)**:
+    - Se agregó indicador visual mediante badge `.badge-compensacion-mini` ("Saldo impago anterior") en la lista de sugerencias.
+    - Estilos integrados en temas claro y oscuro armonizados con la paleta de colores.
+  - **3. Validación**:
+    - Prueba unitaria de API confirmando la inyección de `$558.966,07` para Abril 2027 de Master Card Galicia (total $1.117.932,07 - pagado $558.966,00).
+    - Compilación Angular de desarrollo (`npx ng build --configuration development`): **100% limpia (Código 0, 0 errores, 0 advertencias)**.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/monthly-item.service.ts`
+  - `control-de-gastos-front/src/app/pages/mensual/modal-cargar-item/modal-cargar-item.html`
+  - `control-de-gastos-front/src/app/pages/mensual/modal-cargar-item/modal-cargar-item.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+
+
+### [2026-10-20 19:05] - Promoción y Sincronización Integral de Datos 2023 en Google Cloud SQL (Producción)
+- **Problema Reportado**:
+  - Al realizar PR a `main` y desplegar a producción (Cloud Run / Firebase), el año 2023 continuaba apareciendo sin datos en las pantallas (Inicio, Anual, Mensual, Estimativos).
+- **Causa Raíz**:
+  - En la sesión anterior, la migración de datos 2023 se había ejecutado **únicamente en PostgreSQL Local** (`--target=local`), quedando pendiente su promoción a la base de datos de producción (`Google Cloud SQL`).
+  - Los flujos de CI/CD en GitHub Actions (`build.yml` / `deploy.yml`) únicamente compilan y despliegan la imagen Docker a Google Cloud Run; no tienen acceso directo ni scripts de siembra/migración para inyectar datos en Google Cloud SQL (aislado en la VPC privada para costo $0).
+  - En consecuencia, la base de datos de Cloud SQL carecía de:
+    1. La columna `deuda DECIMAL(14,2)` en la tabla `movements`.
+    2. Los 232 movimientos de 2023.
+    3. Los 12 ciclos mensuales y 364 días de estimativos diarios de 2023.
+    4. Los 654 ítems mensuales de 2023 (incluyendo 31 gastos reembolsables).
+- **Solución Técnica Aplicada**:
+  - **1. Respaldo Preventivo**:
+    - Ejecutado `backup.ps1` generando el snapshot cifrado `backup_20261020_184900.sql.gz` en Google Cloud Storage y en local.
+  - **2. Túnel Seguro con Cloud SQL Auth Proxy**:
+    - Asignación temporal de IP pública (`--assign-ip`) y apertura de túnel TLS en `127.0.0.1:5433` con `cloud-sql-proxy.exe`.
+  - **3. DDL Schema Update**:
+    - Ejecución de `ALTER TABLE movements ADD COLUMN IF NOT EXISTS deuda DECIMAL(14,2);`
+    - Verificación de columnas `evento` y `color` en `daily_estimates`.
+  - **4. Migración de Datos a Producción (`--target=cloud`)**:
+    - `migrate_excel_year.ts`: 232 movimientos de 2023, 12 ciclos de estimativos y 364 días diarios insertados en Cloud SQL.
+    - `migrate_monthly_items.ts`: 623 ítems mensuales estándar + 31 ítems de gastos reembolsables (Sep-Dic 2023) insertados (Total: 654 ítems).
+    - Verificación de 12 préstamos y 37 cuotas de 2023.
+  - **5. Blindaje Post-Migración ($0 Costo)**:
+    - Detención de `cloud-sql-proxy.exe` y revocación inmediata de la IP pública (`--no-assign-ip`), devolviendo a Cloud SQL a su red privada aislada en la VPC.
+  - **6. Verificación End-to-End contra Cloud Run en Producción**:
+    - `GET /api/movimientos?year=2023`: **232 movimientos** con deuda.
+    - `GET /api/estimaciones?year=2023&mes=1`: **12 meses, 30 filas en enero**, saldo inicial $95.595,01.
+    - `GET /api/mensual/items?year=2023`: **654 ítems mensuales**.
+    - `GET /api/prestamos?year=2023`: **12 préstamos**.
+    - `GET /api/reportes/analisis-anual?year=2023`: **12 meses de gastos y saldos**.
+- **Archivos Afectados**:
+  - Base de Datos Google Cloud SQL (`control-gastos-pg-0d0b84`)
+  - `PLAN_MIGRACION_CLOUD_API.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+
 ### [2026-10-20 15:45] - Integración Completa de 2023 (Modo BD) en Vistas Anual e Inicio y Unificación de Tablas/Gráficos
 - **Problema Detectado**:
   - En la vista **Inicio (`/`)**, no se visualizaban las deudas (columna Deuda $ / USD en `$ 0,00` y gráficos con deuda en 0).
