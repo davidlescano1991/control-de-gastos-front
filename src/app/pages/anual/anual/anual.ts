@@ -195,7 +195,17 @@ export class Anual implements OnInit, OnDestroy {
         const cached = localStorage.getItem('deudaTotalHistorico_cache');
         if (cached) {
           const parsed = JSON.parse(cached);
-          if (
+          const tieneValorErroneo =
+            Array.isArray(parsed) &&
+            parsed.some(
+              (p: any) =>
+                p.anio === 2026 &&
+                p.mes?.toLowerCase().includes('octubre') &&
+                (p.compensaciones > 10000000 || p.deudaTotal > 16000000),
+            );
+          if (tieneValorErroneo) {
+            localStorage.removeItem('deudaTotalHistorico_cache');
+          } else if (
             Array.isArray(parsed) &&
             parsed.length > 0 &&
             parsed.some((p: any) => p.compensaciones !== undefined)
@@ -324,12 +334,14 @@ export class Anual implements OnInit, OnDestroy {
   }
 
   async calcularDeudaTotalParaAnio(anio: number, force = false): Promise<DeudaTotalMes[]> {
-    const cacheKey = `deuda_total_meses_v2_${anio}`;
+    const cacheKey = `deuda_total_meses_v4_${anio}`;
 
     if (force) {
       this.cacheDeudaAnualPorAnio.delete(anio);
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem(cacheKey);
+        localStorage.removeItem(`deuda_total_meses_v3_${anio}`);
+        localStorage.removeItem(`deuda_total_meses_v2_${anio}`);
         localStorage.removeItem(`deuda_total_meses_${anio}`);
       }
     }
@@ -340,8 +352,10 @@ export class Anual implements OnInit, OnDestroy {
 
     if (!force && typeof localStorage !== 'undefined') {
       try {
-        // Limpiar caché legacy si existe
+        // Limpiar cachés legacy si existen
         localStorage.removeItem(`deuda_total_meses_${anio}`);
+        localStorage.removeItem(`deuda_total_meses_v2_${anio}`);
+        localStorage.removeItem(`deuda_total_meses_v3_${anio}`);
 
         const cached = localStorage.getItem(cacheKey);
         if (cached) {
@@ -352,8 +366,14 @@ export class Anual implements OnInit, OnDestroy {
             const noExpirado = Date.now() - parsed.savedAt < ttl;
             const tieneCompensaciones = parsed.data.some((p: any) => p.compensaciones !== undefined);
             const tienePrestamos = parsed.data.some((p: any) => (p.totalPrestamos ?? 0) > 0);
+            const tieneValorErroneo = parsed.data.some(
+              (p: any) =>
+                anio === 2026 &&
+                p.mes?.toLowerCase().includes('octubre') &&
+                (p.compensaciones > 10000000 || p.deudaTotal > 16000000),
+            );
 
-            if (noExpirado && tieneCompensaciones && tienePrestamos) {
+            if (noExpirado && tieneCompensaciones && tienePrestamos && !tieneValorErroneo) {
               this.cacheDeudaAnualPorAnio.set(anio, parsed.data);
               return parsed.data;
             } else {
@@ -426,18 +446,6 @@ export class Anual implements OnInit, OnDestroy {
         nombresMeses,
       );
 
-      let unpaidPorMes: Record<number, number> = {};
-      // Solo consultar deuda impaga de BD para años que NO están gestionados por Google Sheets
-      if (!this.appConfig.isSheetsActivo(anio)) {
-        try {
-          const unpaidRes = await firstValueFrom(this.entityPaymentService.getUnpaid(anio));
-          if (unpaidRes?.success && unpaidRes.unpaid && typeof unpaidRes.unpaid === 'object') {
-            unpaidPorMes = unpaidRes.unpaid as Record<number, number>;
-          }
-        } catch (e) {
-          // En caso de no poder conectar a la API, continúa con las compensaciones del store
-        }
-      }
 
       const resultado = proyeccionFutura.map((item, mesIdx) => {
         const mesNorm = this.storeGoogle.normalizar(item.mes);
@@ -484,11 +492,7 @@ export class Anual implements OnInit, OnDestroy {
           }
         }
 
-        const numMes = MESES_BASE.indexOf(mesNorm) + 1;
-        let compRaw = item.compensaciones ?? 0;
-        if (!this.appConfig.isSheetsActivo(anio) && numMes >= 1 && unpaidPorMes[numMes] !== undefined && unpaidPorMes[numMes] > 0) {
-          compRaw = -unpaidPorMes[numMes];
-        }
+        const compRaw = item.compensaciones ?? 0;
         // Si compRaw es negativo (ej. -$3.149.113,74), representa saldo impago de tarjetas y es deuda
         // Si es positivo, representa un pago por encima del saldo y reduce la deuda
         const deudaCompensacion = -compRaw;

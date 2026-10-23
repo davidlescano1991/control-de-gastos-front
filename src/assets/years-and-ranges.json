@@ -188,5 +188,13 @@
         "2024": "K21",
         "2023": "K21",
         "2022": "K21"
+    },
+    "origenPorAnio": {
+        "2022": { "activo": false, "descripcion": "Planilla Histórica 2022" },
+        "2023": { "activo": false, "descripcion": "Planilla Histórica 2023" },
+        "2024": { "activo": true, "descripcion": "Planilla Histórica 2024" },
+        "2025": { "activo": true, "descripcion": "Planilla Histórica 2025" },
+        "2026": { "activo": true, "descripcion": "Planilla de Control 2026 (Migrada)" },
+        "2027": { "activo": false, "descripcion": "Cuentas Claras 2027" }
     }
 }
