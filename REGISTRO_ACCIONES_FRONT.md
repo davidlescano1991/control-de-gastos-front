@@ -19,6 +19,26 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-24 15:20] - Selección Inteligente del Mes por Defecto en Vista Mensual
+- **Problema / Solicitud**:
+  - En la vista Mensual (`/mensual`), al abrir la pantalla se seleccionaba siempre el mes del calendario (ej. Octubre).
+  - Sin embargo, una vez alcanzado el primer día del ciclo estimativo del mes (cuando se cobran haberes y se pagan las tarjetas y servicios de dicho mes, ej. 8 de octubre), el mes en curso ya está saldado y lo que el usuario necesita visualizar y gestionar por defecto es el **próximo mes a pagar** (ej. Noviembre).
+- **Solución Técnica Aplicada**:
+  - **1. En `MovimientosStoreGoogle` (`src/app/stores/movimiento.google.ts`)**:
+    - Se implementó el método `obtenerFechaPrimerDiaEstimativo(anio, mesNombre)` para obtener la fecha de inicio del ciclo estimativo (celda A2 de la hoja `Estimativo <Mes>`, caché local de `EstimativoRow[]` o endpoint de BD).
+    - Se añadió un helper `parsearFechaDDMMYYYY(fechaStr)` con soporte tanto para formato DD/MM/YYYY como ISO YYYY-MM-DD.
+  - **2. En `Mensual` (`src/app/pages/mensual/mensual.ts`)**:
+    - En `ngOnInit()`, se evalúa la fecha actual respecto a la fecha del primer día del estimativo del mes calendario (`fechaCorte`).
+    - Si la fecha de hoy es mayor o igual a `fechaCorte` (ej. 24 de octubre >= 8 de octubre), se determina automáticamente como mes por defecto el mes siguiente (`Noviembre`, o `Enero` del año entrante si el mes en curso fuera Diciembre).
+    - Si la fecha actual fuera previa a la fecha de corte (ej. 5 de octubre < 8 de octubre), se mantiene el mes del calendario (`Octubre`), ya que aún no se habría cobrado ni pagado.
+    - El usuario conserva la total libertad de cambiar manualmente a cualquier otro mes o año mediante la barra lateral o selector DeLorean.
+- **Validación de Compilación**:
+  - Frontend: `npx ng build --configuration development` (**Código 0, 0 errores, 0 advertencias**).
+- **Archivos Afectados**:
+  - `src/app/stores/movimiento.google.ts`
+  - `src/app/pages/mensual/mensual.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-10-23 08:15] - Corrección Integral y Definitiva: Pipeline de Despliegue y Purga de Caché de Deuda Anual
 - **Problema Reportado**:
   - En producción (`https://control-gastos-dml.web.app/anual`), continuaba visualizándose el pico anómalo de deuda y compensaciones en Octubre 2026 ($12.160.128,64).
