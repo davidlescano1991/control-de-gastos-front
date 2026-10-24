@@ -562,15 +562,54 @@ export class Mensual implements OnInit, OnDestroy {
     const nombreMes = fecha.toLocaleString('es-AR', { month: 'long' });
     const mesCapitalizado = nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1);
     const configuredYears = this.appConfig.yearsMensual;
+    let anioInicial = fecha.getFullYear();
     if (configuredYears && configuredYears.length) {
       this.anios = configuredYears;
-      const anio = fecha.getFullYear();
-      this.anioSeleccionado.set(this.anios.includes(anio) ? anio : this.anios[0]);
+      anioInicial = this.anios.includes(anioInicial) ? anioInicial : this.anios[0];
+      this.anioSeleccionado.set(anioInicial);
     }
+
+    // 🗓️ Determinación inteligente del mes por defecto:
+    // Si la fecha actual ya superó o igualó el primer día del estimativo del mes calendario
+    // (día en que se cobran haberes y se pagan las tarjetas/servicios), el mes actual ya fue pagado
+    // y por defecto se debe abrir el PRÓXIMO mes a pagar (ej. si hoy es 24 de octubre, abrir noviembre).
+    let mesPorDefecto = mesCapitalizado;
+    try {
+      const primerDiaEstimativo = await this.storeGoogle.obtenerFechaPrimerDiaEstimativo(
+        anioInicial,
+        mesCapitalizado,
+      );
+
+      const hoy = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+      // Si tenemos la fecha de estimativo, comparamos con ella; de lo contrario fallback al día 8
+      const fechaCorte = primerDiaEstimativo ?? new Date(fecha.getFullYear(), fecha.getMonth(), 8);
+
+      if (hoy.getTime() >= fechaCorte.getTime()) {
+        const mesActualIdx = this.meses.indexOf(mesCapitalizado);
+        let proximoMesIdx = mesActualIdx + 1;
+        let proximoAnio = anioInicial;
+
+        if (proximoMesIdx >= this.meses.length) {
+          proximoMesIdx = 0; // Enero
+          proximoAnio += 1;
+        }
+
+        const proximoMesNombre = this.meses[proximoMesIdx];
+        if (proximoMesNombre) {
+          mesPorDefecto = proximoMesNombre;
+          if (proximoAnio !== anioInicial && this.anios.includes(proximoAnio)) {
+            this.anioSeleccionado.set(proximoAnio);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('No se pudo determinar el primer día de estimativo:', err);
+    }
+
     this.mensajeEstado = 'Inicializando cargarTotalesTotales()';
     await this.cargarTotalesTotales();
-    this.mensajeEstado = `Inicializando seleccionarMes(mesCapitalizado=${mesCapitalizado})`;
-    await this.seleccionarMes(mesCapitalizado);
+    this.mensajeEstado = `Inicializando seleccionarMes(mesPorDefecto=${mesPorDefecto})`;
+    await this.seleccionarMes(mesPorDefecto);
     this.mensajeEstado = ``;
     this.iniciarAutoRefresh();
 

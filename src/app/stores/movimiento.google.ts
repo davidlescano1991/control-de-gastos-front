@@ -14,6 +14,7 @@ import { MovimientosService } from '../services/movimientos.service';
 import { MensualItemsService } from '../services/mensual-items.service';
 import { ReportesService } from '../services/reportes.service';
 import { LoansService, Loan } from '../services/loans.service';
+import { EstimatesService } from '../services/estimates.service';
 
 /**
  * Respuesta devuelta por la API de Google Sheets para consultas estándar.
@@ -228,6 +229,7 @@ export class MovimientosStoreGoogle {
   private mensualItemsService = inject(MensualItemsService);
   private reportesService = inject(ReportesService);
   private loansService = inject(LoansService);
+  private estimatesService = inject(EstimatesService);
 
   constructor() {
     console.log('🧠 MovimientosStoreGoogle instanciado');
@@ -1838,5 +1840,88 @@ export class MovimientosStoreGoogle {
     const clave = `${anio}::${hoja}`;
     this.hidratarEstimativoDesdeCache(anio, hoja);
     return this.estimativoConfigPorMes.get(clave)?.() ?? null;
+  }
+
+  /**
+   * Obtiene la fecha (Date) del primer día del Estimativo de un mes y año determinado.
+   * Representa el día en que se inicia el ciclo mensual, se cobran haberes y se abonan los servicios/tarjetas.
+   */
+  async obtenerFechaPrimerDiaEstimativo(anio: number, mesNombre: string): Promise<Date | null> {
+    const hoja = 'Estimativo ' + mesNombre;
+    const clave = `${anio}::${hoja}`;
+
+    // 1. Verificar si ya está cargado en memoria
+    const filasMemoria = this.estimativoPorMes.get(clave)?.();
+    if (filasMemoria && filasMemoria.length > 0 && filasMemoria[0].fecha) {
+      const parsed = this.parsearFechaDDMMYYYY(filasMemoria[0].fecha);
+      if (parsed) return parsed;
+    }
+
+    // 2. Verificar si está en LocalStorage
+    this.hidratarEstimativoDesdeCache(anio, hoja);
+    const filasCache = this.estimativoPorMes.get(clave)?.();
+    if (filasCache && filasCache.length > 0 && filasCache[0].fecha) {
+      const parsed = this.parsearFechaDDMMYYYY(filasCache[0].fecha);
+      if (parsed) return parsed;
+    }
+
+    // 3. Consultar celda A2 desde Google Sheets o API
+    if (this.appConfig.isSheetsActivo(anio)) {
+      try {
+        const res = await firstValueFrom(
+          this.sheets.obtenerMensualAnio(anio, hoja, 'A2:A2'),
+        );
+        const fechaStr = res?.values?.[0]?.[0];
+        if (fechaStr && typeof fechaStr === 'string') {
+          const parsed = this.parsearFechaDDMMYYYY(fechaStr);
+          if (parsed) return parsed;
+        }
+      } catch (err) {
+        console.warn(`[StoreGoogle] No se pudo obtener A2 de ${hoja} (${anio}):`, err);
+      }
+    } else {
+      try {
+        const mesIndex = this.base.indexOf(mesNombre) + 1;
+        if (mesIndex >= 1) {
+          const res = await firstValueFrom(this.estimatesService.getMonthly(anio, mesIndex));
+          const fechaStr = res?.config?.fechaInicio || res?.filas?.[0]?.fecha;
+          if (fechaStr && typeof fechaStr === 'string') {
+            const parsed = this.parsearFechaDDMMYYYY(fechaStr);
+            if (parsed) return parsed;
+          }
+        }
+      } catch (err) {
+        console.warn(`[StoreGoogle] No se pudo obtener estimativo de BD para ${mesNombre} (${anio}):`, err);
+      }
+    }
+
+    return null;
+  }
+
+  private parsearFechaDDMMYYYY(fechaStr: string): Date | null {
+    if (!fechaStr || typeof fechaStr !== 'string') return null;
+    const trimmed = fechaStr.trim();
+    if (trimmed.includes('/')) {
+      const partes = trimmed.split('/');
+      if (partes.length >= 3) {
+        const d = parseInt(partes[0], 10);
+        const m = parseInt(partes[1], 10);
+        const y = parseInt(partes[2], 10);
+        if (!isNaN(d) && !isNaN(m) && !isNaN(y)) {
+          return new Date(y, m - 1, d);
+        }
+      }
+    } else if (trimmed.includes('-')) {
+      const partes = trimmed.split('-');
+      if (partes.length >= 3) {
+        const y = parseInt(partes[0], 10);
+        const m = parseInt(partes[1], 10);
+        const d = parseInt(partes[2], 10);
+        if (!isNaN(d) && !isNaN(m) && !isNaN(y)) {
+          return new Date(y, m - 1, d);
+        }
+      }
+    }
+    return null;
   }
 }
