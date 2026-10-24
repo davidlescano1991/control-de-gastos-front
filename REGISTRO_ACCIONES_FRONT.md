@@ -19,6 +19,58 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-24 15:50] - Integración del Módulo "Importar Resumen" y Hoja de Ruta para Carga Masiva a PostgreSQL
+- **Problema / Solicitud**:
+  - En la pestaña/menú de "Configuración", se requería agregar la opción "Importar Resumen" ubicada entre "Hojas de Google" y "Exportar a Excel".
+  - Integrar completamente el proyecto frontend `C:\Datos\David\Proyectos\Resumenes_A_Excel\resumenes-excel` en esta aplicación (`control-de-gastos-front`).
+  - Incorporar en el Plan Maestro de Arquitectura (`PLAN_MIGRACION_CLOUD_API.md`) el próximo paso en la hoja de ruta: implementar un botón y endpoint que permita cargar las nuevas cuotas e ítems detectados de los resúmenes directamente a la base de datos PostgreSQL, contrastando y sincronizando esa información en la pantalla Mensual y en todo el ecosistema del sitio.
+- **Solución Técnica Aplicada**:
+  - **1. Integración de Motores de Parseo Multibanco y Modelos (`src/app/pages/importar-resumen/`)**:
+    - Se migraron los parsers especializados:
+      - `GaliciaParser`: movimientos online banking (vertical/tabular) y resumen oficial PDF (Visa/Mastercard).
+      - `BancorParser`: resúmenes PDF/texto con cuotas `C.04/04` e impuestos, y movimientos web Bancón HTML/tabla.
+      - `GeneralParser`: resúmenes de Naranja X (cuotas Zeta, Deb.Aut.), tablas HTML y texto plano genérico.
+      - `ParseUtils`: normalización y formateo de cuotas, montos argentinos, detección HTML y limpieza.
+    - Se integró `ParseRulesService` con entidades configuradas (`galicia`, `bancor`, `general`), modos de entrada y buffer reactivo por pestaña para no perder datos al alternar entre bancos.
+    - Se adaptó `ExcelExportService` utilizando `ExcelJS` y descargas nativas mediante Blobs para generar libros con hojas "Resumen" y "Cuotas agrupadas".
+  - **2. Componente de UI (`ImportarResumenComponent`)**:
+    - Cumplimiento riguroso de la Regla de Oro (`AGENTS.md`): estructura del contenedor `.movimientos-wrapper`, tarjetas con bordes `border: 1px solid #e2e8f0`, sombras `box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05)`, bordes redondeados (`12px`) y paleta oficial Slate Indigo (`#4b5896` / `#706cd6`).
+    - Pestañas bancarias, controles de modo de carga, área de pegado con buffer, botones de acción ("Previsualizar", "Limpiar", "Descargar Excel").
+    - Grilla de movimientos detectados con numerador total de cuotas y tabla de resumen consolidado por plan de financiamiento.
+    - Tarjeta y controles de preparación para la integración a la base de datos (selectores de año y mes de destino, botón de sincronización y modal explicativo del próximo paso).
+  - **3. Navegación y Rutas (`src/app/app.routes.ts` y `src/app/app.html`)**:
+    - Añadida la ruta `/importar-resumen` protegida por `authGuard` y `adminGuard`.
+    - En el menú de Configuración (tanto escritorio como drawer móvil), se agregó el botón "Importar Resumen" con icono `receipt_long`, ubicado entre "Hojas de Google" y "Exportar a Excel" tal como indicó el usuario en su captura.
+  - **4. Actualización del Plan Maestro (`PLAN_MIGRACION_CLOUD_API.md`)**:
+    - Se añadió la sección **6.23: Módulo de Importación y Procesamiento de Resúmenes Bancarios con Integración a PostgreSQL y Mensual**, detallando la fase 6.23.1 (Frontend completado) y la fase 6.23.2 (Endpoint batch backend, validación antiduplicación estricta por mes para no duplicar ítems preexistentes como "Impuestos" o "MPago 1/3", y sincronización en tiempo real con `/mensual`).
+  - **5. Nombres Dinámicos e Inteligentes de Hoja y Archivo Excel (`getTargetMonthAndYear`)**:
+    - Sincronización con las mejoras del proyecto `resumenes-excel`:
+      - Helper `getTargetMonthAndYear(refDate)`: Si el día del mes es `> 10`, sugiere por defecto el mes siguiente (ej. Noviembre) y el año correspondiente (transición de año en Diciembre).
+      - Precarga reactiva: Hoja sugerida (`Noviembre`) y nombre de archivo con formato estándar `[Modo]_[Entidad]_[Hoja]_[Año].xlsx` (ej. `Movimientos_Galicia_Noviembre_2026.xlsx` o `Resumen_Bancor_Noviembre_2026.xlsx`).
+      - Sincronización bidireccional: al editar la hoja se actualiza el nombre del archivo automáticamente a menos que el usuario lo haya personalizado a mano.
+  - **6. Aislamiento de Pagos Anteriores (Regla Crítica para Base de Datos y Vista Mensual)**:
+    - Se identifican ítems de pagos de resúmenes anteriores (ej. `Pago de tu tarjeta -$650.000,00` o `SU PAGO`) mediante el helper `isPagoResumen()` y se señalan visualmente en la tabla con un badge `.badge-pago-informativo`.
+  - **7. Habilitación Condicionada a la Conectividad de API y Detección de BD en Pausa**:
+    - El botón `Cargar a Base de Datos` se vinculó reactivamente con `sseService.isConnected()`: permanece bloqueado si la API está desconectada, informando en un badge `.badge-api-status` y tooltip preventivo.
+    - En el Plan Maestro se incorporó la especificación del endpoint de comprobación de salud de base de datos (`GET /api/health/db`) y el diagnóstico claro si PostgreSQL se encuentra en pausa en Google Cloud SQL por política de ahorro de costos, evitando intentos a ciegas o errores 500.
+- **Validación de Compilación**:
+  - Frontend: `npx ng build --configuration development` (**Código 0, 0 errores, 0 advertencias**).
+- **Archivos Creados y Afectados**:
+  - `src/app/pages/importar-resumen/importar-resumen.component.ts`
+  - `src/app/pages/importar-resumen/importar-resumen.component.html`
+  - `src/app/pages/importar-resumen/importar-resumen.component.scss`
+  - `src/app/pages/importar-resumen/models.ts`
+  - `src/app/pages/importar-resumen/parse-rules.service.ts`
+  - `src/app/pages/importar-resumen/excel-export.service.ts`
+  - `src/app/pages/importar-resumen/parsers/bancor.parser.ts`
+  - `src/app/pages/importar-resumen/parsers/galicia.parser.ts`
+  - `src/app/pages/importar-resumen/parsers/general.parser.ts`
+  - `src/app/pages/importar-resumen/parsers/parse-utils.ts`
+  - `src/app/app.routes.ts`
+  - `src/app/app.html`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-10-24 15:26] - Selección Inteligente del Mes de Estimativo por Defecto (Hasta Fecha de Cobro)
 - **Problema / Solicitud**:
   - En la vista de Estimativos (`/estimativo`), al llegar un nuevo mes calendario (ej. del 1 al 8 de noviembre), la pantalla abría automáticamente la pestaña del nuevo mes (`Noviembre`), a pesar de que aún quedaban días del ciclo anterior (`Octubre`) por transcurrir y pagar.

@@ -1,0 +1,327 @@
+<div class="movimientos-wrapper">
+  <!-- Cabecera Principal -->
+  <div class="header-section">
+    <div class="title-container">
+      <div class="header-icon-box">
+        <mat-icon>receipt_long</mat-icon>
+      </div>
+      <div>
+        <h1 class="main-title">Importar y Procesar Resumen</h1>
+        <p class="subtitle">
+          Procesador inteligente de resúmenes y movimientos bancarios para exportación a Excel y futura integración directa a la base de datos.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pestañas de Entidades Bancarias -->
+  <div class="entity-tabs" role="tablist">
+    <button
+      *ngFor="let ent of entities"
+      type="button"
+      class="entity-tab-btn"
+      [class.active]="selectedEntityId === ent.id"
+      (click)="selectEntity(ent.id)"
+      [attr.aria-selected]="selectedEntityId === ent.id"
+    >
+      <span class="entity-tab-icon">{{ ent.icon }}</span>
+      <div class="entity-tab-info">
+        <span class="entity-tab-name">{{ ent.name }}</span>
+        <span class="entity-tab-badge">{{ ent.badge }}</span>
+      </div>
+    </button>
+  </div>
+
+  <!-- Tarjeta de Entrada y Opciones de Modo -->
+  <div class="sub-card editor-card">
+    <div class="card-header">
+      <div class="card-title-group">
+        <span class="card-entity-icon">{{ selectedEntity.icon }}</span>
+        <div>
+          <h2>{{ selectedEntity.name }}</h2>
+          <p class="mode-description">{{ currentModeOption.description }}</p>
+        </div>
+      </div>
+
+      <!-- Selector de Modo (Segmented Control) -->
+      <div class="mode-selector">
+        <button
+          *ngFor="let m of availableModes"
+          type="button"
+          class="mode-btn"
+          [class.active]="selectedMode === m.id"
+          (click)="selectMode(m.id)"
+        >
+          <span class="mode-icon">{{ m.icon }}</span>
+          <span class="mode-label">{{ m.label }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Área de Texto para Pegar Contenido -->
+    <div class="textarea-wrapper">
+      <textarea
+        id="data-input"
+        [formControl]="inputCtrl"
+        [placeholder]="currentModeOption.placeholder"
+        rows="10"
+        spellcheck="false"
+      ></textarea>
+    </div>
+
+    <!-- Barra de Acciones y Configuración -->
+    <div class="actions-panel">
+      <div class="actions-primary">
+        <button class="btn btn-primary" (click)="parse()">
+          <mat-icon>visibility</mat-icon>
+          <span>Previsualizar {{ currentModeOption.label }}</span>
+        </button>
+        <button
+          class="btn btn-outline"
+          (click)="clear()"
+          [disabled]="!inputCtrl.value && !movimientos.length"
+        >
+          <mat-icon>clear</mat-icon>
+          <span>Limpiar</span>
+        </button>
+      </div>
+
+      <div class="settings-group">
+        <div class="field">
+          <label for="sheet-name-input">Hoja Excel:</label>
+          <input
+            id="sheet-name-input"
+            [ngModel]="sheetName"
+            (ngModelChange)="onSheetNameChange($event)"
+            placeholder="Noviembre"
+          />
+        </div>
+        <div class="field">
+          <label for="file-name-input">Nombre Archivo:</label>
+          <input
+            id="file-name-input"
+            [ngModel]="fileName"
+            (ngModelChange)="onFileNameChange($event)"
+            placeholder="Movimientos_Galicia_Noviembre_2026.xlsx"
+          />
+        </div>
+      </div>
+
+      <div class="actions-secondary">
+        <button
+          class="btn btn-excel"
+          [disabled]="!movimientos.length"
+          (click)="descargar()"
+          matTooltip="Generar y descargar archivo Excel con los datos procesados"
+        >
+          <mat-icon>download</mat-icon>
+          <span>Descargar Excel</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tarjeta de Sincronización con Base de Datos (Roadmap / Próximo Paso) -->
+  <div class="sub-card db-sync-card">
+    <div class="sync-header">
+      <div class="sync-info">
+        <div class="sync-icon-box">
+          <mat-icon>cloud_upload</mat-icon>
+        </div>
+        <div>
+          <div class="sync-title-badge-row">
+            <h3>Cargar Cuotas a la Base de Datos</h3>
+            <span class="badge-roadmap">Próximo paso en desarrollo</span>
+            <span
+              class="badge-api-status"
+              [class.connected]="sseService.isConnected()"
+            >
+              <mat-icon>{{ sseService.isConnected() ? 'cloud_done' : 'cloud_off' }}</mat-icon>
+              {{ sseService.isConnected() ? 'API Conectada' : 'API Desconectada' }}
+            </span>
+          </div>
+          <p class="sync-desc">
+            Permitirá registrar directamente las nuevas cuotas y compras en PostgreSQL con <strong>validación antiduplicados</strong> (ej. si "Impuestos" o "MPago 1/3" ya existen para el mes, no se duplicarán), reflejando los importes en <strong>Mensual</strong> y en todo el ecosistema del sitio.
+          </p>
+        </div>
+      </div>
+
+      <div class="sync-controls">
+        <div class="select-field">
+          <label for="db-year">Año destino:</label>
+          <select id="db-year" [(ngModel)]="selectedYear">
+            <option *ngFor="let a of aniosDisponibles" [value]="a">{{ a }}</option>
+          </select>
+        </div>
+        <div class="select-field">
+          <label for="db-month">Mes destino:</label>
+          <select id="db-month" [(ngModel)]="selectedMonth">
+            <option *ngFor="let m of mesesDisponibles" [value]="m.num">{{ m.nombre }}</option>
+          </select>
+        </div>
+        <button
+          class="btn btn-db-sync"
+          [disabled]="!movimientos.length || !sseService.isConnected()"
+          (click)="onCargarABaseDeDatos()"
+          [matTooltip]="!sseService.isConnected() ? 'La API no está conectada. Inicie la API o verifique la conexión para poder sincronizar con la base de datos.' : 'Enviar los movimientos detectados a la base de datos'"
+        >
+          <mat-icon>sync_alt</mat-icon>
+          <span>Cargar a Base de Datos</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vista previa de Movimientos Detectados -->
+  <div class="sub-card table-card" *ngIf="movimientos.length">
+    <div class="card-header">
+      <div class="card-title-group">
+        <h2>Vista Previa de Movimientos</h2>
+        <span class="badge-count">{{ movimientos.length }} filas procesadas</span>
+      </div>
+      <span class="stats-box">
+        Total Cuotas (Numerador): <strong>{{ totalCuotasNumerador() }}</strong>
+      </span>
+    </div>
+
+    <div class="table-container">
+      <table class="styled-table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Referencia / Comercio</th>
+            <th class="text-center">Cuotas</th>
+            <th class="text-right">Pesos ($)</th>
+            <th class="text-right">Dólares (USD)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            *ngFor="let m of movimientos"
+            [class.negative-row]="m.pesos !== null && m.pesos < 0"
+          >
+            <td class="cell-date">{{ m.fecha }}</td>
+            <td class="cell-ref">
+              <span>{{ m.referencia }}</span>
+              <span
+                *ngIf="isPagoResumen(m)"
+                class="badge-pago-informativo"
+                matTooltip="Pago del período anterior informado por el banco. No se computará en los gastos del mes en la base de datos."
+              >
+                Pago anterior (Informativo)
+              </span>
+            </td>
+            <td class="text-center cell-cuotas">
+              <span
+                *ngIf="m.cuotas"
+                class="cuota-pill"
+                [class.single-cuota]="m.cuotas === '01/01'"
+              >
+                {{ m.cuotas }}
+              </span>
+            </td>
+            <td class="text-right cell-amount">
+              <span *ngIf="m.pesos !== null">{{ m.pesos | number: '1.2-2' }}</span>
+              <span *ngIf="m.pesos === null" class="empty-cell">-</span>
+            </td>
+            <td class="text-right cell-amount">
+              <span *ngIf="m.dolares !== null">{{ m.dolares | number: '1.2-2' }}</span>
+              <span *ngIf="m.dolares === null" class="empty-cell">-</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Tabla de Resumen por Cuotas -->
+  <div class="sub-card table-card" *ngIf="movimientos.length">
+    <div class="card-header">
+      <div>
+        <h2>Resumen Agrupado por Cuotas</h2>
+        <p class="subtitle-card">Consolidado por tipo de plan de cuotas y totales acumulados</p>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <table class="styled-table summary-table">
+        <thead>
+          <tr>
+            <th class="text-center">Cuotas (Plan)</th>
+            <th class="text-right">Suma en Pesos ($)</th>
+            <th class="text-right">Suma en Dólares (USD)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of resumenPorCuotas">
+            <td class="text-center">
+              <span class="cuota-pill">{{ r.cuotas }}</span>
+            </td>
+            <td class="text-right cell-amount">{{ r.pesos | number: '1.2-2' }}</td>
+            <td class="text-right cell-amount">{{ r.dolares | number: '1.2-2' }}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr class="total-row">
+            <td class="text-center"><strong>TOTAL GENERAL</strong></td>
+            <td class="text-right cell-amount">
+              <strong>{{ totalesResumen.pesos | number: '1.2-2' }}</strong>
+            </td>
+            <td class="text-right cell-amount">
+              <strong>{{ totalesResumen.dolares | number: '1.2-2' }}</strong>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Informativo de Roadmap / Próximo Paso -->
+<div class="modal-overlay" *ngIf="infoDbModalVisible()" (click)="cerrarInfoDbModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-icon-title">
+        <mat-icon class="icon-indigo">cloud_sync</mat-icon>
+        <h3>Próximo Paso: Carga Masiva a PostgreSQL</h3>
+      </div>
+      <button class="btn-close" (click)="cerrarInfoDbModal()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p>
+        ¡El módulo de importación y parseo ya está integrado con éxito!
+      </p>
+      <div class="info-alert">
+        <mat-icon>info</mat-icon>
+        <div>
+          <strong>Plan Maestro de Migración (Fase 6.23)</strong>
+          <p>
+            El próximo subpaso implementará el endpoint en la API backend para recibir los
+            <strong>{{ movimientos.length }}</strong> movimientos detectados correspondientes a
+            <strong>{{ selectedEntity.name }}</strong> y registrarlos automáticamente en los ítems
+            mensuales de <strong>{{ mesesDisponibles[selectedMonth - 1].nombre }} {{ selectedYear }}</strong> en la base de datos PostgreSQL.
+          </p>
+          <p>
+            <strong>Validación Antiduplicación:</strong> Antes de insertar, el sistema verificará si cada ítem ya existe en dicho mes (ej. "Impuestos" o compras en cuotas como "MPago 1/3") para omitirlo de forma segura y evitar duplicar montos.
+          </p>
+          <p>
+            <strong>Aislamiento de Pagos Anteriores:</strong> Los pagos informados por el banco (ej. "Pago de tu tarjeta" o créditos negativos del mes previo) se guardarán de forma separada como dato informativo y <em>no se computarán</em> en los gastos ni en la deuda a pagar del mes.
+          </p>
+          <p>
+            <strong>Conectividad y Base de Datos en Pausa:</strong> La importación requiere que la API esté conectada. Además, si la base de datos PostgreSQL se encuentra pausada en Google Cloud para ahorro de costos, el sistema notificará claramente este estado para que pueda reanudarse antes de registrar los datos.
+          </p>
+        </div>
+      </div>
+      <p class="modal-note">
+        Mientras se completa la fase del backend, ya puedes previsualizar y descargar el Excel con los movimientos y cuotas agrupadas.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" (click)="cerrarInfoDbModal()">
+        Entendido
+      </button>
+    </div>
+  </div>
+</div>
