@@ -19,6 +19,22 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-24 15:26] - Selección Inteligente del Mes de Estimativo por Defecto (Hasta Fecha de Cobro)
+- **Problema / Solicitud**:
+  - En la vista de Estimativos (`/estimativo`), al llegar un nuevo mes calendario (ej. del 1 al 8 de noviembre), la pantalla abría automáticamente la pestaña del nuevo mes (`Noviembre`), a pesar de que aún quedaban días del ciclo anterior (`Octubre`) por transcurrir y pagar.
+  - El usuario requería que la pestaña de `Octubre` se mantenga por defecto hasta la fecha efectiva de cobro (primer día del nuevo estimativo, ej. 9 de noviembre), y recién a partir de dicha fecha se abra `Noviembre`.
+- **Solución Técnica Aplicada**:
+  - En `HomeEstimativo` (`src/app/pages/estimativos/home.ts`):
+    - En `ngOnInit()`, se consulta la fecha de cobro del mes calendario en curso (`obtenerFechaPrimerDiaEstimativo(anioValido, mesCapitalizado)`).
+    - Se compara la fecha actual (`hoy`) con la fecha de cobro (`fechaCorteCobro`).
+    - Si `hoy < fechaCorteCobro` (ej. 1 al 8 de noviembre < 9 de noviembre), el estimativo activo por defecto se mantiene en el **mes anterior** (`Octubre`, o `Diciembre` del año anterior si el mes fuera Enero).
+    - Si `hoy >= fechaCorteCobro` (ej. 9 de noviembre en adelante), se selecciona el mes calendario (`Noviembre`).
+- **Validación de Compilación**:
+  - Frontend: `npx ng build --configuration development` (**Código 0, 0 errores, 0 advertencias**).
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/home.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-10-24 15:20] - Selección Inteligente del Mes por Defecto en Vista Mensual
 - **Problema / Solicitud**:
   - En la vista Mensual (`/mensual`), al abrir la pantalla se seleccionaba siempre el mes del calendario (ej. Octubre).

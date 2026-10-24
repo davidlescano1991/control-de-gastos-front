@@ -188,11 +188,50 @@ export class HomeEstimativo implements OnInit, OnDestroy {
 
     const anio = fecha.getFullYear();
     const anioValido = this.anios.includes(anio) ? anio : (this.anios[0] || anio);
-    this.anioSeleccionado.set(anioValido);
 
-    const mesesDisponibles = this.storeGoogle.getMesesParaResumen(anioValido);
+    // 🗓️ Determinación inteligente del estimativo activo por defecto:
+    // Al comenzar un nuevo mes (ej. 1 al 8 de noviembre), aún quedan días por pagar del ciclo anterior (octubre).
+    // Se debe mostrar el mes anterior hasta la fecha de cobro (primer día del nuevo estimativo),
+    // y recién a partir de esa fecha mostrar el nuevo mes por defecto.
+    let mesPorDefecto = mesCapitalizado;
+    let anioPorDefecto = anioValido;
+    try {
+      const fechaCobroMesActual = await this.storeGoogle.obtenerFechaPrimerDiaEstimativo(
+        anioValido,
+        mesCapitalizado,
+      );
+
+      const hoy = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+      // Si tenemos fechaCobroMesActual usamos esa fecha; de lo contrario fallback al día 8 del mes
+      const fechaCorteCobro = fechaCobroMesActual ?? new Date(fecha.getFullYear(), fecha.getMonth(), 8);
+
+      if (hoy.getTime() < fechaCorteCobro.getTime()) {
+        const mesesLista = this.storeGoogle.base;
+        const mesActualIdx = mesesLista.indexOf(mesCapitalizado);
+        let mesAnteriorIdx = mesActualIdx - 1;
+
+        if (mesAnteriorIdx < 0) {
+          mesAnteriorIdx = mesesLista.length - 1; // Diciembre
+          const anioAnterior = anioValido - 1;
+          if (this.anios.includes(anioAnterior)) {
+            anioPorDefecto = anioAnterior;
+          }
+        }
+
+        const mesAnteriorNombre = mesesLista[mesAnteriorIdx];
+        if (mesAnteriorNombre) {
+          mesPorDefecto = mesAnteriorNombre;
+        }
+      }
+    } catch (err) {
+      console.warn('No se pudo determinar la fecha de cobro del estimativo:', err);
+    }
+
+    this.anioSeleccionado.set(anioPorDefecto);
+
+    const mesesDisponibles = this.storeGoogle.getMesesParaResumen(anioPorDefecto);
     this.meses.set(mesesDisponibles);
-    const mesValido = mesesDisponibles.includes(mesCapitalizado) ? mesCapitalizado : (mesesDisponibles[0] || 'Enero');
+    const mesValido = mesesDisponibles.includes(mesPorDefecto) ? mesPorDefecto : (mesesDisponibles[0] || 'Enero');
     this.mesSeleccionado.set(mesValido);
 
     // 1. Cargar inmediatamente el mes activo para mostrar la tabla y gráficos de inmediato
