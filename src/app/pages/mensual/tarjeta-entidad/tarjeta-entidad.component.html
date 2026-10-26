@@ -1,0 +1,197 @@
+<div class="spinner" *ngIf="isCargando; else lista">
+  <mat-spinner diameter="40"></mat-spinner>
+</div>
+
+<ng-template #lista>
+  <mat-card
+    class="example-card"
+    appearance="outlined"
+    *ngIf="datosMes().length > 0"
+    [class.is-collapsed]="isCollapsed()"
+  >
+    <mat-card-header
+      class="card-header-wrapper"
+      [style.background-color]="getHeaderColor()"
+      [class.header-claro]="esHeaderClaro()"
+    >
+      <div class="header-left-actions">
+        <img
+          *ngIf="getLogoUrl() && !logoError()"
+          [src]="getLogoUrl()"
+          [alt]="entidad"
+          class="entidad-logo"
+          (error)="onLogoError()"
+        />
+
+        <button
+          *ngIf="estadoPago() !== 'COMPLETO'"
+          type="button"
+          class="btn-pagar-entidad"
+          (click)="abrirModalPago()"
+          title="Pagar entidad"
+        >
+          <span class="icono-pesos">$</span>
+        </button>
+
+        <span
+          class="badge-estado-pago"
+          [class.completo]="estadoPago() === 'COMPLETO'"
+          [class.parcial]="estadoPago() === 'PARCIAL'"
+          [class.no-pagado]="estadoPago() === 'NO_PAGADO'"
+          [title]="tooltipEstadoPago()"
+        >
+          <mat-icon>{{ iconoEstadoPago() }}</mat-icon>
+        </span>
+      </div>
+
+      <mat-card-title
+        (mouseenter)="onHoverTotal($event)"
+        (mouseleave)="onLeaveTotal()"
+        (click)="abrirModalCompleto()"
+        class="titulo-entidad-interactivo"
+        title="Pasar el mouse o hacer clic para ver proyección estilo Google Sheets"
+      >
+        {{ entidad }}
+      </mat-card-title>
+
+      <div class="header-right-actions">
+        <button
+          type="button"
+          class="btn-proyeccion-header"
+          (mouseenter)="onHoverTotal($event)"
+          (mouseleave)="onLeaveTotal()"
+          (click)="abrirModalCompleto()"
+          title="Ver tabla completa multi-mes (Google Sheets)"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 2v3H5V5h14zm-7 5h7v3h-7v-3zm-2 0v3H5v-3h5zm-5 5h5v4H5v-4zm7 4v-4h7v4h-7z"/>
+          </svg>
+        </button>
+
+        <button
+          *ngIf="authService.isAdmin()"
+          type="button"
+          class="btn-baja-entidad-header"
+          (click)="solicitarBajaEntidad($event)"
+          [title]="'Dar de baja ' + entidad + ' a partir de este mes'"
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+          </svg>
+        </button>
+
+        <button
+          type="button"
+          class="btn-collapse-card"
+          [class.collapsed]="isCollapsed()"
+          (click)="toggleCollapse()"
+          [title]="isCollapsed() ? 'Expandir ' + entidad : 'Contraer ' + entidad"
+        >
+          <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
+            <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+          </svg>
+        </button>
+      </div>
+    </mat-card-header>
+
+    <ng-container *ngIf="!isCollapsed()">
+      <mat-card-content>
+        <table class="tabla-movimientos">
+          <tbody>
+            <tr
+              *ngFor="let fila of datosMes()"
+              class="fila-interactiva"
+              (mouseenter)="onHoverFila($event, fila)"
+              (mouseleave)="onLeaveFila()"
+              title="Pasa el mouse para ver la evolución de esta cuota"
+            >
+              <td>
+                {{ fila['descripcion'] }}
+                <span *ngIf="esNuevo(fila.descripcion)" class="tag-notificacion nuevo">¡nuevo!</span>
+                <span *ngIf="esUltima(fila.descripcion)" class="tag-notificacion ultimo">¡última!</span>
+              </td>
+              <td class="col-monto">
+                <div class="col-monto-wrapper">
+                  <span class="monto-texto">{{ fila['monto'] }}</span>
+                  <button
+                    *ngIf="fila['id'] && authService.isAdmin()"
+                    type="button"
+                    class="btn-accion-editar"
+                    (click)="onEditarFila(fila, $event)"
+                    title="Editar este ítem"
+                  >
+                    <svg viewBox="0 0 24 24" width="14" height="14">
+                      <path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                    </svg>
+                  </button>
+                  <button
+                    *ngIf="fila['id'] && authService.isAdmin()"
+                    type="button"
+                    class="btn-accion-eliminar"
+                    (click)="onEliminarFila(fila, $event)"
+                    title="Eliminar este ítem"
+                  >
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                      <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </mat-card-content>
+
+      <mat-card-actions *ngIf="totalMes() > 0" class="acciones-total">
+        <div class="totales-container">
+          <div
+            class="total-row total-interactivo"
+            (mouseenter)="onHoverTotal($event)"
+            (mouseleave)="onLeaveTotal()"
+            (click)="abrirModalCompleto()"
+            title="Pasar el mouse o hacer clic para ver la tabla completa estilo Google Sheets"
+          >
+            <div class="total-label">
+              <strong>Total</strong>
+            </div>
+            <div class="total-value">
+              <strong>{{ totalMes() | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>
+            </div>
+          </div>
+
+          <div class="intencion-pago-row" *ngIf="mostrarIntencionPago()">
+            <div class="intencion-label">
+              <mat-icon class="icon-intencion">{{ esIntencionPago() ? 'trending_up' : 'payments' }}</mat-icon>
+              <span>{{ esIntencionPago() ? 'Intención de pago:' : 'Importe pagado:' }}</span>
+            </div>
+            <div class="intencion-value">
+              <strong>{{ pagoInfo()?.montoPagado | currency:'ARS':'symbol':'1.2-2':'es-AR' }}</strong>
+            </div>
+          </div>
+        </div>
+      </mat-card-actions>
+    </ng-container>
+  </mat-card>
+
+  <mat-card class="alert-card warning" *ngIf="!isCargando && datosMes().length === 0">
+    <mat-card-content>
+      <strong>- Atención:</strong> No hay datos para este mes en <strong>{{ entidad }}</strong>.
+    </mat-card-content>
+  </mat-card>
+</ng-template>
+
+<!-- Banner Informativo de Pago Anterior -->
+<div class="pago-informativo-banner" *ngIf="pagoInformativo">
+  <mat-icon class="icon-pago-info">receipt_long</mat-icon>
+  <div class="pago-info-texto">
+    <strong>Pago informado en resumen anterior:</strong> {{ pagoInformativo.monto | currency:'ARS':'symbol':'1.2-2':'es-AR' }}
+    <span class="pago-info-fecha" *ngIf="pagoInformativo.fecha"> (Fecha: {{ pagoInformativo.fecha }})</span>
+  </div>
+  <span class="badge-no-computa" title="Importe del extracto bancario del período anterior. No se computa en los gastos ni en la deuda a pagar.">Dato informativo (no suma)</span>
+</div>
+
+<!-- Leyenda de Origen (BD o Google Sheets) -->
+<div class="origen-entidad-leyenda" *ngIf="mostrarOrigen && leyendaOrigen" [title]="leyendaOrigen">
+  <span class="punto-origen" [class.origen-bd]="esOrigenBD" [class.origen-sheets]="!esOrigenBD"></span>
+  <span>{{ leyendaOrigen }}</span>
+</div>

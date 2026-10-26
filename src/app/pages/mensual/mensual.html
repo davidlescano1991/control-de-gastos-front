@@ -54,64 +54,25 @@
                 </button>
               </div>
               <mat-card-content *ngIf="!gastosMensualesCollapsed()">
-                <div class="contenedor-entidad" *ngIf="estaEntidadVigente('Visa Galicia') || estaEntidadVigente('Visa')">
-                  <app-visa (eliminarEntidad)="abrirModalBajaEntidad($event)" [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="visaDatos()"
-                    [entidad]="visaEntidad()" [isCargando]="isCargando()"
-                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)" (eliminarFila)="abrirModalEliminarItem($event)"></app-visa>
-                  <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
-                    <span class="punto-origen" [class.origen-bd]="esOrigenBD()" [class.origen-sheets]="!esOrigenBD()"></span>
-                    <span>{{ leyendaOrigenActual() }}</span>
-                  </div>
-                </div>
-
-                <div class="contenedor-entidad" *ngIf="estaEntidadVigente('Master Card Galicia') || estaEntidadVigente('Mastercard')">
-                  <app-master-galicia (eliminarEntidad)="abrirModalBajaEntidad($event)" [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="masterDatos()"
-                    [entidad]="masterEntidad()" [isCargando]="isCargando()"
-                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)" (eliminarFila)="abrirModalEliminarItem($event)"></app-master-galicia>
-                  <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
-                    <span class="punto-origen" [class.origen-bd]="esOrigenBD()" [class.origen-sheets]="!esOrigenBD()"></span>
-                    <span>{{ leyendaOrigenActual() }}</span>
-                  </div>
-                </div>
-
-                <div class="contenedor-entidad" *ngIf="estaEntidadVigente('Naranja X') || estaEntidadVigente('Naranja')">
-                  <app-naranja (eliminarEntidad)="abrirModalBajaEntidad($event)" [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="naranjaDatos()"
-                    [entidad]="naranjaEntidad()" [isCargando]="isCargando()"
-                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)" (eliminarFila)="abrirModalEliminarItem($event)"></app-naranja>
-                  <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
-                    <span class="punto-origen" [class.origen-bd]="esOrigenBD()" [class.origen-sheets]="!esOrigenBD()"></span>
-                    <span>{{ leyendaOrigenActual() }}</span>
-                  </div>
-                </div>
-
-                <div class="contenedor-entidad" *ngIf="estaEntidadVigente('Bancor')">
-                  <app-bancor (eliminarEntidad)="abrirModalBajaEntidad($event)" [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="bancorDatos()"
-                    [entidad]="bancorEntidad()" [isCargando]="isCargando()"
-                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)" (eliminarFila)="abrirModalEliminarItem($event)"></app-bancor>
-                  <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
-                    <span class="punto-origen" [class.origen-bd]="esOrigenBD()" [class.origen-sheets]="!esOrigenBD()"></span>
-                    <span>{{ leyendaOrigenActual() }}</span>
-                  </div>
-                </div>
-
-                <div class="contenedor-entidad" *ngIf="estaEntidadVigente('Mercado Libre')">
-                  <app-mercado-libre (eliminarEntidad)="abrirModalBajaEntidad($event)" [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="mLDatos()"
-                    [entidad]="mLEntidad()" [isCargando]="isCargando()"
-                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)" (eliminarFila)="abrirModalEliminarItem($event)"></app-mercado-libre>
-                  <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
-                    <span class="punto-origen" [class.origen-bd]="esOrigenBD()" [class.origen-sheets]="!esOrigenBD()"></span>
-                    <span>{{ leyendaOrigenActual() }}</span>
-                  </div>
-                </div>
-
-                <div class="contenedor-entidad" *ngIf="estaEntidadVigente('Otros')">
-                  <app-otros (eliminarEntidad)="abrirModalBajaEntidad($event)" [anio]="anioSeleccionado()" [mes]="mesSeleccionado()" [datos]="otrosDatos()"
-                    [entidad]="otrosEntidad()" [isCargando]="isCargando()"
-                    [forceCollapsed]="todasEntidadesContraidas()" (editarFila)="abrirModalEditar($event)" (eliminarFila)="abrirModalEliminarItem($event)"></app-otros>
-                  <div class="origen-entidad-leyenda" [title]="leyendaOrigenActual()">
-                    <span class="punto-origen" [class.origen-bd]="esOrigenBD()" [class.origen-sheets]="!esOrigenBD()"></span>
-                    <span>{{ leyendaOrigenActual() }}</span>
-                  </div>
+                <!-- Tarjetas de Entidades Financieras Renderizadas Dinámicamente -->
+                <div class="contenedor-entidad" *ngFor="let tarjeta of listaTarjetasEntidades()">
+                  <app-tarjeta-entidad
+                    [anio]="anioSeleccionado()"
+                    [mes]="mesSeleccionado()"
+                    [entidad]="tarjeta.nombre"
+                    [key]="tarjeta.key"
+                    [logoUrl]="tarjeta.logoUrl"
+                    [colorHeader]="tarjeta.colorVar"
+                    [datos]="tarjeta.datos"
+                    [isCargando]="isCargando()"
+                    [forceCollapsed]="todasEntidadesContraidas()"
+                    [pagoInformativo]="getPagoInformativo(tarjeta.nombre)"
+                    [esOrigenBD]="esOrigenBD()"
+                    [leyendaOrigen]="leyendaOrigenActual()"
+                    (eliminarEntidad)="abrirModalBajaEntidad($event)"
+                    (editarFila)="abrirModalEditar($event)"
+                    (eliminarFila)="abrirModalEliminarItem($event)"
+                  ></app-tarjeta-entidad>
                 </div>
 
                 <div class="contenedor-entidad">

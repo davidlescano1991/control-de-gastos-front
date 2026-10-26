@@ -1,15 +1,18 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormControl } from '@angular/forms';
+import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ParseRulesService } from './parse-rules.service';
 import { ExcelExportService } from './excel-export.service';
 import { Movement, EntityId, InputMode, EntityConfig, ModeOption } from './models';
 import { getTargetMonthAndYear } from './parsers/parse-utils';
 
 import { SseService } from '../../services/sse.service';
+import { MensualItemsService } from '../../services/mensual-items.service';
 
 @Component({
   selector: 'app-importar-resumen',
@@ -21,6 +24,7 @@ import { SseService } from '../../services/sse.service';
     MatIconModule,
     MatButtonModule,
     MatTooltipModule,
+    MatProgressSpinnerModule,
   ],
   templateUrl: './importar-resumen.component.html',
   styleUrls: ['./importar-resumen.component.scss'],
@@ -29,6 +33,8 @@ export class ImportarResumenComponent implements OnInit {
   public parser = inject(ParseRulesService);
   private excel = inject(ExcelExportService);
   public sseService = inject(SseService);
+  private mensualItemsService = inject(MensualItemsService);
+  private router = inject(Router);
 
   entities: EntityConfig[] = [];
   selectedEntityId: EntityId = 'galicia';
@@ -43,7 +49,7 @@ export class ImportarResumenComponent implements OnInit {
   // Buffer para preservar el texto pegado en cada pestaña y modo
   private textBuffer: Record<string, string> = {};
 
-  // Configuración de sincronización con la Base de Datos (Próximo paso)
+  // Configuración de sincronización con la Base de Datos
   aniosDisponibles: number[] = [2027, 2026, 2025, 2024, 2023, 2022];
   mesesDisponibles = [
     { num: 1, nombre: 'Enero' },
@@ -62,6 +68,29 @@ export class ImportarResumenComponent implements OnInit {
 
   selectedYear: number = new Date().getFullYear();
   selectedMonth: number = new Date().getMonth() + 1;
+
+  // Selección de entidad de destino para la base de datos
+  selectedEntidadDestino = signal<string>('Visa Galicia');
+  entidadesDestinoDisponibles = computed<string[]>(() => {
+    if (this.selectedEntityId === 'galicia') {
+      return ['Visa Galicia', 'Master Card Galicia'];
+    }
+    if (this.selectedEntityId === 'bancor') {
+      return ['Bancor'];
+    }
+    if (this.selectedEntityId === 'general') {
+      return ['Naranja X'];
+    }
+    return ['Visa Galicia', 'Master Card Galicia', 'Bancor', 'Naranja X', 'Otros'];
+  });
+
+  // Estados de carga y modales de feedback
+  isImportando = signal<boolean>(false);
+  modalResultadoVisible = signal<boolean>(false);
+  resultadoImportacion = signal<any | null>(null);
+
+  dbPausadaModalVisible = signal<boolean>(false);
+  dbErrorMensaje = signal<string>('');
   infoDbModalVisible = signal<boolean>(false);
 
   constructor() {
@@ -103,6 +132,14 @@ export class ImportarResumenComponent implements OnInit {
     this.fileNameManuallyEdited = false;
     this.updateSuggestedFileNames(false);
     this.loadBuffer();
+
+    if (id === 'galicia') {
+      this.selectedEntidadDestino.set('Visa Galicia');
+    } else if (id === 'bancor') {
+      this.selectedEntidadDestino.set('Bancor');
+    } else if (id === 'general') {
+      this.selectedEntidadDestino.set('Naranja X');
+    }
   }
 
   selectMode(mode: InputMode): void {
@@ -234,6 +271,51 @@ export class ImportarResumenComponent implements OnInit {
   }
 
   onCargarABaseDeDatos(): void {
+    if (!this.movimientos.length || !this.sseService.isConnected() || this.isImportando()) {
+      return;
+    }
+
+    this.isImportando.set(true);
+
+    this.mensualItemsService
+      .importarResumenBatch({
+        year: Number(this.selectedYear),
+        mes: Number(this.selectedMonth),
+        entidad: this.selectedEntidadDestino(),
+        movements: this.movimientos,
+      })
+      .subscribe({
+        next: (res) => {
+          this.isImportando.set(false);
+          this.resultadoImportacion.set(res);
+          this.modalResultadoVisible.set(true);
+        },
+        error: (err) => {
+          this.isImportando.set(false);
+          const msg =
+            err?.error?.message ||
+            err?.message ||
+            'Error al importar movimientos a la base de datos';
+          this.dbErrorMensaje.set(msg);
+          this.dbPausadaModalVisible.set(true);
+        },
+      });
+  }
+
+  cerrarModalResultado(): void {
+    this.modalResultadoVisible.set(false);
+  }
+
+  irAGastosMensuales(): void {
+    this.modalResultadoVisible.set(false);
+    void this.router.navigate(['/mensual']);
+  }
+
+  cerrarDbPausadaModal(): void {
+    this.dbPausadaModalVisible.set(false);
+  }
+
+  abrirInfoDbModal(): void {
     this.infoDbModalVisible.set(true);
   }
 

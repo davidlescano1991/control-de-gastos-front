@@ -11,6 +11,17 @@
         <mat-icon>add_circle</mat-icon>
         <span>Cargar Préstamo</span>
       </button>
+
+      <button
+        type="button"
+        class="btn-sync-prestamos-action"
+        [disabled]="isSincronizando()"
+        (click)="sincronizarPrestamosSheets()"
+        title="Sincronizar y desacumular cuotas de préstamos desde Google Sheets hacia la base de datos"
+      >
+        <mat-icon [class.rotating-icon]="isSincronizando()">sync</mat-icon>
+        <span>{{ isSincronizando() ? 'Sincronizando...' : 'Sincronizar Sheets' }}</span>
+      </button>
     </div>
 
     <!-- Columna Central: Título centrado sin posibilidad de colisión -->

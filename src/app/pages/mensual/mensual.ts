@@ -13,24 +13,18 @@ import { ModalCargarItemComponent } from './modal-cargar-item/modal-cargar-item'
 import { ModalPagarEntidadComponent } from './modal-pagar-entidad/modal-pagar-entidad.component';
 import { ModalReintegroComponent } from './gastos-reembolsables/modal-reintegro/modal-reintegro.component';
 import { ModalItemReembolsableComponent } from './gastos-reembolsables/modal-item-reembolsable/modal-item-reembolsable.component';
-import { VisaComponent } from './lista-entidades/visa/visa';
-import { NgFor, NgIf, CurrencyPipe } from '@angular/common';
+import { NgFor, NgIf } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCard, MatCardContent, MatCardHeader, MatCardTitle } from '@angular/material/card';
 import { MatInputModule } from '@angular/material/input';
 import { MatStepperModule } from '@angular/material/stepper';
-import { Bancor } from './lista-entidades/bancor/bancor';
-import { MasterGalicia } from './lista-entidades/master-galicia/master-galicia';
-import { Naranja } from './lista-entidades/naranja/naranja';
-import { Otros } from './lista-entidades/otros/otros';
 import { Resumen } from './resumen/resumen';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { NovedadesCuotas } from './actualizacion-cuotas/actualizacion-cuotas';
 import { GraficoMensualHistorico } from './graficos-entidades/grafico-historico/grafico-historico-mensual';
 import { Entidad } from '../../models/entidad';
-import { MercadoLibre } from './lista-entidades/mercado-libre/mercado-libre';
 
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 
@@ -45,6 +39,7 @@ import { OrigenDatosComponent } from '../../common/origen-datos/origen-datos.com
 import { ModalProyeccionEntidad } from './proyeccion-entidad/modal-proyeccion-entidad';
 import { ProyeccionOverlayService } from '../../services/proyeccion-overlay.service';
 import { GastosReembolsablesComponent } from './gastos-reembolsables/gastos-reembolsables.component';
+import { TarjetaEntidadComponent, TarjetaEntidadItem } from './tarjeta-entidad/tarjeta-entidad.component';
 
 @Component({
   selector: 'app-mensual',
@@ -54,13 +49,8 @@ import { GastosReembolsablesComponent } from './gastos-reembolsables/gastos-reem
   imports: [
     NgIf,
     NgFor,
-    VisaComponent,
+    TarjetaEntidadComponent,
     MatCardContent,
-    MasterGalicia,
-    Naranja,
-    Bancor,
-    MercadoLibre,
-    Otros,
     Resumen,
     MatInputModule,
     MatStepperModule,
@@ -120,6 +110,39 @@ export class Mensual implements OnInit, OnDestroy {
   bajaError = signal<string>('');
   bajaSuccess = signal<string>('');
   datosItemsPorEntidad = signal<Record<string, any>>({});
+
+  // ℹ️ Pagos de resúmenes informativos cargados desde extractos bancarios (no se suman a los gastos)
+  pagosInformativosResumen = signal<Map<string, any>>(new Map());
+
+  async cargarPagosInformativos(anio: number, mesNum: number): Promise<void> {
+    const entidades = ['Visa Galicia', 'Master Card Galicia', 'Naranja X', 'Bancor'];
+    const map = new Map<string, any>();
+    await Promise.all(
+      entidades.map(async (ent) => {
+        try {
+          const res = await firstValueFrom(this.mensualItemsService.getStatementPayment(anio, mesNum, ent));
+          if (res?.success && res.payment) {
+            map.set(ent.toLowerCase().trim(), res.payment);
+          }
+        } catch {
+          // Ignorar si no hay registro o falla
+        }
+      })
+    );
+    this.pagosInformativosResumen.set(map);
+  }
+
+  getPagoInformativo(entidad: string): any | null {
+    const map = this.pagosInformativosResumen();
+    if (!map || map.size === 0) return null;
+    const norm = (entidad || '').toLowerCase().trim();
+    for (const [key, val] of map.entries()) {
+      if (key === norm || key.includes(norm) || norm.includes(key)) {
+        return val;
+      }
+    }
+    return null;
+  }
 
   async cargarEntidadesVigentes(anio: number, mesNombre: string): Promise<void> {
     const mesNum = this.meses.indexOf(mesNombre) + 1;
@@ -182,6 +205,102 @@ export class Mensual implements OnInit, OnDestroy {
     const map = this.datosItemsPorEntidad();
     return map[nombre]?.subtotal || 0;
   }
+
+  /**
+   * Colección unificada de todas las tarjetas de entidades financieras
+   * (estándar e históricas + personalizadas creadas dinámicamente)
+   */
+  listaTarjetasEntidades = computed<TarjetaEntidadItem[]>(() => {
+    const anio = this.anioSeleccionado();
+    const lista: TarjetaEntidadItem[] = [];
+
+    // 1. Visa Galicia
+    if (this.estaEntidadVigente('Visa Galicia') || this.estaEntidadVigente('Visa')) {
+      lista.push({
+        id: 'visa',
+        nombre: this.visaEntidad() || 'Visa Galicia',
+        key: 'visa',
+        logoUrl: 'assets/logos/visa.png',
+        colorVar: 'var(--color-entidad-visa, #768699)',
+        datos: this.visaDatos(),
+      });
+    }
+
+    // 2. Master Card Galicia
+    if (this.estaEntidadVigente('Master Card Galicia') || this.estaEntidadVigente('Mastercard')) {
+      lista.push({
+        id: 'master',
+        nombre: this.masterEntidad() || 'Master Card Galicia',
+        key: 'mastercard',
+        logoUrl: 'assets/logos/mastercard.svg',
+        colorVar: 'var(--color-entidad-mastercard, #768699)',
+        datos: this.masterDatos(),
+      });
+    }
+
+    // 3. Naranja X
+    if (this.estaEntidadVigente('Naranja X') || this.estaEntidadVigente('Naranja')) {
+      lista.push({
+        id: 'naranja',
+        nombre: this.naranjaEntidad() || (anio <= 2023 ? 'Naranja' : 'Naranja X'),
+        key: 'naranja',
+        logoUrl: 'assets/logos/naranja.png',
+        colorVar: 'var(--color-entidad-naranja, #ff8104)',
+        datos: this.naranjaDatos(),
+      });
+    }
+
+    // 4. Bancor
+    if (this.estaEntidadVigente('Bancor')) {
+      lista.push({
+        id: 'bancor',
+        nombre: this.bancorEntidad() || 'Bancor',
+        key: 'bancor',
+        logoUrl: 'assets/logos/bancor.png',
+        colorVar: 'var(--color-entidad-bancor, #005f5a)',
+        datos: this.bancorDatos(),
+      });
+    }
+
+    // 5. Mercado Libre
+    if (this.estaEntidadVigente('Mercado Libre')) {
+      lista.push({
+        id: 'ml',
+        nombre: this.mLEntidad() || 'Mercado Libre',
+        key: 'ml',
+        logoUrl: 'assets/logos/mercadopago.png',
+        colorVar: 'var(--color-entidad-ml, #f8cb01)',
+        datos: this.mLDatos(),
+      });
+    }
+
+    // 6. Otros
+    if (this.estaEntidadVigente('Otros')) {
+      lista.push({
+        id: 'otros',
+        nombre: this.otrosEntidad() || 'Otros',
+        key: 'otros',
+        logoUrl: '',
+        colorVar: 'var(--color-entidad-otros, #c10090)',
+        datos: this.otrosDatos(),
+      });
+    }
+
+    // 7. Entidades Personalizadas / Nuevas creadas dinámicamente en BD
+    const personalizadas = this.entidadesPersonalizadasVigentes();
+    for (const ent of personalizadas) {
+      lista.push({
+        id: ent.id,
+        nombre: ent.nombre,
+        key: ent.nombre.toLowerCase().replace(/\s+/g, '_'),
+        colorVar: ent.color || '#4b5896',
+        logoUrl: ent.logoUrl || '',
+        datos: this.getDatosEntidadPersonalizada(ent.nombre),
+      });
+    }
+
+    return lista;
+  });
 
   async abrirModalBajaEntidad(entidadOString: FinancialEntityFront | string): Promise<void> {
     if (this.entidadesVigentes().length === 0) {
@@ -648,6 +767,7 @@ export class Mensual implements OnInit, OnDestroy {
         this.entityPaymentService.getPayments(this.anioSeleccionado(), mesIndex).subscribe({
           error: (err) => console.warn('No se pudieron obtener pagos de entidades:', err),
         });
+        void this.cargarPagosInformativos(this.anioSeleccionado(), mesIndex);
       }
       const anio = this.anioSeleccionado();
       const isSheetsActivo = this.appConfig.isSheetsActivo(anio);

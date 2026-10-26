@@ -118,4 +118,12 @@ export class LoansService {
       body
     );
   }
+
+  /**
+   * Sincroniza y desacumula las cuotas de préstamos desde Google Sheets hacia PostgreSQL
+   */
+  syncLoansFromSheet(year?: number): Observable<{ success: boolean; message: string; data?: any }> {
+    const body = year ? { year } : {};
+    return this.http.post<{ success: boolean; message: string; data?: any }>(`${this.apiUrl}/sync-sheets`, body);
+  }
 }

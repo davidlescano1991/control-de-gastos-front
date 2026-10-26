@@ -165,6 +165,7 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   anioSeleccionado = signal<number>(new Date().getFullYear());
   mesSeleccionado = signal(this.meses()[0]);
   isCargando = signal(false);
+  isCargandoHistorico = signal(true);
   mensajeEstado = signal<string>('');
   datosHistoricosEstimativos = signal<EstimativoRow[]>([]);
   private refreshTimerId: number | null = null;
@@ -257,6 +258,7 @@ export class HomeEstimativo implements OnInit, OnDestroy {
     if (mostrarCarga) {
       this.isCargando.set(true);
     }
+    this.isCargandoHistorico.set(true);
     const mesesDelAnio = this.storeGoogle.base.map((mes) => `Estimativo ${mes}`);
     const filas: EstimativoRow[] = [];
     try {
@@ -296,12 +298,9 @@ export class HomeEstimativo implements OnInit, OnDestroy {
           continue;
         }
         try {
-          let fila = await this.storeGoogle.getEstimadosRange(anio, mesesDelAnio);
-          if ((!fila || fila.length === 0) || force) {
-            this.logEstado(`...cargando estimativos de ${anio}`);
-            await this.storeGoogle.asegurarEstimativoAnioRange(anio, mesesDelAnio, 'mensual', force);
-            fila = await this.storeGoogle.getEstimadosRange(anio, mesesDelAnio);
-          }
+          this.logEstado(`...cargando estimativos de ${anio}`);
+          await this.storeGoogle.asegurarEstimativoAnioRange(anio, mesesDelAnio, 'HomeEstimativo.cargaInicial', force);
+          const fila = await this.storeGoogle.getEstimadosRange(anio, mesesDelAnio);
           if (fila && fila.length > 0) {
             filas.push(...fila);
           }
@@ -329,6 +328,7 @@ export class HomeEstimativo implements OnInit, OnDestroy {
       if (mostrarCarga) {
         this.isCargando.set(false);
       }
+      this.isCargandoHistorico.set(false);
     }
   }
 
@@ -505,6 +505,9 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   private actualizarFilasEnHistorico(filasMes: EstimativoRow[]): void {
     if (!filasMes || filasMes.length === 0) return;
     const historicos = [...this.datosHistoricosEstimativos()];
+    // Si el histórico general multianual aún no se cargó (está vacío o tiene solo 1 mes),
+    // no pisar ni anticipar el gráfico histórico con los datos de un único mes.
+    if (historicos.length <= 35) return;
     const mapaNuevas = new Map(filasMes.map((f: EstimativoRow) => [f.fecha, f]));
 
     let huboCambios = false;

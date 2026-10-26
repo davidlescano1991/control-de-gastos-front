@@ -30,7 +30,7 @@ export class AppConfigService {
   private aniosInicio: number[] = [2026, 2025, 2024, 2023];
   private aniosEstimativos: number[] = [2026, 2025, 2024, 2023, 2022];
   private aniosMensual: number[] = [2026, 2025, 2024, 2023, 2022];
-  private aniosAnual: number[] = [2026, 2025, 2024, 2023, 2022];
+  private aniosAnual: number[] = [2027, 2026, 2025, 2024, 2023, 2022];
   private http = inject(HttpClient);
 
   async load(): Promise<void> {

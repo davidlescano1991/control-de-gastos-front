@@ -121,7 +121,7 @@
     </div>
   </div>
 
-  <!-- Tarjeta de Sincronización con Base de Datos (Roadmap / Próximo Paso) -->
+  <!-- Tarjeta de Sincronización con Base de Datos -->
   <div class="sub-card db-sync-card">
     <div class="sync-header">
       <div class="sync-info">
@@ -131,7 +131,7 @@
         <div>
           <div class="sync-title-badge-row">
             <h3>Cargar Cuotas a la Base de Datos</h3>
-            <span class="badge-roadmap">Próximo paso en desarrollo</span>
+            <span class="badge-roadmap active-badge">Sincronización Activa</span>
             <span
               class="badge-api-status"
               [class.connected]="sseService.isConnected()"
@@ -141,7 +141,7 @@
             </span>
           </div>
           <p class="sync-desc">
-            Permitirá registrar directamente las nuevas cuotas y compras en PostgreSQL con <strong>validación antiduplicados</strong> (ej. si "Impuestos" o "MPago 1/3" ya existen para el mes, no se duplicarán), reflejando los importes en <strong>Mensual</strong> y en todo el ecosistema del sitio.
+            Registra directamente las nuevas cuotas y compras en PostgreSQL con <strong>validación antiduplicados</strong> (no duplica compras ya existentes para ese mes) y <strong>aislamiento de pagos anteriores</strong> (se guardan como dato informativo sin alterar tus cálculos ni la deuda mensual).
           </p>
         </div>
       </div>
@@ -159,14 +159,37 @@
             <option *ngFor="let m of mesesDisponibles" [value]="m.num">{{ m.nombre }}</option>
           </select>
         </div>
+        <div class="select-field">
+          <label for="db-entity">Tarjeta destino:</label>
+          <select
+            id="db-entity"
+            [ngModel]="selectedEntidadDestino()"
+            (ngModelChange)="selectedEntidadDestino.set($event)"
+          >
+            <option *ngFor="let ent of entidadesDestinoDisponibles()" [value]="ent">
+              {{ ent }}
+            </option>
+          </select>
+        </div>
+
         <button
           class="btn btn-db-sync"
-          [disabled]="!movimientos.length || !sseService.isConnected()"
+          [disabled]="!movimientos.length || !sseService.isConnected() || isImportando()"
           (click)="onCargarABaseDeDatos()"
-          [matTooltip]="!sseService.isConnected() ? 'La API no está conectada. Inicie la API o verifique la conexión para poder sincronizar con la base de datos.' : 'Enviar los movimientos detectados a la base de datos'"
+          [matTooltip]="!sseService.isConnected() ? 'La API no está conectada. Inicie la API o verifique la conexión para poder sincronizar con la base de datos.' : 'Enviar las compras y cuotas detectadas directamente a la base de datos PostgreSQL'"
         >
-          <mat-icon>sync_alt</mat-icon>
-          <span>Cargar a Base de Datos</span>
+          <mat-spinner diameter="18" *ngIf="isImportando()"></mat-spinner>
+          <mat-icon *ngIf="!isImportando()">sync_alt</mat-icon>
+          <span>{{ isImportando() ? 'Cargando...' : 'Cargar a Base de Datos' }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-info-reglas"
+          (click)="abrirInfoDbModal()"
+          title="Ver reglas y consideraciones de importación"
+        >
+          <mat-icon>help_outline</mat-icon>
         </button>
       </div>
     </div>
@@ -277,46 +300,165 @@
   </div>
 </div>
 
-<!-- Modal Informativo de Roadmap / Próximo Paso -->
+<!-- Modal de Resultado de Sincronización Exitosa -->
+<div class="modal-overlay" *ngIf="modalResultadoVisible()" (click)="cerrarModalResultado()">
+  <div class="modal-card modal-resultado" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-icon-title">
+        <mat-icon class="icon-success">check_circle</mat-icon>
+        <h3>¡Sincronización Exitosa!</h3>
+      </div>
+      <button class="btn-close" (click)="cerrarModalResultado()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="resultado-target-info">
+        <span class="target-chip">
+          <mat-icon>calendar_month</mat-icon>
+          {{ mesesDisponibles[selectedMonth - 1].nombre }} {{ selectedYear }}
+        </span>
+        <span class="target-chip">
+          <mat-icon>credit_card</mat-icon>
+          {{ selectedEntidadDestino() }}
+        </span>
+      </div>
+
+      <!-- Métricas del Resultado -->
+      <div class="stats-grid">
+        <div class="stat-card stat-agregados">
+          <div class="stat-num">{{ resultadoImportacion()?.agregados || 0 }}</div>
+          <div class="stat-label">Compras/Ítems agregados</div>
+          <div class="stat-desc">Registrados en la base de datos</div>
+        </div>
+
+        <div class="stat-card stat-omitidos">
+          <div class="stat-num">{{ resultadoImportacion()?.omitidosPorDuplicado || 0 }}</div>
+          <div class="stat-label">Omitidos por duplicado</div>
+          <div class="stat-desc">Ya existían para este mes</div>
+        </div>
+
+        <div class="stat-card stat-informativos">
+          <div class="stat-num">{{ resultadoImportacion()?.informativosGuardados || 0 }}</div>
+          <div class="stat-label">Pagos informativos</div>
+          <div class="stat-desc">Aislados (no suman deuda)</div>
+        </div>
+      </div>
+
+      <!-- Detalle de Ítems Omitidos (si hubieron duplicados) -->
+      <div class="detalle-box" *ngIf="resultadoImportacion()?.itemsOmitidos?.length">
+        <h4>
+          <mat-icon class="icon-warn">warning_amber</mat-icon>
+          Compras ya existentes omitidas ({{ resultadoImportacion()?.itemsOmitidos?.length }})
+        </h4>
+        <ul class="lista-omitidos">
+          <li *ngFor="let om of resultadoImportacion()?.itemsOmitidos">
+            <strong>{{ om.concepto }}</strong>
+            <span *ngIf="om.monto"> — ${{ om.monto | number: '1.2-2' }}</span>
+            <span class="tag-motivo">{{ om.motivo }}</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Detalle de Pagos Informativos Aislados -->
+      <div class="info-alert" *ngIf="resultadoImportacion()?.informativosGuardados">
+        <mat-icon>info</mat-icon>
+        <div>
+          <strong>Aislamiento de Pagos Anteriores:</strong>
+          <p>
+            Se registró el pago informado por el banco en la base de datos histórica. Podrás consultarlo como referencia informativa en la tarjeta de <strong>{{ selectedEntidadDestino() }}</strong> en <strong>Mensual</strong> sin alterar los cálculos de gastos ni la deuda a pagar.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="cerrarModalResultado()">
+        Cerrar
+      </button>
+      <button class="btn btn-primary" (click)="irAGastosMensuales()">
+        <mat-icon>visibility</mat-icon>
+        <span>Ir a Gastos Mensuales</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Error: Base de Datos Pausada / No Disponible -->
+<div class="modal-overlay" *ngIf="dbPausadaModalVisible()" (click)="cerrarDbPausadaModal()">
+  <div class="modal-card modal-error" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-icon-title">
+        <mat-icon class="icon-error">cloud_off</mat-icon>
+        <h3>Base de Datos en Pausa o Inaccesible</h3>
+      </div>
+      <button class="btn-close" (click)="cerrarDbPausadaModal()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="error-alert">
+        <mat-icon>error_outline</mat-icon>
+        <div>
+          <strong>No se pudieron registrar los movimientos</strong>
+          <p>{{ dbErrorMensaje() }}</p>
+        </div>
+      </div>
+
+      <div class="info-alert">
+        <mat-icon>lightbulb</mat-icon>
+        <div>
+          <strong>Ahorro de Costos en Google Cloud SQL</strong>
+          <p>
+            Para evitar costos innecesarios, la instancia de base de datos PostgreSQL en Google Cloud se pausa automáticamente cuando no se utiliza activamente.
+          </p>
+          <p>
+            Para reanudarla y poder importar cuotas, enciende la instancia desde la consola de Google Cloud o reinicia el servicio local según corresponda.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-primary" (click)="cerrarDbPausadaModal()">
+        Entendido
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Informativo de Reglas y Funcionamiento -->
 <div class="modal-overlay" *ngIf="infoDbModalVisible()" (click)="cerrarInfoDbModal()">
   <div class="modal-card" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <div class="modal-icon-title">
-        <mat-icon class="icon-indigo">cloud_sync</mat-icon>
-        <h3>Próximo Paso: Carga Masiva a PostgreSQL</h3>
+        <mat-icon class="icon-indigo">help_center</mat-icon>
+        <h3>Reglas y Consideraciones de Importación</h3>
       </div>
       <button class="btn-close" (click)="cerrarInfoDbModal()">
         <mat-icon>close</mat-icon>
       </button>
     </div>
     <div class="modal-body">
-      <p>
-        ¡El módulo de importación y parseo ya está integrado con éxito!
-      </p>
       <div class="info-alert">
         <mat-icon>info</mat-icon>
         <div>
-          <strong>Plan Maestro de Migración (Fase 6.23)</strong>
+          <strong>1. Validación Antiduplicación Estricta</strong>
           <p>
-            El próximo subpaso implementará el endpoint en la API backend para recibir los
-            <strong>{{ movimientos.length }}</strong> movimientos detectados correspondientes a
-            <strong>{{ selectedEntity.name }}</strong> y registrarlos automáticamente en los ítems
-            mensuales de <strong>{{ mesesDisponibles[selectedMonth - 1].nombre }} {{ selectedYear }}</strong> en la base de datos PostgreSQL.
+            Antes de ingresar cualquier movimiento a PostgreSQL, el sistema contrasta la referencia y cuota frente a todos los ítems que ya existen en <strong>{{ mesesDisponibles[selectedMonth - 1].nombre }} {{ selectedYear }}</strong> para <strong>{{ selectedEntidadDestino() }}</strong>. Si una compra como "MPago 1/3" o "Impuestos" ya está cargada, se omite de forma segura para no duplicar montos.
           </p>
+          <strong>2. Aislamiento de Pagos Anteriores</strong>
           <p>
-            <strong>Validación Antiduplicación:</strong> Antes de insertar, el sistema verificará si cada ítem ya existe en dicho mes (ej. "Impuestos" o compras en cuotas como "MPago 1/3") para omitirlo de forma segura y evitar duplicar montos.
+            Los movimientos que representan pagos informados por el banco (ej. "Pago de tu tarjeta", "SU PAGO", montos negativos) <em>no se computan como gastos</em>. Se guardan en un registro histórico especial y se muestran en Mensual como dato informativo.
           </p>
+          <strong>3. Conectividad y Base de Datos en Pausa</strong>
           <p>
-            <strong>Aislamiento de Pagos Anteriores:</strong> Los pagos informados por el banco (ej. "Pago de tu tarjeta" o créditos negativos del mes previo) se guardarán de forma separada como dato informativo y <em>no se computarán</em> en los gastos ni en la deuda a pagar del mes.
-          </p>
-          <p>
-            <strong>Conectividad y Base de Datos en Pausa:</strong> La importación requiere que la API esté conectada. Además, si la base de datos PostgreSQL se encuentra pausada en Google Cloud para ahorro de costos, el sistema notificará claramente este estado para que pueda reanudarse antes de registrar los datos.
+            El botón solo se activa cuando la API backend está conectada. Si la instancia de Cloud SQL está en pausa, el sistema te avisará amablemente en lugar de romper la pantalla.
           </p>
         </div>
       </div>
-      <p class="modal-note">
-        Mientras se completa la fase del backend, ya puedes previsualizar y descargar el Excel con los movimientos y cuotas agrupadas.
-      </p>
     </div>
     <div class="modal-footer">
       <button class="btn btn-primary" (click)="cerrarInfoDbModal()">

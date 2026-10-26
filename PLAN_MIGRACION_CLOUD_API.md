@@ -1301,11 +1301,11 @@ gantt
         2. **Optimización de Carga Histórica y SSE**: `cargaInicial` reutiliza la caché local y evita el bombardeo de peticiones por red. Ante eventos SSE, se refresca exclusivamente el mes activo en pantalla.
         3. **Salvaguarda Inteligente en Backend (`updateDailyReal`)**: Si un día proviene de Google Sheets o llega con identificador sintético (`sheets_est_`), la API extrae el año, mes y día, garantiza el ciclo en `monthly_estimate_configs`, ejecuta un `upsert` en `daily_estimates` y persiste inmediatamente el evento y el color.
 
-  * **6.23**: Módulo de Importación y Procesamiento de Resúmenes Bancarios con Integración a PostgreSQL y Mensual *(EN PROGRESO)*:
+  * **6.23**: Módulo de Importación y Procesamiento de Resúmenes Bancarios con Integración a PostgreSQL y Mensual *(COMPLETADO)*:
     * **¿Qué es y por qué se implementa?**:
       - Brindar al sistema una suite integrada de ingestión y parseo inteligente de resúmenes de tarjetas de crédito y cuentas bancarias provenientes de múltiples entidades (Banco Galicia Visa/Mastercard, Bancor Bancón, General/Naranja X, tablas web copiadas y resúmenes PDF/HTML), eliminando la carga manual y tediosa de gastos o cuotas:
         1. **Módulo Frontend `/importar-resumen`**: Permite al usuario pegar texto o tablas directamente desde su home banking o resúmenes PDF, procesarlos al instante en el navegador con detección de cuotas (ej. `01/03`, `C.04/04`, cuotas `Zeta`, `Deb.Aut.`), importes en pesos y dólares, previsualizar la grilla y descargar planillas Excel estructuradas con hojas de movimientos y cuotas agrupadas.
-        2. **Hoja de Ruta hacia Base de Datos (Próximo Paso)**: Habilitar un flujo en 1-clic que envíe los ítems parseados a la API backend para persistirlos directamente en `monthly_items` dentro de PostgreSQL para el año y mes seleccionados, logrando que impacten automáticamente en la vista de `/mensual` y en todo el ecosistema financiero del sitio.
+        2. **Hoja de Ruta hacia Base de Datos**: Habilitar un flujo en 1-clic que envíe los ítems parseados a la API backend para persistirlos directamente en `monthly_items` dentro de PostgreSQL para el año y mes seleccionados, logrando que impacten automáticamente en la vista de `/mensual` y en todo el ecosistema financiero del sitio.
     * **Subpasos de Ejecución**:
       * **6.23.1**: Frontend: Integración de Motor de Parseo Multibanco y UI Especializada (`/importar-resumen`): *(COMPLETADO)*
         - Integración de los parsers de `resumenes-excel` (`GaliciaParser`, `BancorParser`, `GeneralParser` y `ParseUtils`) adaptados como servicios standalone en Angular.
@@ -1314,7 +1314,7 @@ gantt
         - Cumplimiento riguroso de la Regla de Oro (`AGENTS.md`): estructura del contenedor `.movimientos-wrapper`, sub-tarjetas con bordes sutiles y sombras, paleta corporativa Slate Indigo del logo (`#4b5896` / `#706cd6`), diseño 100% responsivo y sin interferir en los estilos de cards existentes.
         - Soporte para previsualización tabular de movimientos, cálculo de numerador total de cuotas, agrupación consolidada por plan de cuotas y exportación de archivos Excel formateados con doble pestaña mediante `ExcelJS`.
         - Preparación de controles interactivos (selectores de año y mes de destino) y botón para la carga a base de datos con modal descriptivo de la funcionalidad en desarrollo.
-      * **6.23.2**: Backend & Frontend: Carga Masiva a PostgreSQL, Validación Antiduplicación y Sincronización con `/mensual`: *(PRÓXIMO PASO)*
+      * **6.23.2**: Backend & Frontend: Carga Masiva a PostgreSQL, Validación Antiduplicación y Sincronización con `/mensual`: *(COMPLETADO)*
         - **Regla Crítica #1: Aislamiento de Pagos del Resumen Anterior (No Computables en Gastos del Mes)**:
           - *Problema*: Los resúmenes bancarios incluyen créditos por pagos efectuados para saldar el período previo (ejemplo: `09/10/2026 Pago de tu tarjeta -$650.000,00` o `SU PAGO`). Si estos ítems se importaran directamente a la tabla `monthly_items`, restarían erróneamente de las compras del mes o duplicarían los abonos ya registrados en la deuda.
           - *Solución*: **Bajo ninguna circunstancia se insertarán en `monthly_items`**.
@@ -1353,4 +1353,11 @@ gantt
           - Conexión del botón `Cargar a Base de Datos` con el endpoint batch.
           - Feedback visual enriquecido: notificación/alerta detallando cuántos ítems nuevos se cargaron, cuántos pagos informativos se registraron por separado y cuántos duplicados fueron omitidos.
           - En `/mensual`: visualización del dato informativo del último pago registrado por el resumen sin alterar totales.
+      * **6.23.3**: Frontend: Refactorización de Arquitectura - Unificación de Tarjetas de Entidades en Componente Dinámico (`<app-tarjeta-entidad>`): *(COMPLETADO)*
+        - Creación del componente standalone reutilizable `TarjetaEntidadComponent` (`src/app/pages/mensual/tarjeta-entidad/`).
+        - Reemplazo de los componentes estáticos y repetidos `<app-visa>`, `<app-master-galicia>`, `<app-bancor>`, `<app-naranja>`, `<app-mercado-libre>`, `<app-otros>` por una iteración dinámica `*ngFor="let tarjeta of listaTarjetasEntidades()"` sobre `<app-tarjeta-entidad>`.
+        - Unificación de las 6 entidades base fijas con las entidades personalizadas dinámicas de PostgreSQL (`entidadesPersonalizadasVigentes()`), manteniendo la reactividad, los cálculos de totales, badges de nuevas compras / última cuota, modal de intención de pago, banner de pago informado del resumen y hover para overlay de cuotas coincidentes.
+        - Preservación estricta de la Regla de Oro (`AGENTS.md`): estructura del contenedor `.movimientos-wrapper`, tarjetas con bordes redondeados y sombra suave, paleta oficial Slate Indigo (`#4b5896` / `#706cd6`) y Dark Mode completo.
+        - Compilación limpia con Angular CLI: 0 errores, 0 advertencias.
+
 
