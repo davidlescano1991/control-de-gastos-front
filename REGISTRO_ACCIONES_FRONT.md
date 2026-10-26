@@ -7,7 +7,7 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 ## 📌 Estado General del Sistema
 - **Proyecto**: Control de Gastos Frontend (Angular 18+ Standalone).
 - **Ruta Local**: `c:\Datos\David\Proyectos\Control_Gastos\control-de-gastos-front`
-- **Servidor Dev**: `localhost:4200`
+- **Servidor Dev**: `localhost:4202`
 - **Estrategia Híbrida**: 
   - Años con hojas activas (ej. 2026, 2025, 2024, 2023): Consultan Google Sheets API.
   - Años migrados / BD (ej. 2022 o interruptor apagado): Consultan API PostgreSQL o muestran estado limpio "Sin datos disponibles para este año" (sin spinners infinitos ni datos cruzados).
@@ -18,6 +18,304 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 ---
 
 ## 🕒 Bitácora de Intervenciones Recientes
+
+### [2026-10-26 14:00] - Desacumulación Inteligente y Distribución Multianual de Cuotas de Préstamos (2026 / 2027)
+- **Problema / Solicitud**:
+  - En la vista anual (`/anual`), la tabla de préstamos para el año 2026 incluía filas para "enero 2027" y "febrero 2027".
+  - En la planilla de Google Sheets, al no existir filas para marzo, abril y meses subsiguientes de 2027, el usuario acumuló las cuotas restantes en la última fila ("febrero 2027") mediante fórmulas de multiplicación (ej. `=69453,89*3` en `NX 300k`, `=84035,73*2` en `NX 1M/ML 400k`, `=32544,35*3` en `ML 700K/ ML 150k`) para que la celda de total sumara el monto adeudado correcto.
+  - El usuario solicitó:
+    1. Que la tabla de 2026 muestre las cuotas estrictamente hasta Diciembre de 2026 (sin filas acumuladas de 2027).
+    2. Que el "Total a devolver" en 2026 compute únicamente las cuotas que corresponden al año 2026.
+    3. Que al sincronizarse la deuda en el sistema, las cuotas a partir de Enero 2027 se transfieran a los préstamos de 2027 y que las de la última fila acumulada en Excel se desacumulen y distribuyan mes a mes en sus respectivos períodos (Febrero, Marzo, Abril, etc.) según el multiplicador de la fórmula.
+    4. Sincronización automática con Google Sheets y botón manual "Sincronizar Sheets" en la cabecera de la tabla de préstamos.
+- **Solución Técnica Aplicada**:
+  - **API Backend (`control-de-gastos-api`)**:
+    - **Parser de Desacumulación en `loan.service.ts`**: Creado el método `syncLoansFromSheet(year)`. Descarga `Anual {year}` con `FORMULA` y `FORMATTED_VALUE`. Si la celda de Febrero del año siguiente contiene una fórmula `=monto * N`, desglosa e inserta `N` cuotas individuales consecutivas (mes 2, mes 3, mes 4, etc.) en `loan_installments` con sus montos unitarios reales, preservando el estado de cuotas previamente pagadas.
+    - **Búsqueda Cruzada Multianual en `listLoans(year)`**: Actualizado para consultar `{ OR: [{ year: y }, { installments: { some: { year: y } } }] }`, garantizando que al seleccionar 2027 aparezcan todos los préstamos contraídos a fines de 2026 que tengan cuotas a cobrar en 2027.
+    - **Endpoint Dedicado**: Agregado `POST /api/prestamos/sync-sheets` en `loan.routes.ts` y `loan.controller.ts`.
+    - **Sincronización Automática en `sheets-sync.service.ts`**: Al detectar cambios en Google Sheets o invocarse el webhook, se ejecuta automáticamente `syncLoansFromSheet(anio)` y se emite el evento SSE `LOANS_SYNCED`.
+  - **Frontend Moderno 2.0 y Frontend 1.0**:
+    - **Filtrado y Recomputación en `movimiento.google.ts`**:
+      - En `extraerTablaDesdeRangoAnual`: Se omite cualquier fila que contenga un año futuro (ej. "enero 2027", "febrero 2027") en la tabla de 2026.
+      - La fila final `Total a devolver` para 2026 se recomputa dinámicamente sumando estrictamente las 12 cuotas del año (Enero a Diciembre).
+      - En modo Base de Datos (2027), se filtran las columnas para mostrar únicamente préstamos activos con cuotas o capital en ese año, y la fila `Total a devolver` suma las cuotas de 2027.
+    - **Botón "Sincronizar Sheets" en `TablaPrestamos`**:
+      - Se agregó el botón con icono de sincronización y animación giratoria en `tabla-prestamos.html` y `tabla-prestamos.scss` con la paleta oficial (`#4b5896` / `#706cd6`).
+      - En `tabla-prestamos.ts` y `loans.service.ts`, el método `sincronizarPrestamosSheets()` invoca el nuevo endpoint y recarga la tabla en vivo.
+    - **Navegación al Año 2027**: Habilitado el año 2027 en el selector temporal DeLorean de la vista anual.
+- **Validación**:
+  - `control-de-gastos-front`: `npx ng build --configuration development` completado con éxito (**Código 0, CERO errores y CERO advertencias**).
+  - `control-de-gastos-api`: `npm run build` completado con éxito (**Código 0**).
+  - `control-gastos-front` (1.0): `npx ng build --configuration development` completado con éxito (**Código 0, CERO errores y CERO advertencias**).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/loan.service.ts`
+  - `control-de-gastos-api/src/controllers/loan.controller.ts`
+  - `control-de-gastos-api/src/routes/loan.routes.ts`
+  - `control-de-gastos-api/src/services/sheets-sync.service.ts`
+  - `control-de-gastos-front/src/app/stores/movimiento.google.ts`
+  - `control-de-gastos-front/src/app/services/loans.service.ts`
+  - `control-de-gastos-front/src/app/pages/anual/tabla-prestamos/tabla-prestamos.ts`
+  - `control-de-gastos-front/src/app/pages/anual/tabla-prestamos/tabla-prestamos.html`
+  - `control-de-gastos-front/src/app/pages/anual/tabla-prestamos/tabla-prestamos.scss`
+  - `control-de-gastos-front/src/app/pages/anual/anual/anual.ts`
+  - `control-de-gastos-front/src/app/services/app-config.service.ts`
+  - `1.0/Front_Control_Gastos/control-gastos-front/**` (todos los archivos sincronizados)
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-26 11:55] - Corrección Integral del Gráfico Histórico en Estimativos (Carga Completa y Desacople de Mes Activo)
+- **Problema / Solicitud**:
+  - En la vista de estimativos (`/estimativo`), el gráfico histórico ("Gráfico Histórico Estimativo") se visualizaba inicialmente mostrando únicamente los días del mes en pantalla (ej. Octubre de 08/10 a 08/11), y luego, al terminar de cargar el histórico multianual, el año actual (2026) aparecía amputado con un gran vacío, cargando únicamente los días de Octubre mientras que el resto de los meses de 2026 no figuraban.
+- **Causa Raíz**:
+  1. En `home.ts`, `seleccionarMes(mesValido)` se ejecutaba al inicio y llamaba a `actualizarFilasEnHistorico(filas)`. Al estar vacío el signal `datosHistoricosEstimativos`, dicha función inicializaba erróneamente el gráfico histórico con solo el mes activo (Octubre), provocando que la gráfica renderizara temporalmente solo 30 días.
+  2. En `home.ts`, `cargaInicial()` evaluaba `let fila = await this.storeGoogle.getEstimadosRange(anio, mesesDelAnio); if (!fila || fila.length === 0)`. Dado que `seleccionarMes` ya había colocado los 32 días de Octubre en memoria para 2026, `fila.length` era 32 (distinto de 0), haciendo que el `if` fuera falso y omitiendo por completo la llamada a `asegurarEstimativoAnioRange` para los 11 meses restantes de 2026.
+  3. `app-grafico-historico` compartía el flag `isCargando()` con la tabla mensual, por lo que ocultaba su spinner apenas terminaba la carga del mes activo (~50ms), dejando visible el estado transitorio e incompleto antes de que `cargaInicial` terminara en segundo plano.
+- **Solución Técnica Aplicada**:
+  - **`cargaInicial` corregido**: Se invoca siempre `await this.storeGoogle.asegurarEstimativoAnioRange(anio, mesesDelAnio, 'HomeEstimativo.cargaInicial', force)`. Dicho método ya cuenta con la verificación interna `todosDisponibles = hojasBase.every(...)`, de modo que si los 12 meses ya están en memoria retorna en 0ms, y si falta cualquiera de los meses (como ocurría con 2026) descarga por lote la totalidad del año y lo hidrata completo (364 días continuos sin saltos).
+  - **Guarda en `actualizarFilasEnHistorico`**: Se agregó la condición defensiva `if (historicos.length <= 35) return;`, impidiendo que la carga rápida de un mes individual profane o sobrescriba la señal del gráfico histórico antes de que la carga multianual esté lista.
+  - **Signal independiente `isCargandoHistorico`**: Se creó una señal de carga específica para el gráfico histórico y se enlazó en `home.html` (`[isCargando]="isCargandoHistorico()"`).
+  - **Mejora en `movimiento.google.ts`**: Se agregó hidratación automática desde cache en `getEstimadosRange` y el registro de promesas concurrentes por hoja para evitar colisiones entre llamadas en paralelo.
+  - **Sincronización a 1.0**: Cambios replicados en el frontend 1.0 para mantener paridad total.
+- **Validación**:
+  - Compilación obligatoria (`npx ng build --configuration development`) ejecutada con éxito (**Código 0, CERO errores y CERO advertencias**).
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/home.ts`
+  - `src/app/pages/estimativos/home.html`
+  - `src/app/stores/movimiento.google.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-24 21:45] - Configuración Definitiva del Puerto 4202 para el Frontend Moderno
+- **Problema / Solicitud**:
+  - Configurar de forma permanente el puerto `4202` para la ejecución del frontend moderno (`control-de-gastos-front`).
+- **Solución Técnica Aplicada**:
+  - **`angular.json`**: Agregada la sección `options: { "port": 4202 }` bajo el target `serve` (`@angular/build:dev-server`), asegurando que cualquier ejecución con `ng serve`, `ng s` o el CLI use por defecto el puerto 4202 sin requerir flags adicionales.
+  - **`package.json`**: Ajustados los scripts `"start": "ng serve --port 4202"` y `"start:cloud": "ng serve --configuration production --port 4202"`.
+  - **Scripts de Automatización y Escritorio**:
+    - `scripts/iniciar-servicios.ps1`: Actualizado sondeo activo al puerto 4202, título de ventana `[Frontend] Control de Gastos (4202)` y apertura automática de `http://localhost:4202`.
+    - `scripts/detener-servicios.ps1`: Actualizado para verificar y liberar de forma segura el puerto 4202.
+  - **Configuración de API (`control-de-gastos-api`)**: Sincronizada la variable `FRONTEND_URL` a `http://localhost:4202` en `.env` y `src/config/envs.ts`.
+- **Validación**:
+  - `npx ng build --configuration development` completado con éxito (**Código 0, CERO errores y CERO advertencias**).
+- **Archivos Afectados**:
+  - `angular.json`
+  - `package.json`
+  - `scripts/iniciar-servicios.ps1`
+  - `scripts/detener-servicios.ps1`
+  - `control-de-gastos-api/.env`
+  - `control-de-gastos-api/src/config/envs.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-24 21:30] - Portabilidad y Adaptación Integral de Vistas y Funcionalidades al Frontend Original (1.0) sobre Google Sheets
+- **Problema / Solicitud**:
+  - Trasladar todas las nuevas vistas, componentes, diálogos y utilidades avanzadas desarrolladas en el frontend 2.0 (`control-de-gastos-front`) al repositorio del frontend original 1.0 (`C:\Datos\David\Proyectos\Control_Gastos\1.0\Front_Control_Gastos\control-gastos-front`), adaptando todo para que opere **100% en el cliente** y teniendo a **Google Sheets como única fuente de verdad**, prescindiendo de backend PostgreSQL, Docker o microservicios.
+- **Solución Técnica Aplicada**:
+  - **Vistas y Módulos Portados e Integrados al 100%**:
+    - **`/importar-resumen`**: Parsers de resúmenes bancarios (Bancor, Santander, Galicia, formato genérico), detección de cuotas, extractor de pagos y exportación directa a Excel con `exceljs`.
+    - **`/reportes`**: Suite analítica completa (Saldo Anual, Cortes Bimonetarios, Análisis Anual, Explorador Multianual) calculada directamente desde los datos de Google Sheets.
+    - **`TarjetaEntidadComponent`**: Componente genérico dinámico en `/mensual` con selector de logos, colapso individual, fórmulas en vivo, desglose de cuotas y proyecciones.
+    - **Gastos Reembolsables (`GastosReembolsablesComponent`)**: Matriz de servicios, aportes de terceros y liquidaciones leídos de Google Sheets y coordinados reactivamente.
+    - **Modales de Estimativos**: `ModalConfigEstimativo`, `ModalEditarDiaComponent` y `TermometroRendimientoPositivoComponent` adaptados con almacenamiento local persistente (`localStorage`).
+    - **Tabla de Préstamos**: Modales de alta y liquidación de cuotas de préstamos (`ModalCargarPrestamoComponent`, `ModalPagarCuotaPrestamoComponent`).
+    - **Selector de Año Delorean (`SelectorAnioDelorean`)**: Selector animado con efectos visuales y de sonido.
+    - **Exportación Excel y Estado de Fuente**: `ModalExportarExcelComponent` y `OrigenDatosComponent` ("🟢 Google Sheets - En vivo").
+  - **Servicios Adaptados para Modo Standalone Puro**:
+    - `proyeccion-entidad.service.ts`: Cálculo matricial de cuotas futuras impulsado puramente por `MovimientosStoreGoogle`.
+    - `entity-payment.service.ts`, `loans.service.ts`, `estimates.service.ts`, `mensual-items.service.ts`: Almacenamiento y reactividad autónoma en el cliente vía `localStorage`.
+    - `auth.service.ts`: Autenticación client-side unificada para habilitación plena de controles sin endpoints remotos.
+    - `exceljs` (^4.4.0) instalado en dependencias de producción de 1.0.
+  - **Reglas de Oro Cumplidas**:
+    - Estructura `.movimientos-wrapper`, bordes redondeados (12px), sombras suaves y paleta corporativa `#4b5896` / `#706cd6`.
+- **Validación**:
+  - Compilación en frontend 1.0: `npx ng build --configuration development` completado exitosamente (**Código 0, CERO errores y CERO advertencias**, bundle generado en `dist/control-gastos-front`).
+- **Archivos Afectados**:
+  - `src/app/pages/importar-resumen/**`
+  - `src/app/pages/reportes/**`
+  - `src/app/pages/mensual/**` (`tarjeta-entidad`, `proyeccion-entidad`, `gastos-reembolsables`, `modal-cargar-item`, etc.)
+  - `src/app/pages/estimativos/**` (`modal-config-estimativo`, `modal-editar-dia`, `termometro-rendimiento-positivo`)
+  - `src/app/pages/anual/tabla-prestamos/**`
+  - `src/app/services/**` (`export-excel`, `proyeccion-entidad`, `entity-payment`, `loans`, `estimates`, `mensual-items`, `reembolsables`, `reportes`, etc.)
+  - `src/app/app.routes.ts`, `src/app/app.html`, `src/app/app.config.ts`, `src/styles.scss`, `package.json`
+
+### [2026-10-24 20:20] - Corrección de Rutas de Logotipos de Entidades y Supresión de Íconos Rotos
+- **Problema / Solicitud**:
+  - En la vista mensual (`/mensual`), las tarjetas de *Master Card Galicia* y *Mercado Pago* mostraban íconos de imagen rota porque las rutas de imagen configuradas (`master.png` y `mercadolibre.png`) no coincidían con los archivos reales en `assets/logos/`.
+  - La tarjeta de *Otros* no debe llevar logotipo y mostraba un ícono roto o marcador de posición innecesario.
+  - Se solicitó garantizar que cuando una entidad no lleve logo o falle su carga, no aparezca ningún icono de imagen rota.
+- **Solución Técnica Aplicada**:
+  - **Corrección de Rutas en `mensual.ts` y `tarjeta-entidad.component.ts`**:
+    - **Master Card Galicia**: Apuntado a `assets/logos/mastercard.svg` (archivo vectorial existente).
+    - **Mercado Pago / Mercado Libre**: Apuntado a `assets/logos/mercadopago.png` (imagen existente).
+    - **Otros**: Configurado con `logoUrl: ''` (sin logo, tal como fue diseñado originalmente).
+  - **Manejo Robusto de Fallbacks en `TarjetaEntidadComponent`**:
+    - Se eliminó el marcador de posición genérico de tarjeta (`credit_card`) que se renderizaba indebidamente en entidades sin logo como "Otros".
+    - Se agregó el manejador de error reactivo `(error)="onLogoError()"` con señal `logoError = signal(false)`. Si por cualquier motivo un recurso de imagen no se encuentra o falla la red, la etiqueta `<img>` se oculta instantáneamente sin dejar rastros de íconos rotos en el navegador.
+- **Validación**:
+  - Angular CLI: `npx ng build --configuration development` completado con éxito (**Código 0, CERO errores y CERO advertencias**).
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/mensual.ts`
+  - `src/app/pages/mensual/tarjeta-entidad/tarjeta-entidad.component.ts`
+  - `src/app/pages/mensual/tarjeta-entidad/tarjeta-entidad.component.html`
+
+### [2026-10-24 19:58] - Restauración Fidedigna de Barra Total en Modo Claro y Conservación de Dorado en Modo Oscuro
+- **Problema / Solicitud**:
+  - Al usuario le agradaba cómo se veía el modo oscuro con el dorado nítido sobre la base oscura, pero en el modo claro extrañaba el diseño original exacto: la barra inferior violeta/lila (`#9197e7`) con el texto "Total" y monto en blanco, y debajo la "Intención de pago" en amarillo brillante (`#facc15`) con sombra suave sobre el fondo lila.
+- **Solución Técnica Aplicada**:
+  - **Modo Claro (`body:not(.dark-mode)`)**:
+    - Restaurada al 100% la barra de pie de tarjeta con `background-color: #9197e7`, borde superior `1px solid #ddd`, y textos de etiqueta y monto del Total en blanco (`#ffffff`).
+    - Fila de "Intención de pago": texto, monto e icono en amarillo vibrante `#facc15` con `text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45)` y línea punteada `#facc15` sobre el fondo lila `#9197e7`, tal cual como figuraba antes de la refactorización genérica.
+  - **Modo Oscuro (`body.dark-mode`)**:
+    - Se preservó intacto el esquema aprobado: barra oscura `#0f172a`, textos Total en `#94a3b8` / `#f8fafc`, y la intención de pago en elegante dorado cálido `#fbbf24` / `#fde047` sin sombras difusas.
+  - Sincronizado tanto en `src/styles.scss` como en `src/app/pages/mensual/tarjeta-entidad/tarjeta-entidad.component.scss`.
+- **Validación**:
+  - Angular CLI: `npx ng build --configuration development` completado con éxito (**Código 0, CERO errores y CERO advertencias**).
+- **Archivos Afectados**:
+  - `src/styles.scss`
+  - `src/app/pages/mensual/tarjeta-entidad/tarjeta-entidad.component.scss`
+
+### [2026-10-24 19:35] - Infraestructura de Desarrollo: Automatización y Acceso Directo de Escritorio para Entorno Local Completo
+- **Problema / Solicitud**:
+  - El usuario requería un acceso directo en el Escritorio con el logo institucional del sistema (`9346204.png`) para levantar de forma automatizada y en un solo clic todo el ecosistema local: API REST (Express/Node :8080), PostgreSQL en Docker (:5432), Prisma Studio (:5555) y Frontend Angular (:4200), junto a la capacidad de detener todos los servicios y liberar los puertos limpiamente.
+- **Solución Técnica Aplicada**:
+  - **1. Generación de Icono Oficial (`control-gastos.ico`)**:
+    - Script `generate-ico.ps1` que convierte de forma fidedigna y con renderizado bicúbico en alta resolución el logo oficial del sistema (`src/assets/9346204.png`) a un archivo `.ico` (256x256 con canal alfa/transparencia) en `C:\Datos\David\Proyectos\Control_Gastos\control-gastos.ico`.
+  - **2. Suite de Scripts de Orquestación (`C:\Datos\David\Proyectos\Control_Gastos\scripts\`)**:
+    - **`iniciar-servicios.ps1`**: Comprueba e inicia Docker Desktop si está cerrado, levanta el contenedor `control_gastos_postgres`, inicia la API (`npm run dev`), lanza Prisma Studio (`npx prisma studio --browser none`) e inicia el Frontend Angular (`npm start`) en ventanas minimizadas independientes con títulos identificatorios. Realiza sondeo activo de puertos hasta comprobar conectividad y abre automáticamente `http://localhost:4200` en el navegador predeterminado.
+    - **`detener-servicios.ps1`**: Detiene de forma segura los procesos en puertos 4200, 8080 y 5555, ejecuta `docker compose stop` en el contenedor de PostgreSQL y cierra las ventanas auxiliares, confirmando la liberación total de puertos.
+    - **`launcher.ps1`**: Panel de control interactivo con comprobación del estado en tiempo real (en línea/detenido) de cada servicio y opciones de iniciar, detener, reiniciar o abrir en navegador.
+    - **Wrappers Batch**: `control-gastos.bat` y `detener-servicios.bat` para ejecución inmediata sin restricciones de política de PowerShell.
+  - **3. Accesos Directos de Escritorio Creados**:
+    - `C:\Users\u900670\Desktop\Control de Gastos.lnk` (Icono oficial del sistema).
+    - `C:\Users\u900670\Desktop\Detener Control de Gastos.lnk` (Icono oficial del sistema).
+- **Archivos Afectados**:
+  - `C:\Datos\David\Proyectos\Control_Gastos\control-gastos.ico`
+  - `C:\Datos\David\Proyectos\Control_Gastos\scripts\generate-ico.ps1`
+  - `C:\Datos\David\Proyectos\Control_Gastos\scripts\iniciar-servicios.ps1`
+  - `C:\Datos\David\Proyectos\Control_Gastos\scripts\detener-servicios.ps1`
+  - `C:\Datos\David\Proyectos\Control_Gastos\scripts\launcher.ps1`
+  - `C:\Datos\David\Proyectos\Control_Gastos\scripts\crear-accesos-directos.ps1`
+  - `C:\Datos\David\Proyectos\Control_Gastos\control-gastos.bat`
+  - `C:\Datos\David\Proyectos\Control_Gastos\detener-servicios.bat`
+
+### [2026-10-24 19:30] - Refactorización: Unificación de Tarjetas de Entidades en Componente Genérico Dinámico (<app-tarjeta-entidad>)
+- **Problema / Solicitud**:
+  - En `mensual.html`, las tarjetas financieras (`<app-visa>`, `<app-master-galicia>`, `<app-bancor>`, `<app-naranja>`, `<app-mercado-libre>`, `<app-otros>`) estaban declaradas como componentes separados con código HTML/TS/SCSS repetido y duplicado en lugar de un único componente genérico configurable que renderice dinámicamente cualquier entidad bancaria existente o futura.
+- **Solución Técnica Aplicada**:
+  - **Componente Genérico Creado**: `TarjetaEntidadComponent` (`src/app/pages/mensual/tarjeta-entidad/tarjeta-entidad.component.*`):
+    - Componente standalone configurable mediante inputs (`anio`, `mes`, `entidad`, `key`, `logoUrl`, `colorHeader`, `datos`, `isCargando`, `forceCollapsed`, `pagoInformativo`, `esOrigenBD`, `leyendaOrigen`).
+    - Eventos de salida emitidos: `(eliminarEntidad)`, `(editarFila)`, `(eliminarFila)`.
+    - Lógica completa encapsulada: cálculo de totales, detección de badges (nueva compra `NUEVA`, última cuota `ÚLT.`), modales de edición/eliminación, estado y badge de intención de pago (`COMPLETO`, `PARCIAL`, `NO_PAGADO`), hover con overlay interactivo de cuotas coincidentes (`ProyeccionOverlayService`), banner de pago informativo previo del resumen bancario (`.pago-informativo-banner`), y leyenda de origen de datos (`.origen-entidad-leyenda`).
+    - Estilos completamente respetuosos de la **Regla de Oro** (`AGENTS.md`) con paleta corporativa Slate Indigo (`#4b5896` / `#706cd6`), tarjetas con sombra suave, bordes redondeados y soporte completo de Dark Mode.
+  - **Refactorización de `MensualComponent` (`mensual.ts` y `mensual.html`)**:
+    - Declaración de señal computada `listaTarjetasEntidades = computed<TarjetaEntidadItem[]>(...)` que unifica las 6 entidades estándar fijas con las entidades personalizadas dinámicas (`entidadesPersonalizadasVigentes()`), manteniendo la reactividad e integridad de datos.
+    - Se eliminaron más de 90 líneas de plantillas duplicadas en `mensual.html`, reemplazándolas por un único bucle `*ngFor="let tarjeta of listaTarjetasEntidades()"` con `<app-tarjeta-entidad>`.
+    - Se eliminaron las importaciones directas de los componentes legados en `mensual.ts`.
+- **Validación de Compilación**:
+  - Angular CLI: `npx ng build --configuration development` exitoso (**Código 0, CERO errores, CERO advertencias**).
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/tarjeta-entidad/tarjeta-entidad.component.ts`
+  - `src/app/pages/mensual/tarjeta-entidad/tarjeta-entidad.component.html`
+  - `src/app/pages/mensual/tarjeta-entidad/tarjeta-entidad.component.scss`
+  - `src/app/pages/mensual/mensual.ts`
+  - `src/app/pages/mensual/mensual.html`
+
+### [2026-10-24 17:50] - Fase 6.23.2: Sincronización Masiva de Resúmenes a PostgreSQL con Antiduplicados y Aislamiento de Pagos Anteriores
+- **Problema / Solicitud**:
+  - Implementar de extremo a extremo la funcionalidad pendiente del plan (Fase 6.23.2):
+    1. Carga directa de las cuotas e ítems detectados de resúmenes bancarios a la base de datos PostgreSQL (`monthly_items`).
+    2. **Validación Antiduplicación Estricta**: Antes de importar, validar si el ítem ya existe para el mes y entidad (ej. "Impuestos" o "MPago 1/3") para evitar duplicaciones contables.
+    3. **Aislamiento de Pagos Anteriores**: Los movimientos que representan pagos del período anterior (ej. "Pago de tu tarjeta" o créditos negativos) NO deben importarse como gastos ni sumarse a la deuda. Deben almacenarse en una tabla aislada (`statement_payment_reports`) y visualizarse en `/mensual` como dato puramente informativo.
+    4. **Detección de Conectividad y Base de Datos en Pausa**: Deshabilitar el botón si la API está desconectada. Si la API está conectada pero la base de datos PostgreSQL en Google Cloud SQL está en pausa por optimización de costos (`activation_policy = NEVER`), detectar el estado con un timeout de 3 segundos y mostrar un aviso claro y amable en lugar de un error genérico o pantalla rota.
+- **Solución Técnica Aplicada**:
+  - **1. Backend API (`control-de-gastos-api`)**:
+    - **Health Check de BD (`GET /health/db`)**: Prueba conectividad real con `SELECT 1` y timeout de 3000ms. Si Cloud SQL está en pausa, responde HTTP 503 con mensaje explicativo de ahorro de costos.
+    - **Tabla Aislada `statement_payment_reports`**: Creada con índices por `(year, mes)` y `entidad` para almacenar pagos informados del extracto bancario anterior.
+    - **Servicio de Importación (`monthly-item.service.ts`)**: Método `importarResumenBatch` que:
+      - Separa pagos de compras regulares mediante `esPagoResumen`.
+      - Persiste pagos informativos en `statement_payment_reports`.
+      - Obtiene ítems existentes para el mes/año/entidad con aliases bancarios normalizados y descarta duplicados.
+      - Inserta compras y cuotas nuevas atómicamente con `createItem` (`autoPropagarCuotas: false`).
+      - Emite notificación SSE en tiempo real `DATA_UPDATED` con tipo `RESUMEN_IMPORTADO`.
+    - **Controlador y Rutas**: Endpoint `POST /api/mensual/items/importar-resumen` (protegido por `authenticateToken` y `requireAdmin`) y `GET /api/mensual/statement-payment`.
+  - **2. Frontend Angular (`control-de-gastos-front`)**:
+    - **`MensualItemsService`**: Integrados métodos `checkDbHealth()`, `importarResumenBatch()` y `getStatementPayment()`.
+    - **`ImportarResumenComponent`**:
+      - Selector reactivo de entidad de destino (`selectedEntidadDestino`: Visa Galicia, Master Card Galicia, Bancor, Naranja X).
+      - Integración de spinner y bloqueo seguro durante la importación.
+      - Modal de resultados con estadísticas completas: compras agregadas, compras omitidas por duplicado y pagos informativos aislados, con navegación directa a `/mensual`.
+      - Modal amigable para detección de base de datos en pausa en Google Cloud SQL.
+      - Modal explicativo de reglas y consideraciones de importación.
+    - **`MensualComponent` (`/mensual`)**:
+      - Señal reactiva `pagosInformativosResumen` y consulta automática de `getStatementPayment` al cargar o cambiar de mes.
+      - Banner informativo `.pago-informativo-banner` en cada contenedor de tarjeta bancaria: *"Pago informado en resumen anterior: $X (Fecha: DD/MM/AAAA) - Dato informativo (no suma)"*.
+      - Estilos oficiales Slate Indigo (`#4b5896` / `#706cd6`, fondo `#eaecf4`, bordes redondeados y soporte dark theme) de acuerdo a la Regla de Oro (`AGENTS.md`).
+- **Validación de Compilación**:
+  - Angular CLI: `npx ng build --configuration development` exitoso (**Código 0, 0 errores, 0 advertencias**).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/controllers/health.controller.ts`
+  - `control-de-gastos-api/src/routes/health.routes.ts`
+  - `control-de-gastos-api/src/services/monthly-item.service.ts`
+  - `control-de-gastos-api/src/controllers/monthly-item.controller.ts`
+  - `control-de-gastos-api/src/routes/monthly-item.routes.ts`
+  - `control-de-gastos-front/src/app/services/mensual-items.service.ts`
+  - `control-de-gastos-front/src/app/pages/importar-resumen/importar-resumen.component.ts`
+  - `control-de-gastos-front/src/app/pages/importar-resumen/importar-resumen.component.html`
+  - `control-de-gastos-front/src/app/pages/importar-resumen/importar-resumen.component.scss`
+  - `control-de-gastos-front/src/app/pages/mensual/mensual.ts`
+  - `control-de-gastos-front/src/app/pages/mensual/mensual.html`
+  - `control-de-gastos-front/src/app/pages/mensual/mensual.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+
+### [2026-10-24 15:50] - Integración del Módulo "Importar Resumen" y Hoja de Ruta para Carga Masiva a PostgreSQL
+- **Problema / Solicitud**:
+  - En la pestaña/menú de "Configuración", se requería agregar la opción "Importar Resumen" ubicada entre "Hojas de Google" y "Exportar a Excel".
+  - Integrar completamente el proyecto frontend `C:\Datos\David\Proyectos\Resumenes_A_Excel\resumenes-excel` en esta aplicación (`control-de-gastos-front`).
+  - Incorporar en el Plan Maestro de Arquitectura (`PLAN_MIGRACION_CLOUD_API.md`) el próximo paso en la hoja de ruta: implementar un botón y endpoint que permita cargar las nuevas cuotas e ítems detectados de los resúmenes directamente a la base de datos PostgreSQL, contrastando y sincronizando esa información en la pantalla Mensual y en todo el ecosistema del sitio.
+- **Solución Técnica Aplicada**:
+  - **1. Integración de Motores de Parseo Multibanco y Modelos (`src/app/pages/importar-resumen/`)**:
+    - Se migraron los parsers especializados:
+      - `GaliciaParser`: movimientos online banking (vertical/tabular) y resumen oficial PDF (Visa/Mastercard).
+      - `BancorParser`: resúmenes PDF/texto con cuotas `C.04/04` e impuestos, y movimientos web Bancón HTML/tabla.
+      - `GeneralParser`: resúmenes de Naranja X (cuotas Zeta, Deb.Aut.), tablas HTML y texto plano genérico.
+      - `ParseUtils`: normalización y formateo de cuotas, montos argentinos, detección HTML y limpieza.
+    - Se integró `ParseRulesService` con entidades configuradas (`galicia`, `bancor`, `general`), modos de entrada y buffer reactivo por pestaña para no perder datos al alternar entre bancos.
+    - Se adaptó `ExcelExportService` utilizando `ExcelJS` y descargas nativas mediante Blobs para generar libros con hojas "Resumen" y "Cuotas agrupadas".
+  - **2. Componente de UI (`ImportarResumenComponent`)**:
+    - Cumplimiento riguroso de la Regla de Oro (`AGENTS.md`): estructura del contenedor `.movimientos-wrapper`, tarjetas con bordes `border: 1px solid #e2e8f0`, sombras `box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05)`, bordes redondeados (`12px`) y paleta oficial Slate Indigo (`#4b5896` / `#706cd6`).
+    - Pestañas bancarias, controles de modo de carga, área de pegado con buffer, botones de acción ("Previsualizar", "Limpiar", "Descargar Excel").
+    - Grilla de movimientos detectados con numerador total de cuotas y tabla de resumen consolidado por plan de financiamiento.
+    - Tarjeta y controles de preparación para la integración a la base de datos (selectores de año y mes de destino, botón de sincronización y modal explicativo del próximo paso).
+  - **3. Navegación y Rutas (`src/app/app.routes.ts` y `src/app/app.html`)**:
+    - Añadida la ruta `/importar-resumen` protegida por `authGuard` y `adminGuard`.
+    - En el menú de Configuración (tanto escritorio como drawer móvil), se agregó el botón "Importar Resumen" con icono `receipt_long`, ubicado entre "Hojas de Google" y "Exportar a Excel" tal como indicó el usuario en su captura.
+  - **4. Actualización del Plan Maestro (`PLAN_MIGRACION_CLOUD_API.md`)**:
+    - Se añadió la sección **6.23: Módulo de Importación y Procesamiento de Resúmenes Bancarios con Integración a PostgreSQL y Mensual**, detallando la fase 6.23.1 (Frontend completado) y la fase 6.23.2 (Endpoint batch backend, validación antiduplicación estricta por mes para no duplicar ítems preexistentes como "Impuestos" o "MPago 1/3", y sincronización en tiempo real con `/mensual`).
+  - **5. Nombres Dinámicos e Inteligentes de Hoja y Archivo Excel (`getTargetMonthAndYear`)**:
+    - Sincronización con las mejoras del proyecto `resumenes-excel`:
+      - Helper `getTargetMonthAndYear(refDate)`: Si el día del mes es `> 10`, sugiere por defecto el mes siguiente (ej. Noviembre) y el año correspondiente (transición de año en Diciembre).
+      - Precarga reactiva: Hoja sugerida (`Noviembre`) y nombre de archivo con formato estándar `[Modo]_[Entidad]_[Hoja]_[Año].xlsx` (ej. `Movimientos_Galicia_Noviembre_2026.xlsx` o `Resumen_Bancor_Noviembre_2026.xlsx`).
+      - Sincronización bidireccional: al editar la hoja se actualiza el nombre del archivo automáticamente a menos que el usuario lo haya personalizado a mano.
+  - **6. Aislamiento de Pagos Anteriores (Regla Crítica para Base de Datos y Vista Mensual)**:
+    - Se identifican ítems de pagos de resúmenes anteriores (ej. `Pago de tu tarjeta -$650.000,00` o `SU PAGO`) mediante el helper `isPagoResumen()` y se señalan visualmente en la tabla con un badge `.badge-pago-informativo`.
+  - **7. Habilitación Condicionada a la Conectividad de API y Detección de BD en Pausa**:
+    - El botón `Cargar a Base de Datos` se vinculó reactivamente con `sseService.isConnected()`: permanece bloqueado si la API está desconectada, informando en un badge `.badge-api-status` y tooltip preventivo.
+    - En el Plan Maestro se incorporó la especificación del endpoint de comprobación de salud de base de datos (`GET /api/health/db`) y el diagnóstico claro si PostgreSQL se encuentra en pausa en Google Cloud SQL por política de ahorro de costos, evitando intentos a ciegas o errores 500.
+- **Validación de Compilación**:
+  - Frontend: `npx ng build --configuration development` (**Código 0, 0 errores, 0 advertencias**).
+- **Archivos Creados y Afectados**:
+  - `src/app/pages/importar-resumen/importar-resumen.component.ts`
+  - `src/app/pages/importar-resumen/importar-resumen.component.html`
+  - `src/app/pages/importar-resumen/importar-resumen.component.scss`
+  - `src/app/pages/importar-resumen/models.ts`
+  - `src/app/pages/importar-resumen/parse-rules.service.ts`
+  - `src/app/pages/importar-resumen/excel-export.service.ts`
+  - `src/app/pages/importar-resumen/parsers/bancor.parser.ts`
+  - `src/app/pages/importar-resumen/parsers/galicia.parser.ts`
+  - `src/app/pages/importar-resumen/parsers/general.parser.ts`
+  - `src/app/pages/importar-resumen/parsers/parse-utils.ts`
+  - `src/app/app.routes.ts`
+  - `src/app/app.html`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
 
 ### [2026-10-24 15:26] - Selección Inteligente del Mes de Estimativo por Defecto (Hasta Fecha de Cobro)
 - **Problema / Solicitud**:

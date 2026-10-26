@@ -35,6 +35,7 @@ import { Loan, LoansService } from '../../../services/loans.service';
 })
 export class TablaPrestamos implements OnInit, OnChanges {
   isCollapsed = signal(false);
+  isSincronizando = signal(false);
   mostrarModalCargar = signal(false);
   mostrarModalPago = signal(false);
   cuotaSeleccionada = signal<CuotaAPagarInfo | null>(null);
@@ -78,6 +79,23 @@ export class TablaPrestamos implements OnInit, OnChanges {
 
   cerrarModalCargar() {
     this.mostrarModalCargar.set(false);
+  }
+
+  sincronizarPrestamosSheets(): void {
+    if (this.isSincronizando()) return;
+    this.isSincronizando.set(true);
+    this.loansService.syncLoansFromSheet(this.anioSeleccionado).subscribe({
+      next: (res) => {
+        console.log('✅ Préstamos sincronizados y desacumulados desde Sheets:', res);
+        this.isSincronizando.set(false);
+        this.cargarPrestamosBD();
+        this.prestamoAgregado.emit();
+      },
+      error: (err) => {
+        console.error('Error al sincronizar préstamos desde Sheets:', err);
+        this.isSincronizando.set(false);
+      },
+    });
   }
 
   onPrestamoCreado(loan: Loan) {

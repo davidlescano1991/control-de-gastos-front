@@ -659,9 +659,15 @@ export class MovimientosStoreGoogle {
 
     try {
       this.estimativoEnCarga.set(claveCarga, promesa);
+      hojasBase.forEach((hoja) => {
+        this.estimativoEnCarga.set(`${anio}::${hoja}`, promesa);
+      });
       await promesa;
     } finally {
       this.estimativoEnCarga.delete(claveCarga);
+      hojasBase.forEach((hoja) => {
+        this.estimativoEnCarga.delete(`${anio}::${hoja}`);
+      });
     }
   }
 
@@ -810,7 +816,9 @@ export class MovimientosStoreGoogle {
 
         let tablaPrestamos: Prestamo[] = [];
         if (resLoans?.data && resLoans.data.length > 0) {
-          const loans = resLoans.data;
+          const loans = resLoans.data.filter(
+            (l) => l.year === anio || l.installments?.some((i) => i.year === anio)
+          );
           const nombresMeses = [
             'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
@@ -842,9 +850,9 @@ export class MovimientosStoreGoogle {
           for (const loan of loans) {
             const sumaCuotas = loan.installments
               ?.filter((i) => i.year === anio)
-              .reduce((acc, i) => acc + (i.monto || 0), 0) ?? loan.deudaTotal;
-            filaDevolver.valores[loan.nombre] = sumaCuotas;
-            filaDevolver.valoresPrestamo[loan.nombre] = sumaCuotas;
+              .reduce((acc, i) => acc + (i.monto || 0), 0) ?? 0;
+            filaDevolver.valores[loan.nombre] = Math.round(sumaCuotas * 100) / 100;
+            filaDevolver.valoresPrestamo[loan.nombre] = Math.round(sumaCuotas * 100) / 100;
             filaDevolver.colores[loan.nombre] = '#000000';
           }
           tablaPrestamos = [filaPrestado, ...filasMeses, filaDevolver];
@@ -921,6 +929,7 @@ export class MovimientosStoreGoogle {
         13,
         true,
         'Total a devolver',
+        anio,
       );
 
       const otraTabla = this.extraerTablaDesdeRangoAnual(datos, 2, 13, 1);
@@ -1061,29 +1070,56 @@ export class MovimientosStoreGoogle {
     columnas: number,
     usarEncabezadoPorColumna = false,
     ultimaFilaMensaje = '',
+    anio?: number,
   ): Prestamo[] {
-    const prestamos: Prestamo[] = [];
     const colum = Array.from({ length: columnas }, (_, i) => i + 1);
 
-    const encabezados = usarEncabezadoPorColumna
-      ? colum.map((colIdx) => {
-          const celda = datos[filaInicio - 1]?.values?.[colIdx];
-          return celda?.effectiveValue?.stringValue?.toLowerCase() ?? `col_${colIdx}`;
-        })
-      : [];
-
-    const encabezadoGlobal = !usarEncabezadoPorColumna
-      ? (datos[filaInicio - 1]?.values
+    if (!usarEncabezadoPorColumna) {
+      const prestamos: Prestamo[] = [];
+      const encabezadoGlobal =
+        datos[filaInicio - 1]?.values
           ?.find((c: any) => c?.effectiveValue?.stringValue)
-          ?.effectiveValue?.stringValue?.toLowerCase() ?? 'sin_encabezado')
-      : null;
+          ?.effectiveValue?.stringValue?.toLowerCase() ?? 'sin_encabezado';
+
+      for (let i = filaInicio; i <= filaFin && i < datos.length; i++) {
+        const row = datos[i];
+        if (!row?.values || row.values.length === 0) continue;
+
+        const nombreFila =
+          row.values[0]?.effectiveValue?.stringValue?.toLowerCase() ?? ultimaFilaMensaje;
+        const valores: Record<string, number> = {};
+        const colores: Record<string, string> = {};
+
+        colum.forEach((colIdx) => {
+          const celda = row.values[colIdx];
+          const valor = celda?.effectiveValue?.numberValue ?? 0;
+          const color = celda?.userEnteredFormat?.textFormat?.foregroundColor;
+
+          valores[encabezadoGlobal] = valor;
+          colores[encabezadoGlobal] = color ? this.rgbToHex(color) : '';
+        });
+
+        prestamos.push({ nombreFila, valores, valoresPrestamo: {}, colores });
+      }
+      return prestamos;
+    }
+
+    const encabezados = colum.map((colIdx) => {
+      const celda = datos[filaInicio - 1]?.values?.[colIdx];
+      return celda?.effectiveValue?.stringValue?.toLowerCase() ?? `col_${colIdx}`;
+    });
+
+    let filaPrestado: Prestamo | null = null;
+    const filasMeses: Prestamo[] = [];
 
     for (let i = filaInicio; i <= filaFin && i < datos.length; i++) {
       const row = datos[i];
       if (!row?.values || row.values.length === 0) continue;
 
-      const nombreFila =
+      const rawNombreFila =
         row.values[0]?.effectiveValue?.stringValue?.toLowerCase() ?? ultimaFilaMensaje;
+      const nombreFila = i === filaInicio ? 'prestado' : rawNombreFila.trim();
+
       const valores: Record<string, number> = {};
       const colores: Record<string, string> = {};
 
@@ -1091,16 +1127,54 @@ export class MovimientosStoreGoogle {
         const celda = row.values[colIdx];
         const valor = celda?.effectiveValue?.numberValue ?? 0;
         const color = celda?.userEnteredFormat?.textFormat?.foregroundColor;
-        const categoria = usarEncabezadoPorColumna ? encabezados[j] : encabezadoGlobal;
+        const categoria = encabezados[j];
 
         valores[categoria] = valor;
         colores[categoria] = color ? this.rgbToHex(color) : '';
       });
 
-      prestamos.push({ nombreFila, valores, valoresPrestamo: {}, colores });
+      const filaObj: Prestamo = { nombreFila, valores, valoresPrestamo: {}, colores };
+
+      if (i === filaInicio) {
+        filaPrestado = filaObj;
+        continue;
+      }
+
+      if (i === filaFin || nombreFila.toLowerCase().includes('total a devolver')) {
+        continue;
+      }
+
+      // Si la fila corresponde a un año posterior (ej: "enero 2027", "febrero 2027"), omitirla para el año seleccionado
+      if (anio) {
+        const tieneAnioPosterior = nombreFila.match(/20\d\d/) && !nombreFila.includes(String(anio));
+        if (tieneAnioPosterior) {
+          continue;
+        }
+      }
+
+      filasMeses.push(filaObj);
     }
 
-    return prestamos;
+    // Recomputar fila 'Total a devolver' sumando estrictamente las cuotas del año (Enero a Diciembre)
+    const filaDevolverRecomputada: Prestamo = {
+      nombreFila: 'Total a devolver',
+      valores: {},
+      valoresPrestamo: {},
+      colores: {},
+    };
+
+    encabezados.forEach((cat) => {
+      const sumaAnio = filasMeses.reduce((acc, f) => acc + (f.valores?.[cat] || 0), 0);
+      filaDevolverRecomputada.valores[cat] = Math.round(sumaAnio * 100) / 100;
+      filaDevolverRecomputada.valoresPrestamo[cat] = Math.round(sumaAnio * 100) / 100;
+      filaDevolverRecomputada.colores[cat] = '#000000';
+    });
+
+    return [
+      filaPrestado || { nombreFila: 'prestado', valores: {}, valoresPrestamo: {}, colores: {} },
+      ...filasMeses,
+      filaDevolverRecomputada,
+    ];
   }
 
   /**
@@ -1825,6 +1899,7 @@ export class MovimientosStoreGoogle {
     const resultados: EstimativoRow[] = [];
     for (const mes of meses) {
       const clave = `${anio}::${mes}`;
+      this.hidratarEstimativoDesdeCache(anio, mes);
       const promesa = this.estimativoEnCarga.get(clave);
       if (promesa) await promesa;
       const datos = this.estimativoPorMes.get(clave)?.() ?? [];

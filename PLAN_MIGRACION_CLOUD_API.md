@@ -1300,3 +1300,64 @@ gantt
         1. **Patrón Stale-While-Revalidate (0ms)**: Si existen datos en caché, se renderizan al instante ocultando el spinner `isCargando` de inmediato (0ms). Las llamadas remotas se ejecutan en segundo plano.
         2. **Optimización de Carga Histórica y SSE**: `cargaInicial` reutiliza la caché local y evita el bombardeo de peticiones por red. Ante eventos SSE, se refresca exclusivamente el mes activo en pantalla.
         3. **Salvaguarda Inteligente en Backend (`updateDailyReal`)**: Si un día proviene de Google Sheets o llega con identificador sintético (`sheets_est_`), la API extrae el año, mes y día, garantiza el ciclo en `monthly_estimate_configs`, ejecuta un `upsert` en `daily_estimates` y persiste inmediatamente el evento y el color.
+
+  * **6.23**: Módulo de Importación y Procesamiento de Resúmenes Bancarios con Integración a PostgreSQL y Mensual *(COMPLETADO)*:
+    * **¿Qué es y por qué se implementa?**:
+      - Brindar al sistema una suite integrada de ingestión y parseo inteligente de resúmenes de tarjetas de crédito y cuentas bancarias provenientes de múltiples entidades (Banco Galicia Visa/Mastercard, Bancor Bancón, General/Naranja X, tablas web copiadas y resúmenes PDF/HTML), eliminando la carga manual y tediosa de gastos o cuotas:
+        1. **Módulo Frontend `/importar-resumen`**: Permite al usuario pegar texto o tablas directamente desde su home banking o resúmenes PDF, procesarlos al instante en el navegador con detección de cuotas (ej. `01/03`, `C.04/04`, cuotas `Zeta`, `Deb.Aut.`), importes en pesos y dólares, previsualizar la grilla y descargar planillas Excel estructuradas con hojas de movimientos y cuotas agrupadas.
+        2. **Hoja de Ruta hacia Base de Datos**: Habilitar un flujo en 1-clic que envíe los ítems parseados a la API backend para persistirlos directamente en `monthly_items` dentro de PostgreSQL para el año y mes seleccionados, logrando que impacten automáticamente en la vista de `/mensual` y en todo el ecosistema financiero del sitio.
+    * **Subpasos de Ejecución**:
+      * **6.23.1**: Frontend: Integración de Motor de Parseo Multibanco y UI Especializada (`/importar-resumen`): *(COMPLETADO)*
+        - Integración de los parsers de `resumenes-excel` (`GaliciaParser`, `BancorParser`, `GeneralParser` y `ParseUtils`) adaptados como servicios standalone en Angular.
+        - Navegación: Adición del ítem `Importar Resumen` con icono `receipt_long` en el menú desplegable de **Configuración** (tanto en versión escritorio como en el menú drawer móvil), posicionado estratégicamente entre `Hojas de Google` y `Exportar a Excel`.
+        - Registro de ruta protegida `/importar-resumen` en `app.routes.ts`.
+        - Cumplimiento riguroso de la Regla de Oro (`AGENTS.md`): estructura del contenedor `.movimientos-wrapper`, sub-tarjetas con bordes sutiles y sombras, paleta corporativa Slate Indigo del logo (`#4b5896` / `#706cd6`), diseño 100% responsivo y sin interferir en los estilos de cards existentes.
+        - Soporte para previsualización tabular de movimientos, cálculo de numerador total de cuotas, agrupación consolidada por plan de cuotas y exportación de archivos Excel formateados con doble pestaña mediante `ExcelJS`.
+        - Preparación de controles interactivos (selectores de año y mes de destino) y botón para la carga a base de datos con modal descriptivo de la funcionalidad en desarrollo.
+      * **6.23.2**: Backend & Frontend: Carga Masiva a PostgreSQL, Validación Antiduplicación y Sincronización con `/mensual`: *(COMPLETADO)*
+        - **Regla Crítica #1: Aislamiento de Pagos del Resumen Anterior (No Computables en Gastos del Mes)**:
+          - *Problema*: Los resúmenes bancarios incluyen créditos por pagos efectuados para saldar el período previo (ejemplo: `09/10/2026 Pago de tu tarjeta -$650.000,00` o `SU PAGO`). Si estos ítems se importaran directamente a la tabla `monthly_items`, restarían erróneamente de las compras del mes o duplicarían los abonos ya registrados en la deuda.
+          - *Solución*: **Bajo ninguna circunstancia se insertarán en `monthly_items`**.
+          - *Persistencia Separada*: Se almacenarán en una entidad informativa complementaria en PostgreSQL (ej. tabla `statement_payment_reports` o atributo `ultimoPagoInformado` en la liquidación de la entidad en `entity_payments`), registrando `{ anio, mes, entidadId, fecha, importe: 650000, concepto: "Pago de tu tarjeta" }`.
+          - *Visualización en Pantalla `/mensual`*: Se expondrá en la vista mensual como un **dato puramente informativo / de auditoría** (ej. badge/chip *"Último pago informado en resumen: $650.000,00"*), **totalmente desacoplado de las fórmulas de suma, subtotales y balances de compras a pagar**.
+        - **Regla Crítica #2: Validación Antiduplicación (Idempotencia por Mes)**:
+          - *Previo a la inserción en la base de datos*, el sistema debe verificar si cada ítem ya existe registrado para el año, mes y entidad seleccionados.
+          - Si un ítem ya existe previamente (por ejemplo: "Impuestos", "Mantenimiento de Cuenta" o compras en cuotas como "MPago 1/3"), **no debe volver a agregarse para evitar duplicar el gasto o inflar el saldo a pagar del mes**.
+          - El proceso clasifica los registros en:
+            - **Ítems Nuevos**: Se insertan en la tabla `monthly_items`.
+            - **Ítems Informativos (Pagos Anteriores)**: Se desvían al almacenamiento informativo separado.
+            - **Ítems Existentes (Duplicados)**: Se omiten de forma segura (con reporte detallado al usuario indicando qué conceptos ya se encontraban cargados).
+        - **Regla Crítica #3: Habilitación Condicionada a la Conectividad de API y Estado de la Base de Datos (Cloud SQL en Pausa para Ahorro)**:
+          - *Conectividad Requerida*: El botón de importación directa a la base de datos solo estará habilitado cuando la API backend se encuentre en línea y conectada (`sseService.isConnected()` o verificación en `/api/health`). Si no hay conexión con el backend, el botón permanece bloqueado con mensaje explicativo.
+          - *Detección de Base de Datos en Pausa (Ahorro de Costos)*:
+            - Conforme a la arquitectura de costos mínimos de Google Cloud (Fases 5.2.0.5 y 9), la instancia de PostgreSQL en Cloud SQL puede encontrarse pausada (`activation_policy = NEVER`) para que el costo de CPU y RAM sea de $0 mientras no se utiliza.
+            - En este escenario, la API en Cloud Run estará activa pero cualquier operación de base de datos fallará por falta de conexión al socket o instancia detenida.
+            - *Manejo y Diagnóstico*:
+              - El backend dispondrá de un endpoint de verificación de salud de la base de datos (`GET /api/health/db` con consulta liviana `SELECT 1`).
+              - Si la base de datos está pausada o inaccesible, el sistema no intentará la inserción a ciegas: capturará el estado y emitirá un mensaje claro y didáctico al usuario: *"La base de datos PostgreSQL se encuentra temporalmente en pausa para optimización de costos. Enciéndala desde la consola de Google Cloud SQL o ejecute el script de reanudación para poder guardar los datos"*, previniendo errores genéricos 500 o inconsistencias.
+        - **Backend (`control-de-gastos-api`)**:
+          - Endpoint de diagnóstico de salud de conexión a BD (`GET /api/health/db`).
+          - Creación del endpoint protegido `POST /api/mensual/items/batch` con validación de rol `ADMIN` y chequeo previo de conexión activa a PostgreSQL.
+          - Recepción del payload con `year`, `month`, `entityId` y lista de `movements` (fecha, referencia, cuotas, pesos, dólares).
+          - Clasificación en pipeline:
+            1. Separación de pagos anteriores informativos hacia `statement_payment_reports`.
+            2. Filtrado de colisiones y duplicados contra `monthly_items` para el mes/año/entidad destino.
+            3. Inserción atómica (`Prisma.$transaction`) exclusivamente de los ítems de compras/gastos inéditos.
+          - Retorno de reporte de carga: `{ agregados: N, informativosGuardados: P, omitidosPorDuplicado: M, itemsOmitidos: [...] }`.
+          - Emisión automática de evento en tiempo real Server-Sent Events (`DATA_UPDATED`) con payload `{ event: 'DATA_UPDATED', year, mes: month }`.
+        - **Frontend (`control-de-gastos-front`)**:
+          - En `/importar-resumen`:
+            - Vinculación reactiva del botón `Cargar a Base de Datos` con `sseService.isConnected()`: si la API no está en línea, se deshabilita con tooltip de advertencia.
+            - Manejo de excepciones específicas de base de datos: modal/alerta preventiva ante estado de Cloud SQL en pausa.
+            - Identificación visual mediante badge de los ítems de *"Pago de tarjeta / Informativo"*, clarificando que no entrarán en las compras a pagar.
+          - Conexión del botón `Cargar a Base de Datos` con el endpoint batch.
+          - Feedback visual enriquecido: notificación/alerta detallando cuántos ítems nuevos se cargaron, cuántos pagos informativos se registraron por separado y cuántos duplicados fueron omitidos.
+          - En `/mensual`: visualización del dato informativo del último pago registrado por el resumen sin alterar totales.
+      * **6.23.3**: Frontend: Refactorización de Arquitectura - Unificación de Tarjetas de Entidades en Componente Dinámico (`<app-tarjeta-entidad>`): *(COMPLETADO)*
+        - Creación del componente standalone reutilizable `TarjetaEntidadComponent` (`src/app/pages/mensual/tarjeta-entidad/`).
+        - Reemplazo de los componentes estáticos y repetidos `<app-visa>`, `<app-master-galicia>`, `<app-bancor>`, `<app-naranja>`, `<app-mercado-libre>`, `<app-otros>` por una iteración dinámica `*ngFor="let tarjeta of listaTarjetasEntidades()"` sobre `<app-tarjeta-entidad>`.
+        - Unificación de las 6 entidades base fijas con las entidades personalizadas dinámicas de PostgreSQL (`entidadesPersonalizadasVigentes()`), manteniendo la reactividad, los cálculos de totales, badges de nuevas compras / última cuota, modal de intención de pago, banner de pago informado del resumen y hover para overlay de cuotas coincidentes.
+        - Preservación estricta de la Regla de Oro (`AGENTS.md`): estructura del contenedor `.movimientos-wrapper`, tarjetas con bordes redondeados y sombra suave, paleta oficial Slate Indigo (`#4b5896` / `#706cd6`) y Dark Mode completo.
+        - Compilación limpia con Angular CLI: 0 errores, 0 advertencias.
+
+

@@ -205,5 +205,70 @@ export class MensualItemsService {
   evaluarFormulaLocal(input: string | number): ResultadoFormula {
     return evaluarFormula(input);
   }
+
+  /**
+   * Verifica la conectividad y disponibilidad de la base de datos PostgreSQL.
+   * Detecta si la instancia en Google Cloud SQL está en modo pausa para ahorro de costos.
+   */
+  checkDbHealth(): Observable<{ status: string; db: string; message: string }> {
+    return this.http.get<{ status: string; db: string; message: string }>(`${environment.apiUrl}/health/db`);
+  }
+
+  /**
+   * Importa movimientos de un resumen bancario por lotes a la base de datos con:
+   * 1. Aislamiento automático de pagos previos (guardados en statement_payment_reports)
+   * 2. Validación antiduplicados frente a ítems ya existentes en el mes/año/entidad
+   * 3. Creación limpia de compras y cuotas nuevas
+   */
+  importarResumenBatch(payload: {
+    year: number;
+    mes: number;
+    entidad: string;
+    movements: Array<{
+      fecha?: string;
+      referencia: string;
+      cuotas?: string;
+      pesos?: number | null;
+      dolares?: number | null;
+    }>;
+  }): Observable<{
+    success: boolean;
+    message: string;
+    agregados: number;
+    informativosGuardados: number;
+    omitidosPorDuplicado: number;
+    itemsAgregados: MonthlyItemBackend[];
+    itemsOmitidos: Array<{ concepto: string; fecha?: string; monto: any; motivo: string }>;
+    pagosInformativos: any[];
+  }> {
+    return this.http.post<any>(`${this.apiUrl}/items/importar-resumen`, payload);
+  }
+
+  /**
+   * Consulta el último pago de resumen reportado para la entidad en ese período (dato puramente informativo).
+   */
+  getStatementPayment(
+    year: number,
+    mes: number,
+    entidad: string
+  ): Observable<{
+    success: boolean;
+    payment: {
+      id: string;
+      year: number;
+      mes: number;
+      entidad: string;
+      fecha?: string;
+      concepto: string;
+      monto: number | string;
+      createdAt?: string;
+    } | null;
+  }> {
+    const params = new HttpParams()
+      .set('year', year.toString())
+      .set('mes', mes.toString())
+      .set('entidad', entidad);
+    return this.http.get<any>(`${this.apiUrl}/statement-payment`, { params });
+  }
 }
 

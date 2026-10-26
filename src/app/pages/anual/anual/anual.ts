@@ -184,7 +184,7 @@ export class Anual implements OnInit, OnDestroy {
     if (cfgYears.length > 0) {
       this.anios = cfgYears.map((y) => Number(y)).filter((n) => !Number.isNaN(n));
     } else {
-      this.anios = [2026, 2025, 2024, 2023, 2022];
+      this.anios = [2027, 2026, 2025, 2024, 2023, 2022];
     }
     const anioToSelect = this.anios.includes(this.anioActual) ? this.anioActual : this.anios[0];
     this.anioSeleccionado.set(anioToSelect);

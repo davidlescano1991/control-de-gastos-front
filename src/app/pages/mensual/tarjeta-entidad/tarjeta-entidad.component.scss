@@ -1,0 +1,561 @@
+mat-card {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+
+  &.is-collapsed {
+    mat-card-header {
+      border-bottom: none;
+    }
+  }
+}
+
+mat-card-header.card-header-wrapper {
+  color: #ffffff !important;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+  user-select: none;
+
+  &.header-claro {
+    color: #2d3277 !important;
+
+    mat-card-title,
+    .mat-mdc-card-title,
+    span,
+    mat-icon {
+      color: #2d3277 !important;
+    }
+
+    .btn-collapse-card,
+    .btn-proyeccion-header,
+    .btn-baja-entidad-header {
+      color: #2d3277 !important;
+      border-color: rgba(45, 50, 119, 0.25);
+
+      &:hover {
+        background: rgba(45, 50, 119, 0.15);
+      }
+    }
+  }
+}
+
+.header-left-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .entidad-logo {
+    height: 24px;
+    max-width: 48px;
+    object-fit: contain;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+  }
+
+  .entidad-icon-fallback {
+    font-size: 22px;
+    width: 22px;
+    height: 22px;
+    opacity: 0.9;
+  }
+
+  .btn-pagar-entidad {
+    background: #10b981;
+    color: #ffffff;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s;
+
+    .icono-pesos {
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    &:hover {
+      background: #059669;
+      transform: scale(1.1);
+    }
+  }
+
+  .badge-estado-pago {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    &.completo mat-icon {
+      color: #34d399;
+    }
+
+    &.parcial mat-icon {
+      color: #fbbf24;
+    }
+
+    &.no-pagado mat-icon {
+      color: #f87171;
+    }
+  }
+}
+
+mat-card-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 0.85;
+    text-decoration: underline;
+  }
+}
+
+.header-right-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  .btn-proyeccion-header,
+  .btn-baja-entidad-header,
+  .btn-collapse-card {
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    border-radius: 6px;
+    padding: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: scale(1.08);
+    }
+  }
+
+  .btn-collapse-card {
+    svg {
+      transition: transform 0.2s ease;
+    }
+
+    &.collapsed svg {
+      transform: rotate(-90deg);
+    }
+  }
+}
+
+/* Tabla de Movimientos */
+.tabla-movimientos {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+
+  tbody {
+    tr {
+      border-bottom: 1px solid #f1f5f9;
+      transition: background-color 0.15s ease;
+
+      &:nth-child(even) {
+        background-color: #f8fafc;
+      }
+
+      &.fila-interactiva {
+        cursor: pointer;
+
+        &:hover {
+          background-color: #e2e8f0 !important;
+        }
+      }
+
+      td {
+        padding: 9px 12px;
+        color: #1e293b;
+        vertical-align: middle;
+
+        &:first-child {
+          text-align: left;
+        }
+      }
+    }
+  }
+}
+
+.col-monto {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.col-monto-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  width: 100%;
+
+  .monto-texto {
+    font-weight: 500;
+  }
+}
+
+.btn-accion-editar,
+.btn-accion-eliminar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 3px;
+  cursor: pointer;
+  color: #64748b;
+  opacity: 0.45;
+  transition: all 0.2s ease;
+
+  &:hover {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+
+.btn-accion-editar:hover {
+  color: #4b5896;
+  background: rgba(75, 88, 150, 0.12);
+}
+
+.btn-accion-eliminar:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.tag-notificacion {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  text-transform: uppercase;
+  font-weight: 700;
+
+  &.nuevo {
+    background-color: #ef4444;
+    color: #ffffff;
+  }
+
+  &.ultimo {
+    background-color: #10b981;
+    color: #ffffff;
+  }
+}
+
+/* Acciones y Totales */
+.acciones-total {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px;
+  background-color: #9197e7;
+  border-top: 1px solid #ddd;
+}
+
+.totales-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  width: 100%;
+}
+
+.total-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: flex-end;
+  font-size: 0.95rem;
+
+  &.total-interactivo {
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all 0.2s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+  }
+
+  .total-label strong {
+    color: #ffffff;
+    font-weight: bold;
+  }
+
+  .total-value strong {
+    color: #ffffff;
+    font-size: 1.05rem;
+    font-weight: bold;
+  }
+}
+
+.intencion-pago-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  width: 100%;
+  padding-top: 5px;
+  margin-top: 3px;
+  border-top: 1px dashed rgba(250, 204, 21, 0.45);
+
+  .intencion-label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #facc15;
+
+    .icon-intencion {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      line-height: 16px;
+      color: #facc15;
+    }
+  }
+
+  .intencion-value {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #facc15;
+
+    strong {
+      color: #facc15;
+    }
+  }
+
+  strong,
+  span {
+    color: #facc15;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  }
+}
+
+/* Spinner & Alert */
+.spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin: 40px auto;
+}
+
+.alert-card.warning {
+  background-color: #fffbeb;
+  color: #92400e;
+  border-left: 4px solid #f59e0b;
+  margin: 10px 0;
+  padding: 10px 14px;
+  border-radius: 6px;
+}
+
+/* Banner Pago Informativo */
+.pago-informativo-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #eaecf4;
+  border: 1px solid #c4c8df;
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin-top: 8px;
+  margin-bottom: 6px;
+  color: #4b5896;
+  font-size: 0.84rem;
+  box-shadow: 0 2px 6px rgba(75, 88, 150, 0.06);
+  flex-wrap: wrap;
+
+  .icon-pago-info {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: #4b5896;
+    flex-shrink: 0;
+  }
+
+  .pago-info-texto {
+    color: #1e293b;
+    font-weight: 500;
+
+    strong {
+      color: #4b5896;
+      font-weight: 700;
+    }
+
+    .pago-info-fecha {
+      color: #64748b;
+      font-size: 0.78rem;
+    }
+  }
+
+  .badge-no-computa {
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: #ffffff;
+    border: 1px solid #c4c8df;
+    color: #4b5896;
+    padding: 2px 8px;
+    border-radius: 6px;
+    margin-left: auto;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+}
+
+/* Leyenda de Origen */
+.origen-entidad-leyenda {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-style: italic;
+  font-weight: 500;
+  color: #475569;
+  margin-top: 6px;
+  margin-bottom: 18px;
+  padding: 4px 10px;
+  background: rgba(241, 245, 249, 0.85);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 6px;
+  width: fit-content;
+  user-select: none;
+  transition: all 0.2s ease;
+
+  .punto-origen {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+
+    &.origen-bd {
+      background-color: #10b981;
+      box-shadow: 0 0 6px rgba(16, 185, 129, 0.7);
+    }
+
+    &.origen-sheets {
+      background-color: #0284c7;
+      box-shadow: 0 0 6px rgba(2, 132, 199, 0.7);
+    }
+  }
+}
+
+/* Dark Mode */
+:host-context(.dark-theme),
+:host-context([data-theme='dark']),
+:host-context(body.dark-mode) {
+  mat-card {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  .tabla-movimientos {
+    tbody tr {
+      border-bottom-color: #334155;
+
+      &:nth-child(even) {
+        background-color: rgba(30, 41, 59, 0.6);
+      }
+
+      &.fila-interactiva:hover {
+        background-color: #334155 !important;
+      }
+
+      td {
+        color: #f1f5f9;
+      }
+    }
+  }
+
+  .acciones-total {
+    background-color: #0f172a;
+    border-top-color: #334155;
+
+    .total-row .total-value strong {
+      color: #f8fafc;
+    }
+
+    .total-row .total-label strong {
+      color: #94a3b8;
+    }
+
+    .intencion-pago-row {
+      color: #fbbf24;
+
+      .intencion-label {
+        color: #fbbf24;
+
+        .icon-intencion {
+          color: #fde047;
+        }
+      }
+
+      .intencion-value strong {
+        color: #fde047;
+      }
+    }
+  }
+
+  .pago-informativo-banner {
+    background: rgba(40, 48, 80, 0.75);
+    border-color: rgba(112, 108, 214, 0.3);
+    color: #c4c8df;
+
+    .icon-pago-info {
+      color: #706cd6;
+    }
+
+    .pago-info-texto {
+      color: #f1f5f9;
+
+      strong {
+        color: #9d99ee;
+      }
+
+      .pago-info-fecha {
+        color: #94a3b8;
+      }
+    }
+
+    .badge-no-computa {
+      background: rgba(30, 41, 59, 0.8);
+      border-color: rgba(112, 108, 214, 0.4);
+      color: #c4c8df;
+    }
+  }
+
+  .origen-entidad-leyenda {
+    color: #cbd5e1;
+    background: rgba(30, 41, 59, 0.75);
+    border: 1px solid rgba(51, 65, 85, 0.8);
+  }
+}
