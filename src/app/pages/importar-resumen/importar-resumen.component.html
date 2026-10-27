@@ -171,6 +171,19 @@
             </option>
           </select>
         </div>
+        <div class="select-field vencimiento-field">
+          <label for="db-vencimiento" title="Fecha en que vence este resumen para alertas y recordatorios automáticos">
+            Vencimiento (opcional):
+          </label>
+          <input
+            id="db-vencimiento"
+            type="text"
+            [ngModel]="fechaVencimiento()"
+            (ngModelChange)="fechaVencimiento.set($event)"
+            placeholder="Ej: 10/11/2026"
+            class="input-vencimiento"
+          />
+        </div>
 
         <button
           class="btn btn-db-sync"

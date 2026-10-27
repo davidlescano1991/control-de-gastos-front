@@ -523,7 +523,8 @@
           color: #64748b;
         }
 
-        select {
+        select,
+        input.input-vencimiento {
           padding: 6px 10px;
           border: 1px solid #cbd5e1;
           border-radius: 6px;
@@ -531,6 +532,7 @@
           color: #1e293b;
           background: #ffffff;
           outline: none;
+          max-width: 140px;
 
           &:focus {
             border-color: #706cd6;

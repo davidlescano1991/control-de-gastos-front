@@ -6,21 +6,117 @@
   padding: 20px;
   background: #ffffff;
   border-radius: 12px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: all 0.25s ease;
 
   &.is-collapsed {
     margin-bottom: 12px;
+    padding: 14px 20px;
   }
 }
 
-.spinner {
+.card-header-wrapper {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+
+  h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #1e293b;
+    letter-spacing: -0.3px;
+  }
+
+  .btn-collapse-card {
+    position: absolute;
+    right: 0;
+    top: 0;
+    background: transparent;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: 6px;
+    transition: transform 0.25s ease, color 0.2s ease, background 0.2s ease;
+
+    &:hover {
+      color: #1e293b;
+      background: #f1f5f9;
+    }
+
+    &.collapsed {
+      transform: rotate(180deg);
+    }
+  }
+}
+
+.spinner-box {
   display: flex;
   justify-content: center;
   align-items: center;
   width: 100%;
+  min-height: 280px;
 }
 
 .grafico-wrapper {
   position: relative;
   width: 100%;
+  min-width: 0;
+  height: clamp(320px, 48vh, 460px);
+  overflow: hidden;
+  box-sizing: border-box;
+
+  canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+  }
 }
+
+@media (max-width: 700px) {
+  .movimientos-wrapper {
+    padding: 14px;
+  }
+
+  .grafico-wrapper {
+    height: 280px;
+  }
+}
+
+/* 🌙 Modo Oscuro */
+:host-context(body.dark-mode) {
+  .movimientos-wrapper {
+    background-color: #1e293b;
+    border-color: #334155;
+    color: #f8fafc;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  }
+
+  .card-header-wrapper {
+    border-bottom-color: #334155;
+
+    h3 {
+      color: #f8fafc;
+    }
+
+    .btn-collapse-card {
+      color: #94a3b8;
+
+      &:hover {
+        color: #f8fafc;
+        background: rgba(255, 255, 255, 0.05);
+      }
+    }
+  }
+}
+

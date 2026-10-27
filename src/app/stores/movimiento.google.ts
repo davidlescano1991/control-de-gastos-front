@@ -38,6 +38,7 @@ export interface EstimativoRow {
   deudaReal: number;
   evento?: string | null;
   color?: string | null;
+  esAnual?: boolean;
 }
 
 /**
@@ -807,12 +808,23 @@ export class MovimientosStoreGoogle {
           };
         });
 
-        const filasSecundarias: Prestamo[] = (rep?.rendimientosPositivos || []).map((rp) => ({
-          nombreFila: rp.mes,
-          valores: { rendimiento: rp.porcentaje },
-          valoresPrestamo: { rendimiento: rp.porcentaje },
-          colores: { rendimiento: '#000000' },
-        }));
+        const nombresMesesRendimiento = [
+          'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+        ];
+        const filasSecundarias: Prestamo[] = (rep?.rendimientosPositivos && rep.rendimientosPositivos.length > 0)
+          ? rep.rendimientosPositivos.map((rp) => ({
+              nombreFila: rp.mes,
+              valores: { rendimiento: rp.porcentaje },
+              valoresPrestamo: { rendimiento: rp.porcentaje },
+              colores: { rendimiento: '#000000' },
+            }))
+          : nombresMesesRendimiento.map((mes) => ({
+              nombreFila: mes,
+              valores: { rendimiento: 0 },
+              valoresPrestamo: { rendimiento: 0 },
+              colores: { rendimiento: '#000000' },
+            }));
 
         let tablaPrestamos: Prestamo[] = [];
         if (resLoans?.data && resLoans.data.length > 0) {
@@ -825,8 +837,15 @@ export class MovimientosStoreGoogle {
           ];
           const filaPrestado: Prestamo = { nombreFila: 'Prestado', valores: {}, valoresPrestamo: {}, colores: {} };
           for (const loan of loans) {
-            filaPrestado.valores[loan.nombre] = loan.capitalTomado;
-            filaPrestado.valoresPrestamo[loan.nombre] = loan.capitalTomado;
+            // Un préstamo solo computa como monto "Prestado" (capital otorgado) en este año si fue contraído/tomado en este año.
+            // Si el préstamo proviene de un año previo (loan.year < anio) o tiene cuotas en años anteriores,
+            // el capital pertenece a ese año anterior (ej. 2026), y en este año (ej. 2027) solo corresponde la deacumulación/pago de cuotas.
+            const tieneCuotasAnteriores = loan.installments?.some((i) => i.year < anio);
+            const esPrestamoTomadoEnEsteAnio = loan.year === anio && !tieneCuotasAnteriores;
+            const capital = esPrestamoTomadoEnEsteAnio ? (loan.capitalTomado || 0) : 0;
+
+            filaPrestado.valores[loan.nombre] = capital;
+            filaPrestado.valoresPrestamo[loan.nombre] = capital;
             filaPrestado.colores[loan.nombre] = '#000000';
           }
           const filasMeses: Prestamo[] = [];
@@ -1943,7 +1962,7 @@ export class MovimientosStoreGoogle {
     // 3. Consultar celda A2 desde Google Sheets o API
     if (this.appConfig.isSheetsActivo(anio)) {
       try {
-        const res = await firstValueFrom(
+        const res: any = await firstValueFrom(
           this.sheets.obtenerMensualAnio(anio, hoja, 'A2:A2'),
         );
         const fechaStr = res?.values?.[0]?.[0];

@@ -65,6 +65,168 @@
   }
 }
 
+/* =========================================================
+   BANNER GLOBAL REACTIVO DE RECORDATORIOS Y VENCIMIENTOS
+   ========================================================= */
+.reminder-global-banner {
+  color: #ffffff;
+  padding: 0.45rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.88rem;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  z-index: 999;
+  animation: slideDownBanner 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background 0.3s ease;
+
+  .banner-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    max-width: 1400px;
+    flex-wrap: wrap;
+
+    .reminder-left {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+
+      .pulse-icon {
+        font-size: 21px;
+        width: 21px;
+        height: 21px;
+        animation: pulseAlert 1.8s infinite ease-in-out;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+      }
+
+      .badge-tiempo {
+        background: rgba(255, 255, 255, 0.25);
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 0.75rem;
+        padding: 2px 8px;
+        border-radius: 12px;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        border: 1px solid rgba(255, 255, 255, 0.4);
+      }
+
+      .banner-text {
+        letter-spacing: 0.01em;
+
+        strong {
+          font-weight: 700;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+        }
+
+        .banner-sub {
+          opacity: 0.92;
+          font-weight: 400;
+        }
+      }
+    }
+
+    .reminder-right {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+
+      .reminder-nav {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        background: rgba(0, 0, 0, 0.15);
+        border-radius: 16px;
+        padding: 1px 6px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+
+        .btn-nav-reminder {
+          background: transparent;
+          border: none;
+          color: #ffffff;
+          cursor: pointer;
+          padding: 2px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          transition: background 0.15s ease;
+
+          mat-icon {
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
+          }
+
+          &:hover {
+            background: rgba(255, 255, 255, 0.25);
+          }
+        }
+
+        .nav-contador {
+          font-size: 0.72rem;
+          font-weight: 600;
+          padding: 0 4px;
+        }
+      }
+
+      .btn-ver-recordatorio {
+        background: rgba(255, 255, 255, 0.2);
+        color: #ffffff;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        padding: 0 10px;
+        height: 28px;
+        line-height: 28px;
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        transition: all 0.2s ease;
+
+        mat-icon {
+          font-size: 15px;
+          width: 15px;
+          height: 15px;
+          margin-right: 4px;
+        }
+
+        &:hover {
+          background: #ffffff;
+          color: #1e293b;
+        }
+      }
+
+      .btn-descartar-reminder {
+        background: transparent;
+        border: none;
+        color: rgba(255, 255, 255, 0.8);
+        cursor: pointer;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        transition: all 0.15s ease;
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+        }
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.2);
+          color: #ffffff;
+        }
+      }
+    }
+  }
+}
+
 @keyframes slideDownBanner {
   from {
     transform: translateY(-100%);

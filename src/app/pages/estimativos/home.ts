@@ -29,6 +29,7 @@ interface EstimativoRow {
   deudaReal: number;
   evento?: string | null;
   color?: string | null;
+  esAnual?: boolean;
   editando?: boolean;
 }
 

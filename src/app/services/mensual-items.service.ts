@@ -224,6 +224,7 @@ export class MensualItemsService {
     year: number;
     mes: number;
     entidad: string;
+    fechaVencimiento?: string;
     movements: Array<{
       fecha?: string;
       referencia: string;

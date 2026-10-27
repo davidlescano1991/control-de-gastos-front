@@ -339,6 +339,49 @@
         }
       }
 
+      .check-anual-box {
+        margin-top: 6px;
+        padding: 8px 10px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+
+        .checkbox-anual {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: #334155;
+          cursor: pointer;
+
+          input[type="checkbox"] {
+            cursor: pointer;
+            accent-color: #706cd6;
+            width: 15px;
+            height: 15px;
+          }
+
+          .icon-anual {
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
+            color: #706cd6;
+            margin-right: 0;
+          }
+        }
+
+        .anual-hint {
+          display: block;
+          font-size: 0.72rem;
+          color: #64748b;
+          margin-top: 4px;
+          margin-left: 22px;
+          line-height: 1.3;
+        }
+      }
+
       .paleta-colores-wrapper {
         display: flex;
         align-items: center;
@@ -658,6 +701,23 @@
         }
       }
     }
+
+      .check-anual-box {
+        background: #0f172a;
+        border-color: #334155;
+
+        .checkbox-anual {
+          color: #e2e8f0;
+
+          .icon-anual {
+            color: #a5b4fc;
+          }
+        }
+
+        .anual-hint {
+          color: #94a3b8;
+        }
+      }
 
     .propagar-check {
       background: #0f172a;

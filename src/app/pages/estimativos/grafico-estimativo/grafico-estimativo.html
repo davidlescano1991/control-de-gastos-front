@@ -2,27 +2,67 @@
 
 <div class="movimientos-wrapper" [class.is-collapsed]="isCollapsed()">
   <div class="card-header-wrapper">
+    <div class="header-title-box">
+      <div class="title-row">
+        <h3>Gráfico Estimativo {{ mesSeleccionado }}</h3>
+        <button
+          type="button"
+          class="btn-side-toggle"
+          (click)="onToggleHorizontalCollapse()"
+          [title]="isColDerechaContraida ? 'Expandir vista completa' : 'Contraer columna a la derecha'"
+        >
+          <mat-icon>{{ isColDerechaContraida ? 'chevron_left' : 'chevron_right' }}</mat-icon>
+        </button>
+      </div>
+
+      <!-- Selector de Series tipo Píldora (Moderno, igual que en Mensual) -->
+      <div class="tabs-serie-selector" *ngIf="!isCollapsed()">
+        <button
+          type="button"
+          class="btn-serie-tab"
+          [class.active]="serieActiva() === 'todas'"
+          (click)="cambiarSerie('todas')"
+          title="Ver todas las curvas: Saldos y Deudas"
+        >
+          <mat-icon>stacked_line_chart</mat-icon>
+          <span>General</span>
+        </button>
+        <button
+          type="button"
+          class="btn-serie-tab"
+          [class.active]="serieActiva() === 'saldos'"
+          (click)="cambiarSerie('saldos')"
+          title="Evolución de Saldo Real vs Saldo Estimado"
+        >
+          <mat-icon>account_balance_wallet</mat-icon>
+          <span>Saldos</span>
+        </button>
+        <button
+          type="button"
+          class="btn-serie-tab"
+          [class.active]="serieActiva() === 'deudas'"
+          (click)="cambiarSerie('deudas')"
+          title="Evolución de Deuda Real vs Deuda Estimada"
+        >
+          <mat-icon>trending_down</mat-icon>
+          <span>Deudas</span>
+        </button>
+      </div>
+    </div>
+
     <button
       type="button"
-      class="btn-header-action"
+      class="btn-collapse-card"
       [class.collapsed]="isCollapsed()"
       (click)="toggleCollapse()"
       [title]="isCollapsed() ? 'Expandir Gráfico Estimativo' : 'Contraer Gráfico Estimativo'"
     >
-      <mat-icon>{{ isCollapsed() ? 'expand_more' : 'expand_less' }}</mat-icon>
-    </button>
-
-    <h3>Gráfico Estimativo {{ mesSeleccionado }}</h3>
-
-    <button
-      type="button"
-      class="btn-header-action"
-      (click)="onToggleHorizontalCollapse()"
-      [title]="isColDerechaContraida ? 'Expandir vista' : 'Contraer horizontalmente a la derecha'"
-    >
-      <mat-icon>{{ isColDerechaContraida ? 'chevron_left' : 'chevron_right' }}</mat-icon>
+      <svg class="icon-triangle" viewBox="0 0 24 24" width="20" height="20">
+        <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" />
+      </svg>
     </button>
   </div>
+
   <ng-container *ngIf="!isCollapsed()">
     <div class="grafico-wrapper" *ngIf="!isCargando(); else cargando">
       <canvas baseChart [data]="chartData" [options]="chartOptions" [type]="'line'">
@@ -30,11 +70,15 @@
     </div>
 
     <ng-template #cargando>
-      <mat-spinner diameter="40"></mat-spinner>
+      <div class="spinner-box">
+        <mat-spinner diameter="40"></mat-spinner>
+      </div>
     </ng-template>
+
     <app-origen-datos [anio]="anioSeleccionado"></app-origen-datos>
   </ng-container>
 </div>
+
 
 
    

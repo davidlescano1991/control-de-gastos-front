@@ -11,6 +11,46 @@
     </div>
   </aside>
 
+  <!-- BANNERS GLOBALES REACTIVOS DE RECORDATORIOS Y VENCIMIENTOS (ORDENADOS POR PROXIMIDAD) -->
+  <aside
+    class="reminder-global-banner"
+    *ngFor="let rec of reminderService.recordatoriosVisibles()"
+    [style.background]="reminderService.obtenerGradiente(rec.color)"
+  >
+    <div class="banner-content">
+      <div class="reminder-left">
+        <mat-icon class="pulse-icon">{{ reminderService.obtenerIcono(rec) }}</mat-icon>
+        <span class="badge-tiempo">{{ rec.mensaje || rec.textoDias }}</span>
+        <span class="banner-text">
+          <strong>{{ rec.titulo }}</strong>
+          <span class="banner-sub"> ({{ rec.fecha }})</span>
+        </span>
+      </div>
+
+      <div class="reminder-right">
+        <!-- Botón de acción para ver en Estimativos o Mensual -->
+        <button
+          mat-button
+          class="btn-ver-recordatorio"
+          [routerLink]="rec.ruta || '/estimativo'"
+        >
+          <mat-icon>open_in_new</mat-icon>
+          <span>{{ rec.tipo === 'VENCIMIENTO' ? 'Ver en Mensual' : 'Ver en Estimativos' }}</span>
+        </button>
+
+        <!-- Botón para descartar el recordatorio en esta sesión -->
+        <button
+          type="button"
+          class="btn-descartar-reminder"
+          (click)="reminderService.descartar(rec.id)"
+          title="Descartar este aviso"
+        >
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    </div>
+  </aside>
+
   <mat-toolbar color="primary">
     <!-- Brand / Título -->
     <span class="titulo-toolbar" [routerLink]="authService.isAuthenticated() ? '/' : '/login'" title="Control de Gastos">

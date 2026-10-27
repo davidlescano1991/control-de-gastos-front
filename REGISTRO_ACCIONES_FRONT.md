@@ -19,6 +19,274 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-27 08:55] - Ciclo de Vida de Alertas: Restauración Automática en Recarga (F5) hasta su Vencimiento
+- **Problema / Solicitud**:
+  - Al cerrar o descartar un recordatorio desde el botón `✕`, el aviso quedaba guardado en `sessionStorage`, impidiendo que volviera a mostrarse si el usuario recargaba la página con F5.
+  - El usuario solicitó que al descartar una alerta permanezca oculta durante la navegación activa, pero al recargar la página (F5) vuelva a presentarse en pantalla hasta que efectivamente la fecha del evento o vencimiento haya expirado.
+- **Solución Técnica Aplicada**:
+  - En `ReminderService` (`src/app/services/reminder.service.ts`):
+    - Se eliminó la persistencia en `sessionStorage` (`guardarDescartadosSession` y `cargarDescartadosSession`).
+    - Se añadió limpieza defensiva de la clave en el constructor (`sessionStorage.removeItem('cdg_recordatorios_descartados')`).
+    - El estado de descartes (`descartados`) pasa a ser puramente reactivo y en memoria durante el ciclo de vida de la página: oculta la alerta en tiempo real en la navegación SPA, y al presionar F5 (recarga) el conjunto se reinicializa vacío, permitiendo que todas las alertas vigentes (hoy o próximos 3 días) reaparezcan hasta que su fecha se encuentre vencida.
+- **Validación de Compilación**:
+  - Frontend: `npx ng build --configuration development` (**Código 0, 0 errores, 0 advertencias**).
+- **Archivos Afectados**:
+  - `src/app/services/reminder.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-27 02:15] - Corrección de Fecha de Eventos en Recordatorios y Visualización Apilada Ordenada por Proximidad
+- **Problema Reportado**:
+  - En la vista de Estimativos, aparecía una alerta indicando un evento "En 2 días" con fecha 29/10/2026 correspondiente a *"Ultima liquidacion Kinetic"*, cuando en realidad dicho evento estaba asignado para el 5 de noviembre (fuera del rango de anticipación de 3 días).
+  - El evento real del día de hoy (*"Cumpleaños de Mauri"*, 27/10/2026) no se visualizaba.
+  - El usuario especificó además que ante la presencia de múltiples eventos, el que ocurra hoy o más cerca de hoy debe aparecer primero (arriba) y los otros más lejanos o antiguos abajo en orden cronológico.
+- **Causa Raíz**:
+  - En `estimate.service.ts` (`control-de-gastos-api`), la consulta de `daily_estimates` filtraba por `WHERE d.dia = $3` asumiendo que `d.dia` representaba el día calendario del mes (1..31). Sin embargo, en el modelo de datos `d.dia` es el número correlativo/secuencial del día dentro del ciclo presupuestario (1..32). En el ciclo de Octubre (8/10 al 8/11), el 5 de noviembre correspondía a la fila con correlativo `dia = 29`. Al evaluar el día 29 de octubre (offset = 2), la consulta `d.dia = 29` matcheó erróneamente el evento del 5 de noviembre. Asimismo, el 27 de octubre era la fila `dia = 20`, por lo que `d.dia = 27` no la encontró.
+  - En el Frontend (`app.html`), los avisos se mostraban mediante un carrusel unitario con navegación izquierda/derecha en lugar de mostrar los avisos apilados en franjas individuales con su color respectivo.
+- **Solución Técnica Aplicada**:
+  - **1. Corrección en Backend API (`control-de-gastos-api`)**:
+    - Se corrigió la consulta de `daily_estimates` para filtrar estrictamente por la fecha calendario real: `TO_CHAR(d.fecha, 'YYYY-MM-DD') = $1`.
+    - Se solucionó el error de casteo en `statement_due_dates` validando fecha de texto e ISO sin conflicto de tipos.
+    - Se corrigió `updateDailyReal` para persistir `"esAnual"` y sincronizar con `recurring_events`.
+    - Se ordenaron los recordatorios devueltos ascendentemente por `diasFaltantes` (0 = Hoy, 1 = Mañana, 2 = En 2 días, etc.).
+  - **2. Visualización Apilada en Frontend (`src/app/app.html`, `app.scss`, `reminder.service.ts`)**:
+    - Se cambió la directiva a `*ngFor="let rec of reminderService.recordatoriosVisibles()"` para renderizar cada recordatorio en su propia franja con su color de etiqueta degradado (`obtenerGradiente(rec.color)`), ordenados cronológicamente: el de hoy primero (arriba) y los siguientes abajo.
+    - Cada alerta dispone de su botón independiente de acción ("Ver en Estimativos" o "Ver en Mensual") y su botón de descarte individual (`✕`).
+- **Validación de Compilación**:
+  - Frontend: `npx ng build --configuration development` (**Código 0, 0 errores, 0 advertencias**).
+  - Backend: `npm run build` (**Código 0, 0 errores, 0 advertencias**).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/estimate.service.ts`
+  - `src/app/app.html`
+  - `src/app/app.scss`
+  - `src/app/services/reminder.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-27 01:55] - Eventos Recurrentes Anuales, Detección de Vencimientos de Resumen y Banner Global de Recordatorios
+- **Problema / Solicitud**:
+  - En la vista de Estimativos (`/estimativo`), se solicitó poder marcar eventos (ej. cumpleaños, aniversarios) con un checkbox para que se repitan automáticamente todos los años en esa misma fecha.
+  - Se solicitó un sistema de alertas/recordatorios visual similar al banner sin conexión (`.offline-global-banner`) pero para recordar estos eventos y las fechas de vencimiento de los resúmenes de tarjetas importados.
+  - Requisito estético crítico: el color del recordatorio DEBE tomar exactamente el color asignado a la etiqueta del evento/entidad, degradándose suavemente, con soporte para carrusel de navegación si hay múltiples avisos y botón para descartar en la sesión.
+  - Anticipación seleccionada: hasta 3 días previos (Hoy, Mañana, En 2 días, En 3 días).
+- **Solución Técnica Aplicada**:
+  - **1. Base de Datos y Backend API (`control-de-gastos-api`)**:
+    - Se agregó el campo `"esAnual"` a la tabla `daily_estimates` y se crearon las tablas `recurring_events` (clave única `(dia, mes)`) y `statement_due_dates` (clave única `(year, mes, entidad)`).
+    - En `estimate.service.ts`:
+      - `updateDailyReal`: sincroniza los eventos con `recurring_events` cuando `esAnual = true` (creando o actualizando el evento recurrente) o desactivándolo si se desmarca.
+      - `getMonthlyEstimate`: enriquece las filas del mes (tanto de Google Sheets como de PostgreSQL) con los eventos recurrentes anuales vigentes para esa fecha en todos los años.
+      - `getRecordatorios`: endpoint `GET /api/estimates/recordatorios` que consolida eventos recurrentes, eventos de estimativos y fechas de vencimiento de tarjetas con anticipación de 0 a 3 días.
+    - En `monthly-item.controller.ts` y `monthly-item.service.ts`: `importarResumenBatch` recibe opcionalmente `fechaVencimiento`, registrándola en `statement_due_dates` y etiquetando automáticamente el día en el estimativo.
+  - **2. Modal de Edición del Día (`src/app/pages/estimativos/modal-editar-dia`)**:
+    - Se añadió checkbox `.check-anual-box` ("Repetir anualmente este evento") con icono `event_repeat` y texto de ayuda dinámico indicando el día y mes ("Se mostrará automáticamente todos los años en esta misma fecha").
+    - Se sincronizó con `editEsAnual`, enviándolo en `estimatesService.updateDaily()`.
+  - **3. Indicador en Tabla de Estimativos (`src/app/pages/estimativos/mensual`)**:
+    - En `mensual.html` y `mensual.scss`, se añadió el icono animado `event_repeat` (`.icono-recurrente-anual`) junto al icono del evento cuando `fila.esAnual` es verdadero, con tooltip descriptivo.
+  - **4. Detección y Carga de Vencimiento en Resúmenes (`src/app/pages/importar-resumen`)**:
+    - Se agregó campo de texto "Vencimiento (opcional)" en el panel de sincronización con la base de datos.
+    - Se implementó auto-detección inteligente por regex en `parse()` a partir del texto pegado del resumen (patrones `Vto:`, `Vencimiento Actual:`, etc.).
+    - Se incluye `fechaVencimiento` en el payload de `importarResumenBatch()`.
+  - **5. Servicio Reactivo y Banner Global de Recordatorios (`ReminderService` y `AppComponent`)**:
+    - Se creó `ReminderService` (`src/app/services/reminder.service.ts`), que consulta los recordatorios activos, reacciona a eventos SSE `DATA_UPDATED`, gestiona el carrusel y persistencia de descartes en `sessionStorage`, y genera dinámicamente un gradiente armónico (`obtenerGradiente(hexColor)`) oscureciendo el color de la etiqueta.
+    - En `app.html` y `app.scss`, se implementó `.reminder-global-banner` con pulsación de icono, badge de tiempo ("¡Hoy!", "Mañana", "En 2 días"), título, paginación `X / Y`, botón de acceso directo a `/estimativo` y botón de descarte.
+- **Validación de Compilación**:
+  - Frontend: `npx ng build --configuration development` (**Código 0, 0 errores, 0 advertencias**).
+  - Backend: `npm run build` (**Código 0, 0 errores, 0 advertencias**).
+- **Archivos Afectados**:
+  - `src/app/services/reminder.service.ts` (nuevo)
+  - `src/app/services/estimates.service.ts`
+  - `src/app/services/mensual-items.service.ts`
+  - `src/app/models/estimativo.ts`
+  - `src/app/stores/movimiento.google.ts`
+  - `src/app/pages/estimativos/home.ts`
+  - `src/app/pages/estimativos/mensual/mensual.html`
+  - `src/app/pages/estimativos/mensual/mensual.scss`
+  - `src/app/pages/estimativos/modal-editar-dia/modal-editar-dia.ts`
+  - `src/app/pages/estimativos/modal-editar-dia/modal-editar-dia.html`
+  - `src/app/pages/estimativos/modal-editar-dia/modal-editar-dia.scss`
+  - `src/app/pages/importar-resumen/importar-resumen.component.ts`
+  - `src/app/pages/importar-resumen/importar-resumen.component.html`
+  - `src/app/pages/importar-resumen/importar-resumen.component.scss`
+  - `src/app/app.component.ts`
+  - `src/app/app.html`
+  - `src/app/app.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-26 18:35] - Cálculo Dinámico y en Tiempo Real de Rendimientos Positivos Mensuales para 2027 (Modo BD)
+- **Problema / Solicitud**:
+  - En la vista Anual (`/anual`) para el año 2027 (gestionado 100% en Base de Datos PostgreSQL, sin Google Sheets), la tabla **"Rendimientos positivos mensuales"** y el gráfico correspondiente mostraban el mensaje *"Sin datos disponibles para este año"*.
+  - El usuario requirió que dicha tabla y gráfico se generen dinámicamente y en tiempo real a partir de los datos guardados en la base de datos (ciclos y días configurados en Estimativos). Al no tener aún saldos reales cargados para los días de 2027, el rendimiento mensual debe reflejarse en `0.00%` con los 12 meses presentes, y actualizarse reactivamente conforme se carguen saldos reales.
+- **Causa Raíz**:
+  - En la API backend ([reportes.service.ts](file:///c:/Datos/David/Proyectos/Control_Gastos/control-de-gastos-api/src/services/reportes.service.ts)), `fetchAnalisisFromDatabase(year)` solo extraía los rendimientos de la plantilla local XLSX (`ws['O' + (17 + i)]`). Al no existir plantilla local para 2027, la variable `rendimientosRaw` quedaba vacía (`[]`) y la respuesta devolvía `rendimientosPositivos: undefined`.
+  - En el frontend ([movimiento.google.ts](file:///c:/Datos/David/Proyectos/Control_Gastos/control-de-gastos-front/src/app/stores/movimiento.google.ts)), `filasSecundarias` (`tablaSecundaria`) se asignaba vacía ante la ausencia de `rep.rendimientosPositivos`, provocando que la tabla y el gráfico se vaciaran mostrando *"Sin datos disponibles para este año"*.
+- **Solución Técnica Aplicada**:
+  - **1. Backend API (`control-de-gastos-api`)**:
+    - En [reportes.service.ts](file:///c:/Datos/David/Proyectos/Control_Gastos/control-de-gastos-api/src/services/reportes.service.ts):
+      - Si `rendimientosRaw` está vacío, se consultan en tiempo real las configuraciones mensuales (`MonthlyEstimateConfig`) y sus filas diarias (`DailyEstimateRow`).
+      - Para cada mes (1 al 12), si existen días con saldo real cargado (`real !== null && real !== undefined`), se calcula la tasa de días con rendimiento positivo ($\text{real} - \text{saldoPesos} > 0$) sobre el total de días del ciclo:
+        $$\text{rendimiento} = \frac{\text{días con } (\text{real} - \text{saldoPesos} > 0)}{\text{total días del mes}}$$
+      - Si el mes está registrado en Estimativos pero aún no tiene saldos reales cargados (caso 2027 actual), el rendimiento se establece de forma limpia en `0` (ratio `0.000000`).
+      - Si no hay configuración de estimativo, busca fallback en `annual_summaries`.
+      - Se implementó el método `invalidateCache(year)` en `ReportesService` para purgar cachés en memoria del análisis anual y saldos ante cualquier cambio.
+    - En [estimate.service.ts](file:///c:/Datos/David/Proyectos/Control_Gastos/control-de-gastos-api/src/services/estimate.service.ts):
+      - Se invocó `reportesService.invalidateCache(updated.config.year)` al actualizar saldos reales diarios (`updateDailyReal`) y al guardar configs mensuales, garantizando reactividad instantánea con el canal SSE.
+  - **2. Frontend Store y Componentes (`control-de-gastos-front` y `1.0`)**:
+    - En [movimiento.google.ts](file:///c:/Datos/David/Proyectos/Control_Gastos/control-de-gastos-front/src/app/stores/movimiento.google.ts):
+      - Se aseguró que `filasSecundarias` popule los 12 meses (con los valores calculados de la API o con fallback de 12 meses en `0` si estuviera vacío), activando la categoría `'rendimiento'`.
+    - En [grafico-rendimientos-positivos-mensuales.ts](file:///c:/Datos/David/Proyectos/Control_Gastos/control-de-gastos-front/src/app/pages/anual/grafico-rendimientos-positivos-mensuales/grafico-rendimientos-positivos-mensuales.ts):
+      - Robustecida la lectura de datos mediante fallback entre `datosAnuales` y el store.
+      - Extraída la categoría dinámica `'rendimiento'` directamente de las filas si la señal computada aún no estuviese resuelta.
+      - Excluida la línea de 'Tendencia' de los tooltips del gráfico para no interferir con la visibilidad del usuario.
+      - Agregada escala Y con `suggestedMax: 100` y formateador de ticks con sufijo `%`.
+  - **3. Sincronización**:
+    - Cambios sincronizados con `1.0/Front_Control_Gastos/control-gastos-front`.
+- **Validación de Compilación**:
+  - `control-de-gastos-api`: `npm run build` (**Código 0**).
+  - `control-de-gastos-front`: `npx ng build --configuration development` (**Código 0, CERO errores y CERO advertencias**).
+  - `1.0 control-gastos-front`: `npx ng build --configuration development` (**Código 0, CERO errores y CERO advertencias**).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - `control-de-gastos-api/src/services/estimate.service.ts`
+  - `control-de-gastos-front/src/app/stores/movimiento.google.ts`
+  - `control-de-gastos-front/src/app/pages/anual/grafico-rendimientos-positivos-mensuales/grafico-rendimientos-positivos-mensuales.ts`
+  - `1.0/Front_Control_Gastos/control-gastos-front/**` (archivos sincronizados)
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-26 18:15] - Lógica de Fila 'Prestado' y Total Otorgado para Cuotas Desacumuladas de Años Anteriores
+- **Problema / Solicitud**:
+  - En la tabla de préstamos anuales (ej. para 2027), al deacumular y arrastrar cuotas de préstamos originados en Google Sheets (ej. 2026), la fila de "Prestado" y el KPI "Total Otorgado" repetían el capital tomado ($ 1.050.000,00).
+  - El usuario aclaró con total exactitud que dicho dinero fue otorgado y tomado en el año anterior (2026), por lo que en 2027 solo se está pagando la deuda remanente. Por ende, en 2027 la fila "Prestado" para esos préstamos debe ser cero (o guion), y únicamente computar monto prestado si se trata de un préstamo efectivamente contraído en 2027 (con cuotas que inician en ese año).
+- **Solución Técnica Aplicada**:
+  - En [movimiento.google.ts](file:///c:/Datos/David/Proyectos/Control_Gastos/control-de-gastos-front/src/app/stores/movimiento.google.ts), se actualizó la construcción de `filaPrestado` en modo Base de Datos:
+    - Se verifica si el préstamo tiene cuotas en años anteriores (`loan.installments.some(i => i.year < anio)`) o fue tomado en un año previo (`loan.year < anio`).
+    - Si proviene de arrastre/sincronismo de año previo, su monto "Prestado" en este año se asigna estrictamente en `0`.
+    - Si el préstamo fue efectivamente tomado en este año (`loan.year === anio && !tieneCuotasAnteriores`), se asigna su `capitalTomado`.
+  - En [tabla-prestamos.ts](file:///c:/Datos/David/Proyectos/Control_Gastos/control-de-gastos-front/src/app/pages/anual/tabla-prestamos/tabla-prestamos.ts), el getter `valorOtorgado` ahora retorna la suma exacta de la primera fila (`filaPrestado`) sin recurrir indebidamente a cachés de años anteriores si el resultado es 0.
+  - En [tabla-prestamos.html](file:///c:/Datos/David/Proyectos/Control_Gastos/control-de-gastos-front/src/app/pages/anual/tabla-prestamos/tabla-prestamos.html), las celdas de la fila `Prestado`, la celda total y el contador de préstamos muestran limpiamente `-` y `0` cuando el valor es 0.
+  - En backend API ([loan.service.ts](file:///c:/Datos/David/Proyectos/Control_Gastos/control-de-gastos-api/src/services/loan.service.ts)), se incorporó fallback inteligente en `syncLoansFromSheet` para que, si se dispara en un año en modo base de datos (como 2027), sincronice y desacumule automáticamente desde la última hoja activa de Google Sheets (2026).
+  - Cambios sincronizados íntegramente con `1.0 control-gastos-front`.
+- **Validación de Compilación**:
+  - `control-de-gastos-api`: `npm run build` completado con éxito (**Código 0**).
+  - `control-de-gastos-front`: `npx ng build --configuration development` completado con éxito (**Código 0, CERO errores y CERO advertencias**).
+  - `1.0 control-gastos-front`: `npx ng build --configuration development` completado con éxito (**Código 0, CERO errores y CERO advertencias**).
+- **Archivos Afectados**:
+  - `control-de-gastos-front/src/app/stores/movimiento.google.ts`
+  - `control-de-gastos-front/src/app/pages/anual/tabla-prestamos/tabla-prestamos.ts`
+  - `control-de-gastos-front/src/app/pages/anual/tabla-prestamos/tabla-prestamos.html`
+  - `control-de-gastos-api/src/services/loan.service.ts`
+  - `1.0/Front_Control_Gastos/control-gastos-front/**` (archivos sincronizados)
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-26 16:35] - Carga y Gestión de Ingresos Netos Anuales (Sueldo) en Base de Datos y Tabla Anual
+- **Problema / Solicitud**:
+  - Al dejar de utilizar hojas de cálculo de Google Sheets en años futuros (ej. 2027) o en modo migrado a base de datos, el usuario no disponía de un mecanismo en el sistema para ingresar su sueldo / ingreso neto mensual.
+  - Esto causaba que la `Tabla de Ingreso Neto` y el `Gráfico Histórico de Ingreso Neto` cayeran a $0 en 2027.
+  - Adicionalmente, en la vista `/hojas`, al presionar el ícono del lápiz para editar una hoja, la pantalla no se desplazaba hacia el formulario superior.
+- **Solución Técnica Aplicada**:
+  - **Backend API (`control-de-gastos-api`)**:
+    - Agregados los endpoints `GET /api/reportes/ingresos-netos?year=YYYY` y `PUT /api/reportes/ingresos-netos` en `reportes.routes.ts`, `reportes.controller.ts` y `reportes.service.ts`.
+    - Persistencia en PostgreSQL mediante `prisma.annualSummary.upsert` por cada mes (1 al 12), invalidando la memoria caché de reportes anuales.
+    - Actualizado `fetchAnalisisFromDatabase(year)` para que, ante la ausencia de plantilla XLSX local, recupere los ingresos registrados en `annual_summaries` y calcule saldos/gastos mediante movimientos e ítems mensuales de Prisma.
+  - **Frontend (`control-de-gastos-front` y `1.0`)**:
+    - Creado el componente standalone `ModalCargarIngresoNetoComponent` (`modal-cargar-ingreso-neto.component.ts`, `.html`, `.scss`):
+      - Selector de año con chips dinámicos e indicadores de origen (BD / Sheets).
+      - Grilla de los 12 meses con campos numéricos formateados en ARS.
+      - Botón inteligente **"Copiar al resto"** en cada mes para propagar incrementos salariales a los meses restantes del año con un solo clic.
+      - Tarjeta de métricas con el **Total Anual** y el **Promedio Mensual** en tiempo real.
+      - Botón de guardado con feedback visual que impacta en PostgreSQL y actualiza la caché local.
+    - En `TablaIngresoNeto` (`tabla-ingreso-neto.html` y `.scss`), se incorporó el botón **"Cargar Ingresos"** con ícono `edit_calendar` en el encabezado.
+    - En `anual.ts` y `anual.html`, se conectó el modal y se configuró la recarga reactiva de `calcularIngresoNetoParaAnio` y `cargarHistoricoIngresoNetoCompleto(true)`.
+    - **Corrección de Runtime NG0303**: En la plantilla de `anual.html` se migró a la directiva nativa `@if (modalCargarIngresoVisible())` y se importó `CommonModule` en `Anual`, resolviendo el bloqueo en el navegador al hacer clic en el botón.
+    - En `hojas.ts`, se solucionó el scroll suave hacia `.form-container` al hacer clic en editar una hoja.
+- **Validación de Compilación**:
+  - `control-de-gastos-api`: `npm run build` completado con éxito (**Código 0**).
+  - `control-de-gastos-front`: `npx ng build --configuration development` completado con éxito (**Código 0, CERO errores y CERO advertencias**).
+  - `1.0 control-gastos-front`: `npx ng build --configuration development` completado con éxito (**Código 0, CERO errores y CERO advertencias**).
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/routes/reportes.routes.ts`
+  - `control-de-gastos-api/src/controllers/reportes.controller.ts`
+  - `control-de-gastos-api/src/services/reportes.service.ts`
+  - `control-de-gastos-front/src/app/services/reportes.service.ts`
+  - `control-de-gastos-front/src/app/pages/anual/modal-cargar-ingreso-neto/`
+  - `control-de-gastos-front/src/app/pages/anual/tabla-ingreso-neto/tabla-ingreso-neto.ts`
+  - `control-de-gastos-front/src/app/pages/anual/tabla-ingreso-neto/tabla-ingreso-neto.html`
+  - `control-de-gastos-front/src/app/pages/anual/tabla-ingreso-neto/tabla-ingreso-neto.scss`
+  - `control-de-gastos-front/src/app/pages/anual/anual/anual.ts`
+  - `control-de-gastos-front/src/app/pages/anual/anual/anual.html`
+  - `control-de-gastos-front/src/app/pages/hojas/hojas.ts`
+  - `1.0/Front_Control_Gastos/control-gastos-front/**` (archivos sincronizados)
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-26 15:35] - Exclusión de Líneas de Tendencia en los Tooltips de Gráficos de Estimativos
+- **Problema / Solicitud**:
+  - En los tooltips flotantes de `Gráfico Estimativo` y `Gráfico Histórico Estimativo`, figuraban las líneas de regresión lineal ("Tendencia Real" y "Tendencia Deuda"). Al ser líneas estadísticas de referencia y no datos reales puntuales, sobrecargaban la ventana emergente y dificultaban la lectura de los saldos y deudas del día.
+- **Solución Técnica Aplicada**:
+  - En `grafico-estimativo.ts` y `grafico-historico.ts`, se incorporó la función de filtrado nativo `filter: (tooltipItem) => !tooltipItem?.dataset?.label?.toLowerCase().includes('tendencia')` en `chartOptions.plugins.tooltip`.
+  - Los tooltips ahora muestran exclusivamente las series esenciales:
+    - **Saldo Real** (azul `#2196f3`)
+    - **Saldo Estimado** (morado `#ab01d5ff`)
+    - **Deuda Real** (rojo `#ef4444`)
+    - **Deuda Estimada** (naranja/rosa `#f97316`)
+  - Cambios sincronizados con el frontend original 1.0.
+- **Validación de Compilación**:
+  - `control-de-gastos-front`: `npx ng build --configuration development` completado con éxito (**Código 0, CERO errores y CERO advertencias**).
+  - `1.0 control-gastos-front`: `npx ng build --configuration development` completado con éxito (**Código 0, CERO errores y CERO advertencias**).
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/grafico-estimativo/grafico-estimativo.ts`
+  - `src/app/pages/estimativos/grafico-historico/grafico-historico.ts`
+  - `1.0/Front_Control_Gastos/control-gastos-front/**` (archivos sincronizados)
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-26 15:25] - Ajuste Fino en Gráficos de Estimativos: Saldo Real en Azul Clásico y Restauración de Fluidez Continua en Histórico
+- **Problema / Solicitud**:
+  - En el `Gráfico Estimativo` del mes, el usuario solicitó que la curva de **Saldo Real** conserve su color azul original (`#2196f3`) en lugar de morado.
+  - En el `Gráfico Histórico Estimativo`, las pestañas selectoras y los sombreados de área provocaban cortes verticales y apariencia rígida a lo largo de los 5 años (2022 a 2027).
+- **Solución Técnica Aplicada**:
+  - **`GraficoEstimativo`**:
+    - Restaurado el color de la curva y los puntos de `Saldo Real` al azul original `#2196f3` (con halo blanco y picos destacados en `#10b981` verde y `#ef4444` rojo).
+    - `Saldo Estimado` se mantiene en su morado característico (`#ab01d5ff`) para un contraste perfecto y limpio.
+    - Sombreado de área translúcida en modo saldos ajustado a azul celeste muy suave (`rgba(33, 150, 243, 0.12)`).
+  - **`GraficoHistorico`**:
+    - Removidas las pestañas de series y cualquier sombreado de relleno (`fill: false`).
+    - Habilitado `spanGaps: true` para que todas las líneas fluyan de manera continua y limpia entre meses y años sin cortes verticales falsos.
+    - Conservadas las bandas anuales de fondo (`yearBackgroundPlugin`), los tooltips oscuros modernos formateados en ARS, y las escalas numéricas compactas (`M` / `k`).
+  - **Sincronización Total con Frontend 1.0**:
+    - Replicados al 100% los componentes en `C:\Datos\David\Proyectos\Control_Gastos\1.0\Front_Control_Gastos\control-gastos-front`.
+- **Validación de Compilación**:
+  - `control-de-gastos-front`: `npx ng build --configuration development` completado con éxito (**Código 0, CERO errores y CERO advertencias**).
+  - `1.0 control-gastos-front`: `npx ng build --configuration development` completado con éxito (**Código 0, CERO errores y CERO advertencias**).
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/grafico-estimativo/grafico-estimativo.ts`
+  - `src/app/pages/estimativos/grafico-historico/grafico-historico.html`
+  - `src/app/pages/estimativos/grafico-historico/grafico-historico.scss`
+  - `src/app/pages/estimativos/grafico-historico/grafico-historico.ts`
+  - `1.0/Front_Control_Gastos/control-gastos-front/**` (archivos sincronizados)
+  - `REGISTRO_ACCIONES_FRONT.md`
+  - `src/app/pages/estimativos/grafico-estimativo/grafico-estimativo.html`
+  - `src/app/pages/estimativos/grafico-estimativo/grafico-estimativo.scss`
+  - `src/app/pages/estimativos/grafico-estimativo/grafico-estimativo.ts`
+  - `src/app/pages/estimativos/grafico-historico/grafico-historico.html`
+  - `src/app/pages/estimativos/grafico-historico/grafico-historico.scss`
+  - `src/app/pages/estimativos/grafico-historico/grafico-historico.ts`
+  - `1.0/Front_Control_Gastos/control-gastos-front/**` (archivos sincronizados)
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-26 14:55] - Configuración de Facturación Basada en Solicitudes (`cpu_idle = true`) en Terraform de Infraestructura
+- **Problema / Solicitud**:
+  - En la consola de Google Cloud Run (`control-gastos-api`), la facturación estaba configurada previamente como "Basada en instancias" (`cpu_idle = false`), lo cual cobraba continuamente por el ciclo de vida de la instancia incluso cuando no procesaba tráfico ni peticiones activas.
+  - El usuario cambió manualmente la opción a **"Basada en solicitudes"** (CPU limitada fuera de solicitudes, cobro exclusivo durante el procesamiento de requests) y solicitó reflejar y sincronizar de forma permanente esta configuración en el código de infraestructura de Terraform.
+- **Solución Técnica Aplicada**:
+  - **`control-de-gastos-infra/cloud_run.tf`**:
+    - Se agregó explícitamente `cpu_idle = true` dentro del bloque `resources` del recurso `google_cloud_run_v2_service.api_service.template.containers`.
+    - Esto asegura que en futuros despliegues o ejecuciones de `terraform apply` no se revierta la configuración a facturación por instancia, garantizando costo $0 estricto en reposo y throttling de CPU fuera de solicitudes.
+  - **Validación con Terraform CLI**:
+    - Ejecutado `terraform validate` en `control-de-gastos-infra`: resultado exitoso (`Success! The configuration is valid`).
+    - Ejecutado `terraform fmt` para conservar el estilo HCL estándar.
+  - **Documentación**:
+    - Actualizado `PLAN_MIGRACION_CLOUD_API.md` (subpaso 5.2.0.8) documentando la directiva `cpu_idle = true`.
+- **Archivos Afectados**:
+  - `control-de-gastos-infra/cloud_run.tf`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-10-26 14:00] - Desacumulación Inteligente y Distribución Multianual de Cuotas de Préstamos (2026 / 2027)
 - **Problema / Solicitud**:
   - En la vista anual (`/anual`), la tabla de préstamos para el año 2026 incluía filas para "enero 2027" y "febrero 2027".

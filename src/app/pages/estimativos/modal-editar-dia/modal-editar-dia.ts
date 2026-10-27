@@ -41,6 +41,7 @@ export class ModalEditarDiaComponent {
 
       this.editEvento.set(val.evento || '');
       this.editColor.set(val.color || '');
+      this.editEsAnual = Boolean(val.esAnual);
 
       this.editPropagarDeuda = true;
       this.montoPrestamoStr = '';
@@ -60,6 +61,7 @@ export class ModalEditarDiaComponent {
   editSaldoPesosStr = '';
   editDeudaStr = '';
   editPropagarDeuda = true;
+  editEsAnual = false;
   montoPrestamoStr = '';
   mostrarInputPrestamo = false;
   guardando = signal(false);
@@ -171,6 +173,7 @@ export class ModalEditarDiaComponent {
             deuda: this.evaluarExpresion(this.editDeudaStr).valor,
             evento: this.editEvento().trim() || null,
             color: this.editColor().trim() || null,
+            esAnual: this.editEsAnual,
             propagarDeuda: this.editPropagarDeuda,
             fecha: this.fila.fecha,
           })
@@ -185,6 +188,7 @@ export class ModalEditarDiaComponent {
           deuda: this.evaluarExpresion(this.editDeudaStr).valor,
           evento: this.editEvento().trim() || null,
           color: this.editColor().trim() || null,
+          esAnual: this.editEsAnual,
         });
       } else {
         this.snackbar.open('ℹ️ Registro sincronizado en la Base de Datos.', 'Cerrar', { duration: 3000 });
@@ -196,6 +200,22 @@ export class ModalEditarDiaComponent {
     } finally {
       this.guardando.set(false);
     }
+  }
+
+  obtenerDiaYMesTexto(): string {
+    if (!this.fila?.fecha) return '';
+    const partes = String(this.fila.fecha).split(/[\/-]/);
+    if (partes.length === 3) {
+      const dia = parseInt(partes[0], 10);
+      const mesNum = parseInt(partes[1], 10);
+      const meses = [
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+      ];
+      const mesNombre = meses[mesNum - 1] || partes[1];
+      return `${dia} de ${mesNombre}`;
+    }
+    return this.fila.fecha;
   }
 
   evaluarExpresion(input: string | number | null | undefined): EvaluacionFormula {

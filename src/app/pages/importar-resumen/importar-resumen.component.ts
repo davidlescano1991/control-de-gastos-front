@@ -85,6 +85,7 @@ export class ImportarResumenComponent implements OnInit {
   });
 
   // Estados de carga y modales de feedback
+  fechaVencimiento = signal<string>('');
   isImportando = signal<boolean>(false);
   modalResultadoVisible = signal<boolean>(false);
   resultadoImportacion = signal<any | null>(null);
@@ -205,12 +206,19 @@ export class ImportarResumenComponent implements OnInit {
     );
 
     this.movimientos = this.normalizeMovements(rawMovements);
+
+    // Auto-detección inteligente de fecha de vencimiento del resumen (ej: "Vto: 10/11/2026", "Vencimiento Actual: 08/11/26")
+    const matchVto = txt.match(/(?:fecha\s+de\s+vencimiento|vencimiento\s+actual|vencimiento|vto\.?)\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i);
+    if (matchVto && matchVto[1]) {
+      this.fechaVencimiento.set(matchVto[1].trim());
+    }
   }
 
   clear(): void {
     this.inputCtrl.setValue('');
     this.textBuffer[this.getBufferKey()] = '';
     this.movimientos = [];
+    this.fechaVencimiento.set('');
   }
 
   private normalizeMovements(list: Movement[]): Movement[] {
@@ -282,6 +290,7 @@ export class ImportarResumenComponent implements OnInit {
         year: Number(this.selectedYear),
         mes: Number(this.selectedMonth),
         entidad: this.selectedEntidadDestino(),
+        fechaVencimiento: this.fechaVencimiento().trim() || undefined,
         movements: this.movimientos,
       })
       .subscribe({

@@ -8,7 +8,18 @@
         <tr>
           <th colspan="100" class="header-ingreso-neto">
             <div class="card-header-wrapper" style="margin-bottom: 0;">
-              <span>Ingreso Neto</span>
+              <div class="header-title-group">
+                <span>Ingreso Neto</span>
+                <button
+                  type="button"
+                  class="btn-cargar-ingresos-header"
+                  (click)="abrirModalCarga(); $event.stopPropagation()"
+                  [title]="'Cargar o editar ingresos para el año ' + anioSeleccionado"
+                >
+                  <mat-icon class="icon-btn-edit">edit_calendar</mat-icon>
+                  <span>Cargar Ingresos</span>
+                </button>
+              </div>
               <button
                 type="button"
                 class="btn-collapse-card"
