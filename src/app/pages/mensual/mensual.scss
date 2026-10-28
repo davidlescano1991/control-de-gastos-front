@@ -614,3 +614,260 @@ app-bancor {
   background: rgba(30, 41, 59, 0.75);
   border: 1px solid rgba(51, 65, 85, 0.8);
 }
+
+/* ==========================================================================
+   🗑️ MODAL DE CONFIRMACIÓN DE BAJA DE ENTIDAD
+   ========================================================================== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999 !important;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.modal-card {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 540px;
+  max-height: 90vh;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-baja-entidad {
+  padding: 24px !important;
+
+  .modal-baja-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 18px;
+
+    .icono-peligro-circulo {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(239, 68, 68, 0.12);
+      color: #ef4444;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+
+      mat-icon {
+        font-size: 26px;
+        width: 26px;
+        height: 26px;
+      }
+    }
+
+    .modal-baja-title {
+      margin: 0 0 4px 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .subtitulo-baja {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+  }
+
+  .reglas-integridad-box {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px;
+
+    .regla-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.85rem;
+      line-height: 1.4;
+
+      mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+      }
+
+      &.regla-verde {
+        color: #15803d;
+        mat-icon { color: #16a34a; }
+      }
+
+      &.regla-roja {
+        color: #b91c1c;
+        mat-icon { color: #dc2626; }
+      }
+    }
+  }
+
+  .alert-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 0.88rem;
+
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    &.error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #b91c1c;
+      mat-icon { color: #dc2626; }
+    }
+
+    &.success {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #15803d;
+      mat-icon { color: #16a34a; }
+    }
+  }
+
+  .modal-baja-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 10px;
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    }
+
+    .btn-secondary {
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #cbd5e1;
+
+      &:hover:not(:disabled) {
+        background: #e2e8f0;
+        color: #1e293b;
+      }
+    }
+
+    .btn-warning-solid {
+      background: #ea580c;
+      color: #ffffff;
+
+      &:hover:not(:disabled) {
+        background: #c2410c;
+      }
+    }
+
+    .btn-danger-solid {
+      background: #dc2626;
+      color: #ffffff;
+
+      &:hover:not(:disabled) {
+        background: #b91c1c;
+      }
+    }
+  }
+}
+
+:host-context(.dark-theme) .modal-card,
+:host-context([data-theme='dark']) .modal-card,
+body.dark-mode .modal-card {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+
+  .modal-baja-header .modal-baja-title {
+    color: #f1f5f9;
+  }
+
+  .modal-baja-header .subtitulo-baja {
+    color: #94a3b8;
+  }
+
+  .reglas-integridad-box {
+    background: #0f172a;
+    border-color: #334155;
+
+    .regla-item.regla-verde {
+      color: #86efac;
+      mat-icon { color: #4ade80; }
+    }
+
+    .regla-item.regla-roja {
+      color: #fca5a5;
+      mat-icon { color: #f87171; }
+    }
+  }
+
+  .modal-baja-actions {
+    .btn-secondary {
+      background: #334155;
+      color: #e2e8f0;
+      border-color: #475569;
+
+      &:hover:not(:disabled) {
+        background: #475569;
+      }
+    }
+  }
+}

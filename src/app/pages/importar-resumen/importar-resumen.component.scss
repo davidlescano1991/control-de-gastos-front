@@ -521,6 +521,16 @@
           font-size: 0.75rem;
           font-weight: 600;
           color: #64748b;
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+
+          .label-mini-icon {
+            font-size: 14px;
+            width: 14px;
+            height: 14px;
+            color: #706cd6;
+          }
         }
 
         select,
@@ -847,6 +857,16 @@
           font-size: 0.84rem;
           font-weight: 600;
           color: #4b5896;
+
+          &.chip-vto {
+            background: #ecfdf5;
+            border-color: #a7f3d0;
+            color: #065f46;
+
+            mat-icon {
+              color: #10b981;
+            }
+          }
 
           mat-icon {
             font-size: 16px;

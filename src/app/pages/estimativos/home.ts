@@ -131,7 +131,7 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   }
 
   isMobile = false;
-  sidebarCollapsed = signal(false);
+  sidebarCollapsed = signal(true);
 
   colIzquierdaContraida = signal(false);
   colDerechaContraida = signal(false);

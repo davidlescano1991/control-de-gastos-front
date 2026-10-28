@@ -207,8 +207,8 @@ export class ImportarResumenComponent implements OnInit {
 
     this.movimientos = this.normalizeMovements(rawMovements);
 
-    // Auto-detección inteligente de fecha de vencimiento del resumen (ej: "Vto: 10/11/2026", "Vencimiento Actual: 08/11/26")
-    const matchVto = txt.match(/(?:fecha\s+de\s+vencimiento|vencimiento\s+actual|vencimiento|vto\.?)\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i);
+    // Auto-detección inteligente de fecha de vencimiento del resumen (ej: "Vto: 10/11/2026", "Vencimiento Actual: 08/11/26", "Vence: 10-11-2026")
+    const matchVto = txt.match(/(?:fecha\s+de\s+vencimiento|vencimiento\s+actual|vto\.?\s+actual|vencimiento|vto\.?|vence)\s*[:\-]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
     if (matchVto && matchVto[1]) {
       this.fechaVencimiento.set(matchVto[1].trim());
     }

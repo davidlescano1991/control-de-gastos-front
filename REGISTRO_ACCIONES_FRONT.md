@@ -19,6 +19,159 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-10-27 21:50] - Corrección de Chips Duplicados de Entidades (Mercado Libre y Otros) en Modal Cargar Ítem
+- **Problema / Solicitud**:
+  - En la vista Mensual, al abrir el modal "Cargar Ítem o Cuota Mensual", aparecían chips duplicados de "Mercado Libre" (`Mercado Libre` y `Mercado Libre / Pago`) y de "Otros" (`Otros` y `Otros (Servicios / Gastos)`).
+- **Causa Raíz**:
+  - En `modal-cargar-item.ts`, `entidadesFallback` utilizaba los nombres extendidos `'Mercado Libre / Pago'` y `'Otros (Servicios / Gastos)'`.
+  - Al consultar las entidades de la base de datos vía `getEntidadesVigentes(y, m)`, la API devolvía los nombres estándar `'Mercado Libre'` y `'Otros'`.
+  - La verificación de existencia previa (`this.normalizar(item.nombre) === this.normalizar(base.nombre)`) no detectaba la coincidencia por diferencia de texto exacto, provocando que se agregara tanto la entidad de la BD como la de fallback.
+- **Solución Técnica Aplicada**:
+  - Se unificó `entidadesFallback` con los nombres estándar y canónicos: `id: 'Mercado Libre', nombre: 'Mercado Libre'` y `id: 'Otros', nombre: 'Otros'`.
+  - Se implementó la función de normalización canónica `canonicalName(nombreOrId)` que mapea alias históricos (`mercado`, `mpago`, `otros`, `visa`, `master`, `naranja`, `bancor`).
+  - En `cargarEntidadesVigentes()`, se introdujo un `Set<string>` canónico que garantiza deduplicación absoluta de las 6 entidades base del sistema preservando sus logos y colores oficiales, e incluyendo sin colisiones las entidades personalizadas creadas dinámicamente.
+- **Validación de Compilación**:
+  - Frontend: `npx ng build --configuration development` (**Código 0, CERO errores y CERO advertencias**).
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+
+### [2026-10-27 21:20] - Sincronización Automática de Cuotas hacia 2027 y Preservación de Fórmulas Aritméticas
+- **Problema / Solicitud**:
+  - Al agregar cuotas nuevas en Google Sheets (ej: cuotas en curso como `4/6` en Diciembre 2026 o en pestañas 2027) que alcanzan el año 2027, las cuotas futuras no se propagaban ni sincronizaban automáticamente a la base de datos (PostgreSQL), quedando desfasadas.
+  - El usuario solicitó que la sincronización valide previamente si el concepto ya existe en la BD o si el monto/fórmula es diferente (en cuyo caso debe actualizarse), preservando siempre la función/fórmula original que proviene de Google Sheets (`=x+y+z`).
+  - Adicionalmente, el frontend había quedado con un error de compilación en el overlay (`TS2551: Property 'entidades' does not exist on type 'ModalCargarItemComponent'`).
+- **Causa Raíz**:
+  - En el backend (`monthly-item.service.ts`), la propagación automática de cuotas estaba condicionada exclusivamente a `cuotaInfo.cuotaActual === 1`. Cualquier cuota que comenzara en un número superior (por ejemplo `4/6`) no se propagaba a los meses o años posteriores.
+  - En el frontend (`sync-mensual-sheets-db.service.ts`), solo se almacenaban los nombres de conceptos en un `Set<string>` y si el concepto ya existía, se omitía silenciosamente sin comparar montos ni fórmulas.
+  - En `modal-cargar-item.ts`, faltaba la señal `entidades` y la función `normalizar` tras una edición previa.
+- **Solución Técnica Aplicada**:
+  - **1. Frontend (`modal-cargar-item.ts`)**:
+    - Se restituyó la señal `entidades = signal<EntidadOption[]>(this.entidadesFallback);` y el helper `normalizar()`, resolviendo completamente el error del compilador.
+  - **2. Backend API (`monthly-item.service.ts`)**:
+    - Se refactorizó `createItem`: ahora soporta la propagación de cuotas secuenciales comenzando desde cualquier `cuotaActual` (`c = cuotaInicio; c <= totalCuotas`), calculando automáticamente los saltos de año (`targetYear = year + Math.floor(...)`).
+    - Para cada cuota futura, se invoca `asegurarEntidadVigente`, se valida si el registro ya existe en PostgreSQL y si el monto o fórmula difiere, actualizándolo con precisión y emitiendo notificaciones SSE en tiempo real.
+  - **3. Frontend (`sync-mensual-sheets-db.service.ts` y `mensual.ts`)**:
+    - Se actualizó `SyncMensualSheetsDbService` mapeando los ítems existentes en la BD con `Map<string, MonthlyItem>`.
+    - Si el ítem ya existe en la BD pero su monto (`Math.abs(montoBD - montoSheets) > 0.01`) o fórmula (`formulaBD !== rawValor`) difiere, se ejecuta `updateItem()` conservando la fórmula intacta.
+    - Si no existe, se ejecuta `createItem()` con `autoPropagarCuotas: true` y la fórmula aritmética original.
+    - En `mensual.ts`, se incorporó la sincronización en segundo plano para 2027 al detectar pestañas existentes en Google Sheets.
+- **Validación de Compilación**:
+  - Frontend: `npx ng build --configuration development` (**Código 0, CERO errores y CERO advertencias**).
+  - Backend: `npm run build` (**Código 0, CERO errores y CERO advertencias**).
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.ts`
+  - `src/app/services/sync-mensual-sheets-db.service.ts`
+  - `src/app/pages/mensual/mensual.ts`
+  - `control-de-gastos-api/src/services/monthly-item.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+
+### [2026-10-27 20:10] - Disponibilidad Permanente de Chips Base, Vaciar Ítems del Mes y Precarga Actualizada (Mercado Libre)
+- **Problema / Solicitud**:
+  - El usuario agregó nuevas cuotas en Google Sheets (fila 108: `MPago 4/6`), pero al estar Enero 2027 en modo Base de Datos (PostgreSQL), los cambios no se reflejaban porque la entidad ya estaba cargada previamente.
+  - Al dar de baja la entidad para recargarla, la entidad quedó cerrada temporalmente (`vigenteHastaAnio: 2026`), lo que provocó que el chip de **Mercado Libre** desapareciera del modal "Cargar Ítem o Cuota Mensual", impidiendo ver los ítems sugeridos y precargados del mes anterior.
+- **Solución Técnica Aplicada**:
+  - **Base de Datos y Sincronización**:
+    - Se restableció la vigencia plena de **Mercado Libre** (`vigenteHastaAnio: null, vigenteHastaMes: null, activo: true`).
+    - Se sincronizó el nuevo ítem `MPago 4/6` ($ 25.264,98) en Diciembre 2026 en la BD, lo que permite que el endpoint de preview anterior (`/api/mensual/items/preview-anterior`) detecte y avance automáticamente ambas cuotas activas para Enero 2027: `MPago 6/6` ($ 12.338,44) y `MPago 5/6` ($ 25.264,98).
+  - **Frontend (`modal-cargar-item`)**:
+    - En `cargarEntidadesVigentes()`: se aseguró que todas las entidades base del sistema (`Visa Galicia`, `Master Card Galicia`, `Naranja X`, `Bancor`, `Mercado Libre`, `Otros`) figuren **siempre** disponibles en los chips, incluso si no tienen ítems cargados en ese mes o si habían sido dadas de baja en un período anterior.
+  - **Acciones Duales en Gestión de Entidad (`mensual.html` y `mensual.ts`)**:
+    - Se incorporó la distinción entre dos operaciones:
+      1. **"Vaciar ítems del mes"** (`DELETE /api/mensual/items-mes`): Elimina los ítems y cuotas exclusivamente del mes seleccionado, manteniendo la entidad 100% activa para poder volver a precargarla o sincronizarla.
+      2. **"Dar de baja definitiva"** (`DELETE /api/mensual/entidades/:id`): Cierra la vigencia de la entidad hacia el futuro para tarjetas en desuso.
+  - **Backend API (`monthly-item.service.ts` y routes)**:
+    - Se agregó el método `deleteItemsForEntityInMonth` y endpoint `DELETE /api/mensual/items-mes`.
+    - Se añadió `asegurarEntidadVigente` en `createItem`, de modo que guardar nuevos ítems o precargas para una entidad reactiva de forma transparente cualquier vigencia cerrada en el pasado.
+- **Validación de Compilación**:
+  - API: `npm run build` en `control-de-gastos-api` (**Código 0**).
+  - Frontend: `npx ng build --configuration development` (**Código 0, 0 errores, 0 advertencias**).
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.ts`
+  - `src/app/pages/mensual/mensual.html`
+  - `src/app/pages/mensual/mensual.ts`
+  - `src/app/pages/mensual/mensual.scss`
+  - `src/app/services/mensual-items.service.ts`
+  - `control-de-gastos-api/src/services/monthly-item.service.ts`
+  - `control-de-gastos-api/src/controllers/monthly-item.controller.ts`
+  - `control-de-gastos-api/src/routes/monthly-item.routes.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-27 19:50] - Corrección de Modal de Baja de Entidad en Vista Mensual (Falta de Estilos Backdrop / Card)
+- **Problema / Solicitud**:
+  - Al hacer clic en el botón de la papelera en la cabecera de una entidad (ej. "Mercado Libre" en Enero 2027) en la vista mensual (`/mensual`), la aplicación no mostraba ninguna acción visible en pantalla ("no hace nada").
+- **Causa Raíz**:
+  - En `mensual.html`, el modal de confirmación `<div *ngIf="mostrarModalBajaEntidad() && entidadADarDeBaja()" class="modal-backdrop">` utilizaba las clases `.modal-backdrop` y `.modal-card`.
+  - Dichas clases no estaban definidas en `mensual.scss` ni en las reglas globales de `styles.scss`, por lo que el contenedor no tenía `position: fixed; inset: 0; z-index: 999999; backdrop-filter` ni alineación centrada.
+  - El modal se insertaba como bloque estático al final del flujo del DOM (miles de píxeles abajo, fuera del viewport del usuario), dando la ilusión de que el clic no hacía nada.
+- **Solución Técnica Aplicada**:
+  - En `mensual.scss`:
+    - Se definieron los estilos completos de `.modal-backdrop` (posición fija `inset: 0`, desenfoque de fondo `backdrop-filter: blur(5px)`, fondo oscuro translúcido `rgba(15, 23, 42, 0.7)`, `z-index: 999999 !important` y centrado flexbox).
+    - Se agregaron estilos de `.modal-card` con animación de entrada (`modalFadeIn`), bordes redondeados y sombra.
+    - Se incorporaron estilos para `.reglas-integridad-box` (reglas verde y roja de preservación histórica), `.alert-box` (error y éxito) y botones `.btn-secondary` y `.btn-danger-solid`.
+    - Se garantizó compatibilidad total con el modo oscuro (`:host-context(.dark-theme)`).
+  - En `styles.scss`:
+    - Se definieron las clases base globales `.modal-backdrop` y `.modal-card` para prevenir inconsistencias en cualquier otra vista.
+  - En `mensual-items.service.ts`:
+    - Se sanitizó el identificador de la entidad con `encodeURIComponent(id)` en la llamada `DELETE /api/mensual/entidades/:id`.
+  - En `mensual.ts`:
+    - Se añadió fallback de recarga de entidades vigentes en `abrirModalBajaEntidad` si no se encuentra la entidad por nombre en la primera búsqueda y logs informativos para trazabilidad en consola.
+- **Validación de Compilación**:
+  - Frontend: `npx ng build --configuration development` (**Código 0, 0 errores, 0 advertencias**).
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/mensual.scss`
+  - `src/styles.scss`
+  - `src/app/services/mensual-items.service.ts`
+  - `src/app/pages/mensual/mensual.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-27 10:45] - Importación de Resumen: Carga y Registro de Fecha de Vencimiento como Evento en BD y Estimativos
+- **Problema / Solicitud**:
+  - Al importar un resumen de tarjeta (`/importar-resumen`), el usuario requería poder registrar (o detectar automáticamente) la fecha de vencimiento de dicho resumen para que se guarde en la base de datos como un evento/recordatorio en el día correspondiente de Estimativos.
+  - Esto debe alimentar el sistema de alertas anticipadas (banners de colores corporativos según tarjeta/evento) para recordar el vencimiento hasta 3 días antes y el mismo día.
+- **Solución Técnica Aplicada**:
+  - **Frontend (`control-de-gastos-front`)**:
+    - En `importar-resumen.component.ts`:
+      - Se mejoró la expresión regular de autodetección en el parser de texto para capturar patrones tipo `Fecha de vencimiento: DD/MM/AAAA`, `Vencimiento actual`, `Vto. actual`, etc.
+      - Al hacer clic en "Cargar a Base de Datos" (`onCargarABaseDeDatos`), se envía `fechaVencimiento` sanitizada dentro del payload HTTP hacia la API.
+    - En `importar-resumen.component.html` y `.scss`:
+      - Se añadió el campo `vencimiento-field` en la barra de sincronización con icono de calendario, placeholder intuitivo (`DD/MM/AAAA`) y validación en tiempo real.
+      - En el modal de éxito de importación, se sumó el badge `.chip-vto` indicando `"Vence: DD/MM/AAAA (Guardado como evento en Estimativos)"`.
+  - **Backend (`control-de-gastos-api`)**:
+    - En `src/services/monthly-item.service.ts` (`importarResumenBatch`):
+      - Soporta formatos `DD/MM/YYYY`, `YYYY-MM-DD`, `DD-MM-YYYY`, `DD.MM.YYYY`.
+      - Registra la fecha de vencimiento en `statement_due_dates` con monto total y color oficial de la entidad emisora (Visa: `#4b5896`, Master: `#ea580c`, Bancor: `#0284c7`, Naranja: `#f97316`).
+      - Actualiza/inserta directamente en `daily_estimates` para la fecha calendario (`TO_CHAR(fecha, 'YYYY-MM-DD') = fechaISO`) registrando la nota/evento con el nombre del vencimiento y el color oficial de la entidad.
+      - Emite evento SSE (`DATA_UPDATED`) para refrescar en tiempo real los estimativos y las alertas de banners en el navegador sin recarga manual.
+- **Validación de Compilación**:
+  - Backend: `npm run build` en `control-de-gastos-api` (**Código 0**).
+  - Frontend: `npx ng build --configuration development` (**Código 0, 0 errores, 0 advertencias**).
+- **Archivos Afectados**:
+  - `src/app/pages/importar-resumen/importar-resumen.component.ts`
+  - `src/app/pages/importar-resumen/importar-resumen.component.html`
+  - `src/app/pages/importar-resumen/importar-resumen.component.scss`
+  - `control-de-gastos-api/src/services/monthly-item.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-10-27 09:33] - Menú Lateral de Meses Contraído por Defecto en Estimativos y Mensual
+- **Problema / Solicitud**:
+  - En las vistas de Estimativos (`/estimativo`) y Gastos Mensuales (`/mensual`), la barra lateral izquierda que contiene los 12 meses del año aparecía desplegada/expandida por defecto al cargar la página, ocupando ancho útil de pantalla.
+  - El usuario solicitó que dicho menú de meses aparezca contraído por defecto en ambas vistas.
+- **Solución Técnica Aplicada**:
+  - En `HomeEstimativo` (`src/app/pages/estimativos/home.ts`):
+    - Se cambió el valor inicial de la señal `sidebarCollapsed` de `false` a `true` (`sidebarCollapsed = signal(true)`).
+  - En `MensualComponent` (`src/app/pages/mensual/mensual.ts`):
+    - Se cambió el valor inicial de la señal `sidebarCollapsed` de `false` a `true` (`sidebarCollapsed = signal(true)`).
+  - Al cargar o navegar a cualquiera de las dos pantallas, la barra lateral inicia en modo compacto mostrando solo las iniciales de 3 letras de cada mes y el botón para expandir (`> Meses`) en caso de que el usuario lo requiera.
+- **Validación de Compilación**:
+  - Frontend: `npx ng build --configuration development` (**Código 0, 0 errores, 0 advertencias**).
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/home.ts`
+  - `src/app/pages/mensual/mensual.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-10-27 08:55] - Ciclo de Vida de Alertas: Restauración Automática en Recarga (F5) hasta su Vencimiento
 - **Problema / Solicitud**:
   - Al cerrar o descartar un recordatorio desde el botón `✕`, el aviso quedaba guardado en `sessionStorage`, impidiendo que volviera a mostrarse si el usuario recargaba la página con F5.

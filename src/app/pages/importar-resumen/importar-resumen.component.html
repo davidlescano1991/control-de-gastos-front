@@ -173,15 +173,16 @@
         </div>
         <div class="select-field vencimiento-field">
           <label for="db-vencimiento" title="Fecha en que vence este resumen para alertas y recordatorios automáticos">
-            Vencimiento (opcional):
+            <mat-icon class="label-mini-icon">event</mat-icon> Vencimiento:
           </label>
           <input
             id="db-vencimiento"
             type="text"
             [ngModel]="fechaVencimiento()"
             (ngModelChange)="fechaVencimiento.set($event)"
-            placeholder="Ej: 10/11/2026"
+            placeholder="DD/MM/AAAA"
             class="input-vencimiento"
+            title="Ingresa o verifica la fecha de vencimiento del resumen para guardarlo como evento en la base de datos"
           />
         </div>
 
@@ -335,6 +336,10 @@
         <span class="target-chip">
           <mat-icon>credit_card</mat-icon>
           {{ selectedEntidadDestino() }}
+        </span>
+        <span class="target-chip chip-vto" *ngIf="resultadoImportacion()?.fechaVencimiento">
+          <mat-icon>event_available</mat-icon>
+          Vence: {{ resultadoImportacion()?.fechaVencimiento }} (Guardado como evento)
         </span>
       </div>
 

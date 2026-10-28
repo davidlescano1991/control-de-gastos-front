@@ -237,22 +237,22 @@
           <mat-icon>warning_amber</mat-icon>
         </div>
         <div>
-          <h3 class="modal-baja-title">Dar de baja {{ entidadADarDeBaja()?.nombre }}</h3>
-          <p class="subtitulo-baja">¿Confirmas que deseas eliminar esta entidad a partir de {{ mesSeleccionado() }} {{ anioSeleccionado() }}?</p>
+          <h3 class="modal-baja-title">Gestión de {{ entidadADarDeBaja()?.nombre }}</h3>
+          <p class="subtitulo-baja">¿Qué deseas hacer con esta entidad en {{ mesSeleccionado() }} {{ anioSeleccionado() }}?</p>
         </div>
       </div>
 
       <div class="reglas-integridad-box">
         <div class="regla-item regla-verde">
-          <mat-icon>check_circle</mat-icon>
+          <mat-icon>delete_sweep</mat-icon>
           <div>
-            <strong>Meses anteriores:</strong> Se conservará intacto todo el historial de gastos, cuotas y balances de {{ entidadADarDeBaja()?.nombre }} sin ninguna modificación.
+            <strong>Vaciar ítems de este mes:</strong> Elimina las cuotas e ítems solo de {{ mesSeleccionado() }} {{ anioSeleccionado() }}. La entidad se mantiene activa para que puedas volver a cargarla o precargarla con cuotas actualizadas.
           </div>
         </div>
         <div class="regla-item regla-roja">
           <mat-icon>cancel</mat-icon>
           <div>
-            <strong>A partir de {{ mesSeleccionado() }} {{ anioSeleccionado() }} en adelante:</strong> La entidad dejará de figurar en la vista mensual y se removerán los ítems futuros presupuestados.
+            <strong>Dar de baja definitiva:</strong> Remueve la entidad y sus cuotas futuras a partir de {{ mesSeleccionado() }} {{ anioSeleccionado() }} (conservando intacto el historial de meses anteriores).
           </div>
         </div>
       </div>
@@ -271,10 +271,15 @@
         <button type="button" class="btn btn-secondary" (click)="cerrarModalBajaEntidad()" [disabled]="isProcesandoBaja()">
           Cancelar
         </button>
-        <button type="button" class="btn btn-danger-solid" (click)="confirmarBajaEntidad()" [disabled]="isProcesandoBaja()">
-          <mat-spinner *ngIf="isProcesandoBaja()" diameter="18"></mat-spinner>
-          <mat-icon *ngIf="!isProcesandoBaja()">delete_forever</mat-icon>
-          <span>{{ isProcesandoBaja() ? 'Procesando baja...' : 'Confirmar baja desde este mes' }}</span>
+        <button type="button" class="btn btn-warning-solid" (click)="confirmarVaciarItemsMes()" [disabled]="isProcesandoBaja()" title="Vacía los ítems de este mes para poder recargar o precargar cuotas">
+          <mat-spinner *ngIf="isProcesandoBaja() && tipoBajaAccion() === 'vaciar'" diameter="18"></mat-spinner>
+          <mat-icon *ngIf="!isProcesandoBaja() || tipoBajaAccion() !== 'vaciar'">delete_sweep</mat-icon>
+          <span>Vaciar ítems del mes</span>
+        </button>
+        <button type="button" class="btn btn-danger-solid" (click)="confirmarBajaEntidad()" [disabled]="isProcesandoBaja()" title="Cierra la vigencia de la entidad desde este mes en adelante">
+          <mat-spinner *ngIf="isProcesandoBaja() && tipoBajaAccion() === 'baja'" diameter="18"></mat-spinner>
+          <mat-icon *ngIf="!isProcesandoBaja() || tipoBajaAccion() !== 'baja'">delete_forever</mat-icon>
+          <span>Dar de baja definitiva</span>
         </button>
       </div>
     </div>

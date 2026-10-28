@@ -116,7 +116,19 @@ export class MensualItemsService {
     const params = new HttpParams()
       .set('year', year.toString())
       .set('mes', mes.toString());
-    return this.http.delete<{ message: string; itemsBorradosCount: number }>(`${this.apiUrl}/entidades/${id}`, { params });
+    return this.http.delete<{ message: string; itemsBorradosCount: number }>(`${this.apiUrl}/entidades/${encodeURIComponent(id)}`, { params });
+  }
+
+  /**
+   * Vacía todos los ítems de una entidad en un año y mes específicos,
+   * manteniendo la entidad activa para poder recargarla o precargarla.
+   */
+  vaciarItemsEntidadMes(entidad: string, year: number, mes: number): Observable<{ message: string; borradosCount: number }> {
+    const params = new HttpParams()
+      .set('year', year.toString())
+      .set('mes', mes.toString())
+      .set('entidad', entidad);
+    return this.http.delete<{ message: string; borradosCount: number }>(`${this.apiUrl}/items-mes`, { params });
   }
 
   /**
