@@ -45,8 +45,24 @@ export interface DailyEstimateRow {
   motivoFeriado?: string | null;
   evento?: string | null;
   color?: string | null;
+  esAnual?: boolean;
   claseFila?: string;
   tooltipFecha?: string;
+}
+
+export interface RecordatorioItem {
+  id: string;
+  tipo: 'EVENTO' | 'VENCIMIENTO';
+  titulo: string;
+  mensaje: string;
+  descripcion?: string;
+  fecha: string;
+  fechaCorta?: string;
+  color: string;
+  icono?: string;
+  diasFaltantes: number;
+  textoDias?: string;
+  ruta?: string;
 }
 
 export interface MonthlyEstimateResponse {
@@ -143,7 +159,7 @@ export class EstimatesService {
   }
 
   /**
-   * Actualiza el valor real, deudaReal, saldoPesos o deuda de un día específico
+   * Actualiza el valor real, deudaReal, saldoPesos, deuda, evento o color de un día específico
    */
   updateDaily(
     id: string,
@@ -156,9 +172,17 @@ export class EstimatesService {
       evento?: string | null;
       color?: string | null;
       fecha?: string;
+      esAnual?: boolean;
     }
   ): Observable<any> {
     return this.http.put(`${this.apiUrl}/daily/${id}`, payload);
+  }
+
+  /**
+   * Obtiene los recordatorios de eventos y vencimientos activos para hoy y los próximos 3 días
+   */
+  getRecordatorios(): Observable<RecordatorioItem[]> {
+    return this.http.get<RecordatorioItem[]>(`${this.apiUrl}/recordatorios`);
   }
 
   /**

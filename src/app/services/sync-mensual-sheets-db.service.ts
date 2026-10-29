@@ -58,7 +58,7 @@ export class SyncMensualSheetsDbService {
    * Si encuentra nuevos conceptos para una entidad, los almacena automáticamente
    * respetando su fórmula original (=x+y) y disparando la propagación de cuotas si aplica.
    */
-  async sincronizarMesDesdeSheets(anio: number, mesNombre: string): Promise<SyncMensualResult> {
+  async sincronizarMesDesdeSheets(anio: number, mesNombre: string, force = false): Promise<SyncMensualResult> {
     // 1. Verificación inmediata: si está desconectada de la API en vivo, no procesar
     if (!this.sseService.isConnected()) {
       return { sincronizados: 0 };
@@ -70,6 +70,9 @@ export class SyncMensualSheetsDbService {
     }
 
     const cacheKey = anio + '::' + mesNombre;
+    if (force) {
+      this.mesesSincronizadosSesion.delete(cacheKey);
+    }
     if (this.mesesSincronizadosSesion.has(cacheKey)) {
       return { sincronizados: 0 };
     }
@@ -96,13 +99,20 @@ export class SyncMensualSheetsDbService {
         return { sincronizados: 0 };
       }
 
-      // 4. Obtener ítems ya guardados en la BD para este mes
+      // 4. Obtener ítems ya guardados en la BD para este mes mapeados por clave normalizada
       const resBD = await firstValueFrom(this.mensualItemsService.getItems(anio, mesNum));
-      const conceptosEnBD: Record<string, Set<string>> = {};
+      const itemsEnBD: Record<string, Map<string, any>> = {};
 
       if (resBD?.porEntidad) {
         Object.entries(resBD.porEntidad).forEach(([entidad, data]) => {
-          conceptosEnBD[entidad] = new Set((data.items || []).map((it) => (it.concepto || '').trim().toLowerCase()));
+          const mapa = new Map<string, any>();
+          (data.items || []).forEach((it: any) => {
+            const cNorm = this.normalizar(it.concepto || '');
+            if (cNorm) {
+              mapa.set(cNorm, it);
+            }
+          });
+          itemsEnBD[entidad] = mapa;
         });
       }
 
@@ -112,8 +122,8 @@ export class SyncMensualSheetsDbService {
 
       for (const [keyEntidad, { inicio, fin, headerIndex }] of Object.entries(configRangos)) {
         const nombreOficial = ENTIDADES_MAP[keyEntidad] || keyEntidad;
-        if (!conceptosEnBD[nombreOficial]) {
-          conceptosEnBD[nombreOficial] = new Set<string>();
+        if (!itemsEnBD[nombreOficial]) {
+          itemsEnBD[nombreOficial] = new Map<string, any>();
         }
 
         const headers = valores[headerIndex] ?? [];
@@ -138,12 +148,10 @@ export class SyncMensualSheetsDbService {
           const rawValor = String(fila[colIndex] || '').trim();
           if (!rawValor) continue;
 
-          const conceptoClave = concepto.toLowerCase();
-          if (conceptosEnBD[nombreOficial].has(conceptoClave)) {
-            continue; // Ya existe en la base de datos
-          }
+          const cNorm = this.normalizar(concepto);
+          const itemExistente = itemsEnBD[nombreOficial]?.get(cNorm);
 
-          // Ítem nuevo detectado en Google Sheets
+          // Ítem detectado en Google Sheets: extraer monto y verificar fórmula
           const esFormula = rawValor.startsWith('=');
           let montoFinal = 0;
 
@@ -157,6 +165,34 @@ export class SyncMensualSheetsDbService {
 
           if (isNaN(montoFinal) || montoFinal === 0) continue;
 
+          if (itemExistente) {
+            // Validar si el monto o la fórmula difiere respecto a Google Sheets
+            const montoExistente = typeof itemExistente.monto === 'number'
+              ? itemExistente.monto
+              : parseFloat(String(itemExistente.monto || 0));
+            const formulaExistente = itemExistente.formula || '';
+
+            const montoDifiere = Math.abs(montoExistente - montoFinal) > 0.01;
+            const formulaDifiere = esFormula
+              ? formulaExistente.trim() !== rawValor.trim()
+              : (formulaExistente !== '' && formulaExistente !== String(montoFinal));
+
+            if (montoDifiere || formulaDifiere) {
+              try {
+                await firstValueFrom(
+                  this.mensualItemsService.updateItem(itemExistente.id, {
+                    montoOFormula: esFormula ? rawValor : montoFinal,
+                  }),
+                );
+                sincronizados++;
+              } catch (err) {
+                console.warn('⚠️ Error al actualizar ítem "' + concepto + '" de ' + nombreOficial + ' en la BD:', err);
+              }
+            }
+            continue;
+          }
+
+          // No existía: registrar nuevo ítem con autoPropagarCuotas activo y fórmula preservada
           try {
             await firstValueFrom(
               this.mensualItemsService.createItem({
@@ -169,10 +205,15 @@ export class SyncMensualSheetsDbService {
               }),
             );
 
-            conceptosEnBD[nombreOficial].add(conceptoClave);
+            itemsEnBD[nombreOficial]?.set(cNorm, {
+              id: 'temp',
+              concepto,
+              monto: montoFinal,
+              formula: esFormula ? rawValor : null,
+            });
             sincronizados++;
           } catch (err) {
-            console.warn('⚠️ Error al sincronizar ítem "' + concepto + '" de ' + nombreOficial + ' a la BD:', err);
+            console.warn('⚠️ Error al sincronizar nuevo ítem "' + concepto + '" de ' + nombreOficial + ' a la BD:', err);
           }
         }
       }

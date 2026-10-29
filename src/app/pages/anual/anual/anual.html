@@ -37,7 +37,8 @@
         <app-tabla-deuda-total [datos]="deudaTotalAnual()" [filas]="filas()" [categorias]="categorias()"
           [isCargando]="isCargando()" [anioSeleccionado]="anioSeleccionado()"></app-tabla-deuda-total>
         <app-tabla-ingreso-neto [datos]="ingresoNetoAnual()" [filas]="filas()" [categorias]="categorias()"
-          [isCargando]="isCargando()" [anioSeleccionado]="anioSeleccionado()"></app-tabla-ingreso-neto>
+          [isCargando]="isCargando()" [anioSeleccionado]="anioSeleccionado()"
+          (onAbrirCargaIngresos)="abrirModalCargaIngreso()"></app-tabla-ingreso-neto>
         <app-origen-datos [anio]="anioSeleccionado()"></app-origen-datos>
       </div>
       } @else {
@@ -114,4 +115,14 @@
       [categorias]="categoriasAnioActual().length > 0 ? categoriasAnioActual() : categorias()"
       [isCargandoInput]="isCargando()"></app-grafico-ingreso-neto-historico-usd>
   </div>
+
+  <!-- Modal para Carga y Edición de Ingresos Netos Anuales (Sueldo) -->
+  @if (modalCargarIngresoVisible()) {
+    <app-modal-cargar-ingreso-neto
+      [visible]="modalCargarIngresoVisible()"
+      [anioInicial]="anioSeleccionado()"
+      (visibleChange)="modalCargarIngresoVisible.set($event)"
+      (ingresosGuardados)="onIngresosGuardados($event)"
+    ></app-modal-cargar-ingreso-neto>
+  }
 </div>

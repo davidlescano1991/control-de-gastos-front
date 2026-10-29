@@ -303,6 +303,7 @@ export class Mensual implements OnInit, OnDestroy {
   });
 
   async abrirModalBajaEntidad(entidadOString: FinancialEntityFront | string): Promise<void> {
+    console.log('🗑️ [Mensual] abrirModalBajaEntidad solicitada para:', entidadOString);
     if (this.entidadesVigentes().length === 0) {
       await this.cargarEntidadesVigentes(this.anioSeleccionado(), this.mesSeleccionado());
     }
@@ -313,6 +314,13 @@ export class Mensual implements OnInit, OnDestroy {
         const eNorm = e.nombre.toLowerCase().trim();
         return eNorm === norm || eNorm.includes(norm) || norm.includes(eNorm);
       });
+      if (!entObj) {
+        await this.cargarEntidadesVigentes(this.anioSeleccionado(), this.mesSeleccionado());
+        entObj = this.entidadesVigentes().find((e) => {
+          const eNorm = e.nombre.toLowerCase().trim();
+          return eNorm === norm || eNorm.includes(norm) || norm.includes(eNorm);
+        });
+      }
       if (!entObj) {
         entObj = {
           id: entidadOString,
@@ -328,11 +336,14 @@ export class Mensual implements OnInit, OnDestroy {
     } else {
       entObj = entidadOString;
     }
+    console.log('🗑️ [Mensual] Entidad a dar de baja configurada:', entObj);
     this.entidadADarDeBaja.set(entObj);
     this.bajaError.set('');
     this.bajaSuccess.set('');
     this.mostrarModalBajaEntidad.set(true);
   }
+
+  tipoBajaAccion = signal<'vaciar' | 'baja'>('vaciar');
 
   cerrarModalBajaEntidad(): void {
     if (this.isProcesandoBaja()) return;
@@ -340,10 +351,11 @@ export class Mensual implements OnInit, OnDestroy {
     this.entidadADarDeBaja.set(null);
   }
 
-  async confirmarBajaEntidad(): Promise<void> {
+  async confirmarVaciarItemsMes(): Promise<void> {
     const ent = this.entidadADarDeBaja();
     if (!ent || this.isProcesandoBaja()) return;
 
+    this.tipoBajaAccion.set('vaciar');
     this.isProcesandoBaja.set(true);
     this.bajaError.set('');
     this.bajaSuccess.set('');
@@ -352,7 +364,9 @@ export class Mensual implements OnInit, OnDestroy {
     const anio = this.anioSeleccionado();
 
     try {
-      const res = await firstValueFrom(this.mensualItemsService.darDeBajaEntidad(ent.id, anio, mesNum));
+      console.log(`🧹 [Mensual] Vaciando ítems de "${ent.nombre}" en ${mesNum}/${anio}`);
+      const res = await firstValueFrom(this.mensualItemsService.vaciarItemsEntidadMes(ent.nombre, anio, mesNum));
+      console.log('✅ [Mensual] Vaciado exitoso:', res);
       this.isProcesandoBaja.set(false);
       this.bajaSuccess.set(res.message);
 
@@ -362,6 +376,38 @@ export class Mensual implements OnInit, OnDestroy {
         await this.cargarTotalesTotales(false, true);
       }, 1200);
     } catch (err: any) {
+      console.error('❌ [Mensual] Error al vaciar ítems:', err);
+      this.isProcesandoBaja.set(false);
+      this.bajaError.set(err?.error?.message || err?.message || 'Error al vaciar los ítems de la entidad');
+    }
+  }
+
+  async confirmarBajaEntidad(): Promise<void> {
+    const ent = this.entidadADarDeBaja();
+    if (!ent || this.isProcesandoBaja()) return;
+
+    this.tipoBajaAccion.set('baja');
+    this.isProcesandoBaja.set(true);
+    this.bajaError.set('');
+    this.bajaSuccess.set('');
+
+    const mesNum = this.meses.indexOf(this.mesSeleccionado()) + 1;
+    const anio = this.anioSeleccionado();
+
+    try {
+      console.log(`🗑️ [Mensual] Ejecutando baja de entidad "${ent.nombre}" (id: ${ent.id}) para ${mesNum}/${anio}`);
+      const res = await firstValueFrom(this.mensualItemsService.darDeBajaEntidad(ent.id, anio, mesNum));
+      console.log('✅ [Mensual] Respuesta de baja exitosa:', res);
+      this.isProcesandoBaja.set(false);
+      this.bajaSuccess.set(res.message);
+
+      setTimeout(async () => {
+        this.cerrarModalBajaEntidad();
+        await this.seleccionarMes(this.mesSeleccionado(), true);
+        await this.cargarTotalesTotales(false, true);
+      }, 1200);
+    } catch (err: any) {
+      console.error('❌ [Mensual] Error al dar de baja entidad:', err);
       this.isProcesandoBaja.set(false);
       this.bajaError.set(err?.error?.message || err?.message || 'Error al dar de baja la entidad');
     }
@@ -562,7 +608,7 @@ export class Mensual implements OnInit, OnDestroy {
     }
   }
   isMobile = false;
-  sidebarCollapsed = signal(false);
+  sidebarCollapsed = signal(true);
   resumenGraficoCollapsed = signal(false);
   gastosHistoricosCollapsed = signal(false);
   gastosMensualesCollapsed = signal(false);
@@ -780,7 +826,7 @@ export class Mensual implements OnInit, OnDestroy {
 
         // 2. SINCRONIZACIÓN AUTOMÁTICA EN SEGUNDO PLANO A LA BD SI ESTÁ CONECTADO A LA API
         if (this.sseService.isConnected()) {
-          void this.syncMensualService.sincronizarMesDesdeSheets(anio, mes);
+          void this.syncMensualService.sincronizarMesDesdeSheets(anio, mes, force);
         }
       } else {
         // 3. INTERRUPTOR DESACTIVADO: Modo Base de Datos (PostgreSQL)
@@ -799,6 +845,16 @@ export class Mensual implements OnInit, OnDestroy {
           const descHoja = this.appConfig.raw?.origenPorAnio?.[String(anio)]?.descripcion || `Cuentas claras_${anio}`;
           this.leyendaFallback.set(`* Información obtenida desde la hoja ${descHoja} (Fallback: API no disponible)`);
           await this.cargarEntidadesDesdeSheets(anio, mes, force);
+        }
+
+        // 5. Sincronización en segundo plano para 2027 si existen pestañas (ej: Enero_2027) en Sheets
+        if (anio === 2027 && this.sseService.isConnected()) {
+          void this.syncMensualService.sincronizarMesDesdeSheets(anio, mes, force).then((res) => {
+            if (res.sincronizados > 0) {
+              void this.cargarEntidadesDesdeBD(anio, mes);
+              void this.cargarTotalesTotales(false, true);
+            }
+          });
         }
       }
     } finally {

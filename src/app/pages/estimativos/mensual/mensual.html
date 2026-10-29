@@ -97,7 +97,7 @@
                       *ngIf="fila.evento"
                       class="icono-evento-dia"
                       [style.color]="fila.color || '#4b5896'"
-                      [matTooltip]="fila.evento"
+                      [matTooltip]="fila.evento + (fila.esAnual ? ' (Anual)' : '')"
                       matTooltipPosition="above"
                       [title]="fila.evento"
                       [attr.aria-label]="fila.evento"
@@ -121,6 +121,13 @@
                         <circle cx="12" cy="2.5" r="2" fill="currentColor" />
                       </svg>
                     </span>
+                    <mat-icon
+                      *ngIf="fila.esAnual"
+                      class="icono-recurrente-anual"
+                      [style.color]="fila.color || '#706cd6'"
+                      [matTooltip]="'Evento recurrente anual: ' + (fila.evento || '')"
+                      matTooltipPosition="above"
+                    >event_repeat</mat-icon>
                   </div>
                 </td>
                 <td class="texto-derecha columna-resaltada saldo">

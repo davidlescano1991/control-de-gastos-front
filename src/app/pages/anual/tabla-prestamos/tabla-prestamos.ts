@@ -213,12 +213,10 @@ export class TablaPrestamos implements OnInit, OnChanges {
   get valorOtorgado(): number {
     const primeraFila = this.filas?.at(0);
     if (primeraFila && primeraFila.valores) {
-      const suma = this.totalMes(primeraFila);
-      if (suma > 0) return suma;
+      return this.totalMes(primeraFila);
     }
     const porAnio = this.storeGoogle.valorOtorgadoPorAnio.get(this.anioSeleccionado)?.() ?? 0;
-    if (porAnio > 0) return porAnio;
-    return this.storeGoogle.valorOtorgado();
+    return porAnio;
   }
 
   calcularTotalGlobalPendiente(): number {

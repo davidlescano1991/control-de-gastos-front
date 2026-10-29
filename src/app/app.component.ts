@@ -17,6 +17,7 @@ import { AuthService } from './services/auth.service';
 import { ConnectivityService } from './services/connectivity.service';
 import { WakeLockService } from './services/wake-lock.service';
 import { ModalExportarExcelComponent } from './common/modal-exportar-excel/modal-exportar-excel.component';
+import { ReminderService } from './services/reminder.service';
 
 type AppWindow = Window & { __APP_VERSION__?: string };
 
@@ -54,6 +55,7 @@ export class AppComponent {
   public sseService = inject(SseService);
   public authService = inject(AuthService);
   public connectivityService = inject(ConnectivityService);
+  public reminderService = inject(ReminderService);
   private wakeLockService = inject(WakeLockService);
   public router = inject(Router);
 

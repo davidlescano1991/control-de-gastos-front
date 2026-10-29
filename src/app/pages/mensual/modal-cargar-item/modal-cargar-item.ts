@@ -225,33 +225,66 @@ export class ModalCargarItemComponent {
     { id: 'Master Card Galicia', nombre: 'Master Card Galicia', logoUrl: 'assets/logos/mastercard.svg', color: '#EB001B' },
     { id: 'Naranja X', nombre: 'Naranja X', logoUrl: 'assets/logos/naranja.png', color: '#FF6600' },
     { id: 'Bancor', nombre: 'Bancor', logoUrl: 'assets/logos/bancor.png', color: '#005CA9' },
-    { id: 'Mercado Libre', nombre: 'Mercado Libre / Pago', logoUrl: 'assets/logos/mercadopago.png', color: '#009EE3' },
-    { id: 'Otros', nombre: 'Otros (Servicios / Gastos)', color: '#10B981' },
+    { id: 'Mercado Libre', nombre: 'Mercado Libre', logoUrl: 'assets/logos/mercadopago.png', color: '#009EE3' },
+    { id: 'Otros', nombre: 'Otros', color: '#10B981' },
   ];
 
   entidades = signal<EntidadOption[]>(this.entidadesFallback);
+
+  normalizar(texto: string | undefined): string {
+    return (texto || '').toLowerCase().trim();
+  }
+
+  private canonicalName(nombreOrId: string | undefined): string {
+    const n = this.normalizar(nombreOrId);
+    if (n.includes('mercado') || n.includes('mpago')) return 'mercado libre';
+    if (n.startsWith('otro')) return 'otros';
+    if (n.includes('visa')) return 'visa galicia';
+    if (n.includes('master')) return 'master card galicia';
+    if (n.includes('naranja')) return 'naranja x';
+    if (n.includes('bancor')) return 'bancor';
+    return n;
+  }
 
   cargarEntidadesVigentes(): void {
     const y = this.anio();
     const m = this.mesNumero();
     this.mensualService.getEntidadesVigentes(y, m).subscribe({
       next: (ents) => {
-        if (ents && ents.length > 0) {
-          const list: EntidadOption[] = ents.map((e) => ({
-            id: e.nombre,
-            nombre: e.nombre,
-            logoUrl: e.logoUrl || undefined,
-            color: e.color || '#768699',
-          }));
-          this.entidades.set(list);
-          if (!list.some((e) => e.id === this.entidad())) {
-            this.entidad.set(list[0].id);
+        const list: EntidadOption[] = [];
+        const seen = new Set<string>();
+
+        // 1. Entidades devueltas por la base de datos
+        for (const e of ents || []) {
+          const cName = this.canonicalName(e.nombre || e.id);
+          if (!seen.has(cName)) {
+            seen.add(cName);
+            const fallback = this.entidadesFallback.find(
+              (f) => this.canonicalName(f.nombre) === cName
+            );
+            list.push({
+              id: fallback ? fallback.id : (e.nombre || e.id),
+              nombre: fallback ? fallback.nombre : e.nombre,
+              logoUrl: fallback?.logoUrl || e.logoUrl || undefined,
+              color: fallback?.color || e.color || '#768699',
+            });
           }
-          this.consultarPrecargaEntidad();
-        } else {
-          this.entidades.set(this.entidadesFallback);
-          this.consultarPrecargaEntidad();
         }
+
+        // 2. Garantizar que las entidades base del sistema siempre figuren como opción disponible
+        for (const base of this.entidadesFallback) {
+          const cName = this.canonicalName(base.nombre);
+          if (!seen.has(cName)) {
+            seen.add(cName);
+            list.push(base);
+          }
+        }
+
+        this.entidades.set(list);
+        if (!list.some((e) => this.canonicalName(e.id) === this.canonicalName(this.entidad()))) {
+          this.entidad.set(list[0]?.id || 'Visa Galicia');
+        }
+        this.consultarPrecargaEntidad();
       },
       error: () => {
         this.entidades.set(this.entidadesFallback);

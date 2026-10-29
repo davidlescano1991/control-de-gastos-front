@@ -1,6 +1,7 @@
 import { CurrencyPipe, NgClass, NgFor, NgIf } from '@angular/common';
-import { Component, Input, signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
+import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { IngresoNetoMes } from '../../../models/ingreso-neto';
@@ -14,6 +15,7 @@ import { Prestamo } from '../../../models/prestamo';
     NgClass,
     CurrencyPipe,
     MatCardModule,
+    MatIconModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
   ],
@@ -33,6 +35,11 @@ export class TablaIngresoNeto {
   @Input() datos: IngresoNetoMes[] = [];
   @Input() filas: Prestamo[] = [];
   @Input() categorias: string[] = [];
+  @Output() onAbrirCargaIngresos = new EventEmitter<void>();
+
+  abrirModalCarga() {
+    this.onAbrirCargaIngresos.emit();
+  }
 
   private normalizar(texto: string | undefined): string {
     return (texto ?? '')

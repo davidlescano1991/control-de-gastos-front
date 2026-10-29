@@ -1,0 +1,152 @@
+<div class="modal-ingresos-backdrop" *ngIf="visible" (click)="onCerrar()">
+  <div class="modal-ingresos-panel" (click)="$event.stopPropagation()">
+
+    <!-- Encabezado del Modal -->
+    <div class="modal-header">
+      <div class="header-title-flex">
+        <div class="icon-income-badge">
+          <mat-icon>payments</mat-icon>
+        </div>
+        <div>
+          <h3>Carga de Ingresos Netos</h3>
+          <p class="subtitle">Registra o actualiza el sueldo mensual en Base de Datos (Año {{ anioSeleccionado() }})</p>
+        </div>
+      </div>
+      <button class="btn-close" (click)="onCerrar()" [disabled]="isGuardando()" aria-label="Cerrar modal">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <!-- Cuerpo del Modal -->
+    <div class="modal-body">
+
+      <!-- 1. Selección de Año -->
+      <div class="form-group-section">
+        <label class="section-label">Seleccionar Año a Cargar</label>
+        <div class="anios-selector-grid">
+          <button
+            type="button"
+            *ngFor="let anio of aniosDisponibles()"
+            class="btn-anio-chip"
+            [class.selected]="anioSeleccionado() === anio"
+            (click)="seleccionarAnio(anio)"
+            [disabled]="isGuardando() || isCargando()"
+          >
+            <span>{{ anio }}</span>
+            <span
+              class="chip-badge"
+              [class.badge-sheets-dot]="appConfigService.isSheetsActivo(anio)"
+              [class.badge-bd-dot]="!appConfigService.isSheetsActivo(anio)"
+              [title]="appConfigService.isSheetsActivo(anio) ? 'Google Sheets' : 'Base de Datos'"
+            ></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. Tarjeta Resumen Rápido -->
+      <div class="metricas-resumen-card">
+        <div class="metrica-item">
+          <span class="metrica-label">Total Ingreso Anual (ARS)</span>
+          <strong class="metrica-valor total-positivo">
+            {{ totalAnual() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+          </strong>
+        </div>
+        <div class="separador-metrica"></div>
+        <div class="metrica-item">
+          <span class="metrica-label">Promedio Mensual (ARS)</span>
+          <strong class="metrica-valor promedio-positivo">
+            {{ promedioMensual() | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+          </strong>
+        </div>
+      </div>
+
+      <!-- Estado de Carga -->
+      <div class="spinner-cargando" *ngIf="isCargando()">
+        <mat-spinner diameter="36" strokeWidth="3"></mat-spinner>
+        <span>Recuperando registros de ingresos para {{ anioSeleccionado() }}...</span>
+      </div>
+
+      <!-- 3. Grilla de los 12 Meses -->
+      <div class="meses-grid-container" *ngIf="!isCargando()">
+        <div class="mes-card" *ngFor="let item of mesesForm(); let i = index">
+          <div class="mes-header">
+            <span class="mes-numero">{{ i + 1 }}</span>
+            <strong class="mes-nombre">{{ item.mesNombre }}</strong>
+            <button
+              type="button"
+              class="btn-copiar-resto"
+              (click)="copiarAMesesSiguientes(i)"
+              [disabled]="isGuardando()"
+              matTooltip="Copiar este valor a los meses siguientes ({{ item.mesNombre }} -> Dic)"
+              matTooltipPosition="above"
+            >
+              <mat-icon>content_copy</mat-icon>
+              <span>Copiar al resto</span>
+            </button>
+          </div>
+
+          <div class="input-monto-wrapper">
+            <span class="simbolo-moneda">$</span>
+            <input
+              type="number"
+              class="input-monto"
+              [(ngModel)]="item.ingresoNeto"
+              [placeholder]="'0.00'"
+              min="0"
+              step="1000"
+              [disabled]="isGuardando()"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Feedback de Carga / Éxito / Error -->
+      <div class="feedback-banner success" *ngIf="feedbackTipo() === 'success'">
+        <mat-icon>check_circle</mat-icon>
+        <span>{{ mensajeFeedback() }}</span>
+      </div>
+
+      <div class="feedback-banner error" *ngIf="feedbackTipo() === 'error'">
+        <mat-icon>error</mat-icon>
+        <span>{{ mensajeFeedback() }}</span>
+      </div>
+
+    </div>
+
+    <!-- Pie del Modal con Acciones -->
+    <div class="modal-footer">
+      <button
+        type="button"
+        class="btn-limpiar"
+        (click)="limpiarTodos()"
+        [disabled]="isGuardando() || isCargando()"
+      >
+        <mat-icon>cleaning_services</mat-icon>
+        <span>Limpiar Todo</span>
+      </button>
+
+      <div class="footer-actions-right">
+        <button
+          type="button"
+          class="btn-cancelar"
+          (click)="onCerrar()"
+          [disabled]="isGuardando()"
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          class="btn-guardar"
+          (click)="guardarIngresos()"
+          [disabled]="isGuardando() || isCargando()"
+        >
+          <mat-spinner *ngIf="isGuardando()" diameter="18"></mat-spinner>
+          <mat-icon *ngIf="!isGuardando()">save</mat-icon>
+          <span>{{ isGuardando() ? 'Guardando...' : 'Guardar Ingresos' }}</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>

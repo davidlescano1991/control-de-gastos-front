@@ -36,7 +36,8 @@ export class GoogleSheetsService {
   }
   obtenerMensualAnio(anio: number, mes: string, rango = 'A1:B21', valueRenderOption?: string) {
     //V2
-    const pest = `${mes}!${rango}`;
+    const nombrePestana = anio === 2027 ? `${mes}_2027` : mes;
+    const pest = `${nombrePestana}!${rango}`;
     let url = '';
     let hoja = '';
     console.log(`obtenerMensualAnio(${anio}: number,${mes}: string, ${rango}, ${valueRenderOption ?? 'DEFAULT'})`);
@@ -60,7 +61,10 @@ export class GoogleSheetsService {
     const hoja = this.ValidarFormularioXAnio(anio, rango);
 
     // construir el query string con todos los rangos
-    const ranges = meses.map((m) => `${encodeURIComponent(m)}!${rango}`).join('&ranges=');
+    const ranges = meses.map((m) => {
+      const nombrePest = anio === 2027 ? `${m}_2027` : m;
+      return `${encodeURIComponent(nombrePest)}!${rango}`;
+    }).join('&ranges=');
 
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${hoja}/values:batchGet?ranges=${ranges}&key=${this.apiKey}`;
     console.log('📡 batch url:', url);
@@ -69,7 +73,7 @@ export class GoogleSheetsService {
   }
   private ValidarFormularioXAnio(anio: number, rango: string) {
     let hoja = '';
-    if (anio === 2026) {
+    if (anio === 2026 || anio === 2027) {
       hoja = this.sheetId2026;
     } else if (anio === 2025) {
       hoja = this.sheetId2025;

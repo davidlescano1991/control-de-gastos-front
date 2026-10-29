@@ -191,6 +191,14 @@ export class HojasComponent implements OnInit {
     this.errorMessage.set('');
     this.successMessage.set('');
     this.showForm.set(true);
+    if (typeof document !== 'undefined') {
+      setTimeout(() => {
+        const el = document.querySelector('.form-container');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 50);
+    }
   }
 
   editarHoja(sheet: SheetConfigItem): void {
@@ -241,6 +249,14 @@ export class HojasComponent implements OnInit {
     });
 
     this.showForm.set(true);
+    if (typeof document !== 'undefined') {
+      setTimeout(() => {
+        const el = document.querySelector('.form-container');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 50);
+    }
   }
 
   cancelarEdicion(): void {

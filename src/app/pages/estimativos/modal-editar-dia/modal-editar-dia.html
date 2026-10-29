@@ -155,6 +155,18 @@
           class="input-dia-control input-evento"
           maxlength="60"
         />
+
+        <!-- Checkbox para repetir anualmente -->
+        <div class="check-anual-box" *ngIf="editEvento()">
+          <label class="checkbox-label checkbox-anual">
+            <input type="checkbox" [(ngModel)]="editEsAnual" />
+            <mat-icon class="icon-inline icon-anual">event_repeat</mat-icon>
+            <span>Repetir anualmente este evento (ej: Cumpleaños, Aniversario)</span>
+          </label>
+          <small class="anual-hint" *ngIf="editEsAnual">
+            Se mostrará automáticamente todos los años en esta misma fecha ({{ obtenerDiaYMesTexto() }}).
+          </small>
+        </div>
       </div>
 
       <!-- Color de Resalte del Día -->

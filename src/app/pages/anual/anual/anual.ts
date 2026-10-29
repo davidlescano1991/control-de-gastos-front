@@ -1,4 +1,4 @@
-import { NgFor, NgIf } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnDestroy, OnInit, signal, WritableSignal } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -42,10 +42,12 @@ import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 
 import { SelectorAnioDelorean } from '../../../common/selector-anio-delorean/selector-anio-delorean';
 import { OrigenDatosComponent } from '../../../common/origen-datos/origen-datos.component';
+import { ModalCargarIngresoNetoComponent } from '../modal-cargar-ingreso-neto/modal-cargar-ingreso-neto.component';
 
 @Component({
   selector: 'app-anual',
   imports: [
+    CommonModule,
     MatCardModule,
     MatFormFieldModule,
     MatInputModule,
@@ -71,6 +73,7 @@ import { OrigenDatosComponent } from '../../../common/origen-datos/origen-datos.
     MatStepperModule,
     SelectorAnioDelorean,
     OrigenDatosComponent,
+    ModalCargarIngresoNetoComponent,
   ],
   templateUrl: './anual.html',
   standalone: true,
@@ -142,6 +145,20 @@ export class Anual implements OnInit, OnDestroy {
   deudaTotalHistorico = signal<DeudaTotalHistoricoItem[]>([]);
   ingresoNetoAnual = signal<IngresoNetoMes[]>([]);
   ingresoNetoHistorico = signal<IngresoNetoHistoricoItem[]>([]);
+  modalCargarIngresoVisible = signal<boolean>(false);
+
+  abrirModalCargaIngreso() {
+    this.modalCargarIngresoVisible.set(true);
+  }
+
+  async onIngresosGuardados(evento: { anio: number }) {
+    this.cacheIngresoNetoAnualPorAnio.delete(evento.anio);
+    if (this.anioSeleccionado() === evento.anio) {
+      const nuevosDatos = await this.calcularIngresoNetoParaAnio(evento.anio, true);
+      this.setSignalIfChanged(this.ingresoNetoAnual, nuevosDatos);
+    }
+    await this.cargarHistoricoIngresoNetoCompleto(true);
+  }
   readonly resultado = signal<Record<string, number>>({});
   readonly resumenPositivo = signal<Prestamo[]>([]);
 
@@ -638,7 +655,20 @@ export class Anual implements OnInit, OnDestroy {
           MESES_BASE,
         );
 
-        const ingresosList = rep?.ingresosNetos || [];
+        let ingresosList = rep?.ingresosNetos || [];
+        if (ingresosList.length === 0 || ingresosList.every((it) => it.total === 0)) {
+          try {
+            const ingresosBd = await firstValueFrom(this.reportesService.getIngresosNetos(anio));
+            if (ingresosBd && ingresosBd.length > 0 && ingresosBd.some((it) => it.ingresoNeto > 0)) {
+              ingresosList = ingresosBd.map((it) => ({
+                mes: it.mesNombre,
+                total: it.ingresoNeto,
+              }));
+            }
+          } catch (e) {
+            console.warn(`Error recuperando ingresos directos de BD para ${anio}:`, e);
+          }
+        }
         const resultado: IngresoNetoMes[] = MESES_BASE.map((mes) => {
           const item = ingresosList.find(
             (it) => it.mes.toLowerCase().trim() === mes.toLowerCase().trim(),

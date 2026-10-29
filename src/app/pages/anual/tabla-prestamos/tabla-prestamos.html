@@ -147,9 +147,10 @@
                     (click)="esPrimeraCuotaNoPaga(cat, i) ? abrirModalPagoCuota(cat, i, fila.valores[cat]) : null"
                     [title]="esPrimeraCuotaNoPaga(cat, i) ? 'Click para registrar pago de cuota (' + cat + ')' : ''">
                   <ng-container *ngIf="i === 0">
-                    <span class="monto-otorgado">
+                    <span class="monto-otorgado" *ngIf="fila.valores[cat] && fila.valores[cat] > 0">
                       {{ fila.valores[cat] | currency: 'ARS' : 'symbol' : '1.0-0' : 'es-AR' }}
                     </span>
+                    <span class="celda-vacia-guion" *ngIf="!fila.valores[cat] || fila.valores[cat] === 0">-</span>
                   </ng-container>
                   <ng-container *ngIf="i !== 0">
                     <div class="celda-cuota-wrapper" *ngIf="fila.valores[cat] && fila.valores[cat] !== 0">
@@ -178,7 +179,8 @@
                 <!-- Penúltima Columna: Cantidad de préstamos/cuotas activas -->
                 <td class="col-sticky-cant col-body-cant texto-centro">
                   <ng-container *ngIf="i === 0">
-                    <span class="badge-cant-head">{{ cantPrestamos(fila) }}</span>
+                    <span class="badge-cant-head" *ngIf="cantPrestamos(fila) > 0">{{ cantPrestamos(fila) }}</span>
+                    <span class="celda-vacia-texto" *ngIf="cantPrestamos(fila) === 0">0</span>
                   </ng-container>
                   <ng-container *ngIf="i !== 0 && i !== filas.length - 1">
                     <span class="badge-cant" *ngIf="cantPrestamos(fila) > 0">{{
@@ -200,7 +202,10 @@
                   }"
                 >
                   <ng-container *ngIf="i === 0">
-                    {{ totalMes(fila) | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                    <span *ngIf="totalMes(fila) > 0">
+                      {{ totalMes(fila) | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                    </span>
+                    <span class="celda-vacia-texto" *ngIf="!totalMes(fila) || totalMes(fila) === 0">-</span>
                   </ng-container>
                   <ng-container *ngIf="i > 0 && i < filas.length - 1">
                     <span class="badge-total-mes" *ngIf="totalMes(fila) > 0">

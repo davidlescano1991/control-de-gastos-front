@@ -59,6 +59,7 @@ export class GraficoRendimientosPositivosMensuales {
       tooltip: {
         callbacks: {
           label: (context: any) => {
+            if (context.dataset.label === 'Tendencia') return '';
             const label = context.dataset.label || '';
             const value = context.parsed.y;
             return ` ${label}: ${Number(value).toFixed(2)}%`;
@@ -74,6 +75,10 @@ export class GraficoRendimientosPositivosMensuales {
       },
       y: {
         beginAtZero: true,
+        suggestedMax: 100,
+        ticks: {
+          callback: (value: any) => `${value}%`,
+        },
         border: {
           display: true
         },
@@ -116,8 +121,18 @@ export class GraficoRendimientosPositivosMensuales {
     this.isCargando.set(true);
 
     // Obtener los totales globales por mes
-    const resultados = this.storeGoogle.tablaSecundaria() ?? [];
-    const valores = this.storeGoogle.categoriasSecundaria() ?? [];
+    const resultados = (this.datosAnuales && this.datosAnuales.length > 0)
+      ? this.datosAnuales
+      : (this.storeGoogle.tablaSecundaria() ?? []);
+
+    let valores = this.storeGoogle.categoriasSecundaria() ?? [];
+    if (!valores || valores.length === 0) {
+      const set = new Set<string>();
+      resultados.forEach((fila: any) => {
+        Object.keys(fila.valores || {}).forEach((cat) => set.add(cat));
+      });
+      valores = Array.from(set);
+    }
 
     if (!resultados || resultados.length === 0 || !valores || valores.length === 0) {
       this.chartData = { labels: [], datasets: [] };
@@ -127,13 +142,13 @@ export class GraficoRendimientosPositivosMensuales {
       return;
     }
 
-    const labels = resultados.map(r => r.nombreFila);
+    const labels = resultados.map((r: any) => r.nombreFila);
 
     const datos: number[] = [];
 
-    resultados.forEach(fila => {
-      valores.forEach(cat => {
-        const aux = fila.valores[cat] * 100;
+    resultados.forEach((fila: any) => {
+      valores.forEach((cat) => {
+        const aux = (fila.valores?.[cat] || 0) * 100;
         datos.push(aux);
       });
     });

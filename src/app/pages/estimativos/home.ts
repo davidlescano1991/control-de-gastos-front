@@ -29,6 +29,7 @@ interface EstimativoRow {
   deudaReal: number;
   evento?: string | null;
   color?: string | null;
+  esAnual?: boolean;
   editando?: boolean;
 }
 
@@ -130,7 +131,7 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   }
 
   isMobile = false;
-  sidebarCollapsed = signal(false);
+  sidebarCollapsed = signal(true);
 
   colIzquierdaContraida = signal(false);
   colDerechaContraida = signal(false);

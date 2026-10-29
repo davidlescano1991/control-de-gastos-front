@@ -263,6 +263,44 @@ export class ReportesService {
       })
     );
   }
+
+  /**
+   * Obtiene los ingresos netos mensuales para un año determinado (1 al 12).
+   */
+  getIngresosNetos(year: number): Observable<IngresoNetoItemDto[]> {
+    const url = `${this.apiUrl}/reportes/ingresos-netos?year=${year}`;
+    return this.http.get<{ status: string; data: IngresoNetoItemDto[] }>(url).pipe(
+      map((res) => res.data || []),
+      catchError((err) => {
+        console.warn(`[ReportesService] Error al obtener ingresos netos para ${year}:`, err);
+        return of([]);
+      })
+    );
+  }
+
+  /**
+   * Guarda o actualiza los ingresos netos mensuales para un año en la base de datos PostgreSQL.
+   */
+  updateIngresosNetos(
+    year: number,
+    ingresos: Array<{ mes: number; ingresoNeto: number }>
+  ): Observable<IngresoNetoItemDto[]> {
+    const url = `${this.apiUrl}/reportes/ingresos-netos`;
+    return this.http.put<{ status: string; data: IngresoNetoItemDto[] }>(url, { year, ingresos }).pipe(
+      map((res) => res.data || []),
+      catchError((err) => {
+        console.error(`[ReportesService] Error al actualizar ingresos netos para ${year}:`, err);
+        throw err;
+      })
+    );
+  }
+}
+
+export interface IngresoNetoItemDto {
+  mes: number;
+  mesNombre: string;
+  ingresoNeto: number;
+  origen?: string;
 }
 
 

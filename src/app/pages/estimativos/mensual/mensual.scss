@@ -474,6 +474,20 @@ app-bancor {
       filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.25));
     }
   }
+
+  .icono-recurrente-anual {
+    font-size: 15px;
+    width: 15px;
+    height: 15px;
+    cursor: help;
+    flex-shrink: 0;
+    margin-left: -2px;
+    transition: transform 0.18s ease;
+
+    &:hover {
+      transform: scale(1.25);
+    }
+  }
 }
 .tabla-fechas th:nth-child(2),
 .tabla-fechas td:nth-child(2) {

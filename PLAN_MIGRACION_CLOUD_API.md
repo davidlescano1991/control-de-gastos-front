@@ -507,7 +507,7 @@ gantt
       * `.\scripts\restore.ps1`: Restaura automáticamente el backup más reciente en PostgreSQL.
     * **5.2.0.8: Servicio Serverless y Conexión Segura (`cloud_run.tf`)**:
       * *¿Qué hace?*:
-        1. `google_cloud_run_v2_service`: Configura el contenedor de la API con `min_instance_count = 0` (costo $0 sin tráfico), inyecta las variables de entorno (`DATABASE_URL`, `JWT_SECRET`, `NODE_ENV=production`) y enlaza Cloud SQL mediante sockets Unix seguros (`/cloudsql/<connection_name>`), eliminando la necesidad de abrir la base de datos a internet público.
+        1. `google_cloud_run_v2_service`: Configura el contenedor de la API con `min_instance_count = 0` (costo $0 sin tráfico), facturación basada en solicitudes (`cpu_idle = true`, limitando la CPU fuera de peticiones para evitar cobros de instancia ociosa o en reposo), inyecta las variables de entorno (`DATABASE_URL`, `JWT_SECRET`, `NODE_ENV=production`) y enlaza Cloud SQL mediante sockets Unix seguros (`/cloudsql/<connection_name>`), eliminando la necesidad de abrir la base de datos a internet público.
         2. `google_cloud_run_service_iam_member`: Configura la política de acceso público `roles/run.invoker` para `allUsers`, permitiendo que el Frontend Angular pueda consultar la API.
     * **5.2.0.9: Presupuesto y Alertas de Costos (`billing_alerts.tf`)**:
       * *¿Qué hace?*: Configura el recurso `google_billing_budget` con un umbral mensual (ej. $10 USD) y dispara alertas por correo automáticamente al **50%**, **90%** y **100%**.
