@@ -119,9 +119,42 @@ sequenceDiagram
 3. **Cero librerías pesadas:** Funciona con el estándar nativo de JavaScript (`EventSource`) y servicios reactivos de Angular (`RxJS / Subject`).
 4. **Compatible con Cloud Run:** Acepta streaming de eventos sin configuraciones complicadas.
 
-> [!NOTE]
-> **Sincronización Híbrida en Vivo con Google Sheets (Doble Pantalla)**:
-> Mientras se mantenga la carga paralela o edición directa sobre la hoja de cálculo de Google Sheets en una pantalla y el Dashboard abierto en una segunda pantalla, las vistas clave (`Inicio`, `Mensual`, `Anual` y `Estimativos`) mantienen un intervalo de refresco automático (`refreshIntervalMs = 5000` / `12000`) optimizado con comprobación de visibilidad (`document.visibilityState !== 'hidden'`). Esto garantiza que los cambios realizados en el Excel se reflejen de inmediato sin requerir clics adicionales ni foco en la ventana del navegador.
+### 🌐 Sincronización Inteligente de Contexto Activo (Context-Aware Focused Polling)
+Para resolver la sincronización en vivo con Google Sheets en flujos de doble pantalla sin saturar la cuota de Google (límite de 60 req/min) y sin trasladar la responsabilidad de refresco al Frontend:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Front as Frontend Angular
+    participant API as API (sheetsSyncService)
+    participant Sheets as Google Sheets API v4
+    participant SSE as Canal SSE (/api/events/sub)
+
+    Note over Front,API: 1. El usuario navega o cambia de mes/año
+    Front->>API: POST /api/sync/context { year: 2026, sheet: 'Estimativo Noviembre' }
+    API->>API: Registra contexto activo en memoria (TTL 90s)
+
+    Note over API,Sheets: 2. Monitoreo enfocado cada 8s (solo si hay clientes SSE conectados)
+    loop Poller enfocado (sheetsSyncService)
+        API->>Sheets: GET /values/Estimativo Noviembre!A1:N120 (1 sola petición liviana)
+        Sheets-->>API: Celdas formateadas
+        API->>API: Calcula MD5 y compara con hash previo
+    end
+
+    Note over API: 3. Se detecta cambio de celda en la planilla
+    API->>API: Invalida caché interna (sheetsService.limpiarCache)
+    API-->>SSE: broadcast('ESTIMATE_UPDATED', { year: 2026, sheet: 'Estimativo Noviembre' })
+    API-->>SSE: broadcast('DATA_UPDATED', { year: 2026, sheet: 'Estimativo Noviembre' })
+
+    Note over SSE,Front: 4. Actualización en tiempo real sin recarga de página
+    SSE-->>Front: Evento ESTIMATE_UPDATED / DATA_UPDATED recibido
+    Front->>Front: Invalida caché de la hoja en MovimientosStoreGoogle
+    Front->>Front: Recarga reactivamente en pantalla preservando eventos y sin parpadeos
+```
+
+- **Consumo Mínimo de Cuota**: Al consultar únicamente **1 hoja activa** en lugar de las 12 del año, se realizan apenas ~7 peticiones por minuto (menos del 15% del límite de 60 req/min de Google).
+- **Frontend Desacoplado**: El cliente Angular no realiza polling forzado ni depende exclusivamente del foco de la ventana; se mantiene como un consumidor reactivo ligero vía Server-Sent Events.
+- **Apagado en Reposo**: Si no hay clientes conectados al canal SSE (`sseService.getConnectedCount() === 0`), el poller se apaga de inmediato consumiendo cero recursos.
 
 ---
 

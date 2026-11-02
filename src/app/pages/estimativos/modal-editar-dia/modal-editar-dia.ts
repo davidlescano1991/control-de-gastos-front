@@ -39,7 +39,18 @@ export class ModalEditarDiaComponent {
       this.editSaldoPesosStr = String(saldoPesosNum);
       this.editDeudaStr = String(deudaNum);
 
-      this.editEvento.set(val.evento || '');
+      const rawEv = val.evento ? String(val.evento).trim() : '';
+      if (rawEv) {
+        const arr = rawEv
+          .split(/\s*[\/,]\s*/)
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+        this.eventosLista.set(arr.length > 0 ? arr : [rawEv]);
+      } else {
+        this.eventosLista.set([]);
+      }
+      this.nuevoEventoTexto.set('');
+
       this.editColor.set(val.color || '');
       this.editEsAnual = Boolean(val.esAnual);
 
@@ -66,7 +77,8 @@ export class ModalEditarDiaComponent {
   mostrarInputPrestamo = false;
   guardando = signal(false);
 
-  editEvento = signal('');
+  eventosLista = signal<string[]>([]);
+  nuevoEventoTexto = signal('');
   editColor = signal('');
 
   readonly eventosPreset = [
@@ -89,15 +101,61 @@ export class ModalEditarDiaComponent {
     '#64748b', // Slate
   ];
 
-  seleccionarPresetEvento(tipo: string, colorSugerido?: string): void {
-    if (this.editEvento() === tipo) {
-      this.editEvento.set('');
+  estaEnEventos(label: string): boolean {
+    return this.eventosLista().some((e) => e.toLowerCase() === label.toLowerCase());
+  }
+
+  togglePresetEvento(p: { label: string; icon: string; color: string }): void {
+    const list = [...this.eventosLista()];
+    const idx = list.findIndex((e) => e.toLowerCase() === p.label.toLowerCase());
+    if (idx >= 0) {
+      list.splice(idx, 1);
+      this.eventosLista.set(list);
     } else {
-      this.editEvento.set(tipo);
-      if (colorSugerido && !this.editColor()) {
-        this.editColor.set(colorSugerido);
+      list.push(p.label);
+      this.eventosLista.set(list);
+      if (!this.editColor()) {
+        this.editColor.set(p.color);
       }
     }
+  }
+
+  agregarNuevoEvento(): void {
+    const texto = this.nuevoEventoTexto().trim();
+    if (!texto) return;
+    if (!this.eventosLista().some((e) => e.toLowerCase() === texto.toLowerCase())) {
+      this.eventosLista.update((prev) => [...prev, texto]);
+    }
+    this.nuevoEventoTexto.set('');
+  }
+
+  quitarEvento(index: number): void {
+    this.eventosLista.update((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  limpiarTodosEventos(): void {
+    this.eventosLista.set([]);
+    this.editColor.set('');
+    this.nuevoEventoTexto.set('');
+  }
+
+  obtenerIconoPreset(evento: string): string {
+    const ev = (evento || '').toLowerCase();
+    if (ev.includes('cumple')) return 'cake';
+    if (ev.includes('aniversario') || ev.includes('celebr')) return 'celebration';
+    if (ev.includes('venc') || ev.includes('pago')) return 'event_busy';
+    if (ev.includes('viaje') || ev.includes('vuelo')) return 'flight_takeoff';
+    if (ev.includes('cobro') || ev.includes('sueldo')) return 'payments';
+    if (ev.includes('feriado')) return 'celebration';
+    if (ev.includes('ajuste')) return 'sync_alt';
+    return 'bookmark';
+  }
+
+  obtenerColorPreset(evento: string): string | null {
+    const p = this.eventosPreset.find(
+      (preset) => preset.label.toLowerCase() === (evento || '').toLowerCase(),
+    );
+    return p ? p.color : null;
   }
 
   seleccionarColor(hex: string): void {
@@ -106,11 +164,6 @@ export class ModalEditarDiaComponent {
     } else {
       this.editColor.set(hex);
     }
-  }
-
-  limpiarEvento(): void {
-    this.editEvento.set('');
-    this.editColor.set('');
   }
 
   get evalSaldoReal(): EvaluacionFormula {
@@ -171,7 +224,7 @@ export class ModalEditarDiaComponent {
             deudaReal: deudaRealRes.valor,
             saldoPesos: saldoPesosRes.valor,
             deuda: this.evaluarExpresion(this.editDeudaStr).valor,
-            evento: this.editEvento().trim() || null,
+            evento: this.eventosLista().join(' / ').trim() || null,
             color: this.editColor().trim() || null,
             esAnual: this.editEsAnual,
             propagarDeuda: this.editPropagarDeuda,
@@ -186,7 +239,7 @@ export class ModalEditarDiaComponent {
           deudaReal: deudaRealRes.valor,
           saldoPesos: saldoPesosRes.valor,
           deuda: this.evaluarExpresion(this.editDeudaStr).valor,
-          evento: this.editEvento().trim() || null,
+          evento: this.eventosLista().join(' / ').trim() || null,
           color: this.editColor().trim() || null,
           esAnual: this.editEsAnual,
         });

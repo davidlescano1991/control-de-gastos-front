@@ -19,6 +19,150 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-11-01 22:45] - Estimativos: Haz de Luz Único Antihorario y Solución a Desaparición Temporal de Eventos al Actualizar
+- **Problema / Solicitud**:
+  1. **Haz de Luz del Día Actual**: El haz se mostraba duplicado (dos haces paralelos corriendo simultáneamente en el borde superior e inferior de la fila del día actual). Su sentido debe ser estrictamente uno solo, en sentido antihorario recorriendo todo el borde, y manteniendo un degradado continuo y fluido sin escalones bruscos de color.
+  2. **Parpadeo / Desaparición de Eventos**: Al actualizarse la pantalla (por recarga, polling automático de foco o tras guardar un evento), los eventos cargados en la tabla desaparecían durante un par de segundos y luego reaparecían, generando una molesta deshidratación visual transitoria.
+- **Causa Raíz**:
+  1. **Haz Duplicado**: La implementación anterior utilizaba un contenedor enmascarado con un círculo radial de 250px x 250px en CSS `offset-path`. Dado que la fila de la tabla mide únicamente ~36px de alto, el radio de 125px del círculo traspasaba verticalmente la fila e intersectaba al mismo tiempo el borde inferior y el superior, proyectando dos haces de luz idénticos y simultáneos.
+  2. **Desaparición de Eventos**: En `HomeEstimativo.seleccionarMesMensual`, al hidratar desde caché o tras sincronizar con Google Sheets (`getEstimados()`), las filas obtenidas desde Sheets carecen de las propiedades de base de datos (`evento`, `color`, `id`). Se ejecutaba `this.setSignalIfChanged(this.estimativoFilas, filas)` con `evento: undefined`, vaciando de inmediato la tabla en la UI mientras la llamada asíncrona `this.estimatesService.getMonthly(...)` demoraba 1 a 2 segundos en responder para volver a inyectar los eventos.
+- **Solución Técnica Aplicada**:
+  1. **Haz de Luz Único Antihorario con Degradado Continuo (`MensualComponent`)**:
+     - Se implementó un haz perimetral 1D en SVG perimetral (`svg-haz-luz-dia-actual`) acotado estrictamente a la línea perimetral (`rx="6"` y `pathLength="1000"`), lo que imposibilita matemáticamente cualquier desborde o duplicación en el borde opuesto.
+     - Se diseñó una estructura de 8 capas armónicamente escalonadas de cola a cabeza (`svg-haz-cola-3`, `cola-2`, `cola-1`, `cuerpo-2`, `cuerpo-1`, `nucleo-2`, `nucleo-1`, `punta`) con anchos progresivos (1.6px a 3.4px), opacidades decrecientes (0.18 a 1.0) y filtro de destello suave (`feGaussianBlur` + `drop-shadow`).
+     - La animación `haz-corriendo-counter-clockwise` incrementa `stroke-dashoffset` de 0 a 1000, garantizando el recorrido en sentido estrictamente **antihorario** con la cabeza blanca nuclear `#ffffff` al frente y la estela verde esmeralda `#22c55e` desvaneciéndose suavemente detrás.
+     - Adaptado perfectamente a modo claro y modo oscuro.
+  2. **Prevención de Parpadeo / Desaparición de Eventos (`HomeEstimativo`)**:
+     - Se incorporó el método `mergeConEventosActuales(filasNuevas)` que conserva atómicamente en memoria todos los eventos, colores e IDs ya existentes en `estimativoFilas()`.
+     - Al procesar las filas de Google Sheets (`filasCache` y `filasLive`), se combinan de inmediato con los eventos en memoria, de modo que la señal `estimativoFilas` NUNCA se emite con eventos nulos o borrados.
+     - Se paralelizó la petición a la API (`estimatesService.getMonthly`) desde el inicio del método para que los datos de BD se sincronicen de manera concurrente con la planilla de Google.
+- **Validación de Compilación**:
+  - Frontend: `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/home.ts`
+  - `src/app/pages/estimativos/mensual/mensual.html`
+  - `src/app/pages/estimativos/mensual/mensual.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-01 22:25] - Estimativos: Soporte para Múltiples Eventos en un Mismo Día
+- **Problema / Solicitud**:
+  - Al editar un día en el estimativo mensual, el usuario solo podía seleccionar o ingresar una única etiqueta/evento. Al elegir un nuevo evento preset o escribir una nota, el evento anterior se sobrescribía completamente. El usuario solicitó poder agregar varios eventos en una misma fecha.
+- **Causa Raíz**:
+  - El modal `ModalEditarDiaComponent` manejaba una única variable string `editEvento` y los chips preset actuaban como radio buttons sustitutivos en lugar de una lista multi-selección.
+- **Solución Técnica Aplicada**:
+  - **1. Modal de Edición (`ModalEditarDiaComponent`)**:
+    - Se transformó la gestión de eventos a una lista reactiva `eventosLista: WritableSignal<string[]>`.
+    - Los chips rápidos preset (Feriado, Cobro, Vencimiento, Viaje, Cumpleaños, Ajuste) ahora operan en modo toggle (hacer clic agrega el evento, hacer clic de nuevo lo desactiva/quita).
+    - Se incorporó un contenedor de chips de eventos activos con botón individual de eliminación `(x)` e icono temático.
+    - Se agregó campo de entrada con botón "+ Agregar" (y tecla Enter) para incorporar libremente cualquier cantidad de eventos personalizados.
+    - Se conservó compatibilidad total al persistir los eventos concatenados limpiamente mediante separador canónico `" / "` (ej: `"Cobro / Feriado / Cumpleaños"`).
+  - **2. Tabla Mensual (`MensualComponent`)**:
+    - La columna de fecha detecta si hay más de 1 evento (`obtenerEventosFila`) y muestra un badge contador sutil sobre el icono de chincheta con la cantidad total de eventos.
+    - El tooltip del día detalla todos los eventos registrados claramente formateados con viñetas.
+  - **3. API de Recordatorios (`EstimateService` en backend)**:
+    - Se adaptó la consulta de recordatorios para desglosar eventos combinados (`" / "`) generando tarjetas individuales de notificación con su icono específico para cada evento del día.
+- **Validación de Compilación**:
+  - Frontend: `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+  - Backend: `npm run build` en `control-de-gastos-api`: **Código 0, 100% exitoso**.
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/modal-editar-dia/modal-editar-dia.ts`
+  - `src/app/pages/estimativos/modal-editar-dia/modal-editar-dia.html`
+  - `src/app/pages/estimativos/modal-editar-dia/modal-editar-dia.scss`
+  - `src/app/pages/estimativos/mensual/mensual.ts`
+  - `src/app/pages/estimativos/mensual/mensual.html`
+  - `src/app/pages/estimativos/mensual/mensual.scss`
+  - `control-de-gastos-api/src/services/estimate.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-01 22:15] - Sincronización Automática con Google Sheets en Foco y Polling Inteligente
+- **Problema / Solicitud**:
+  - Al modificar celdas directamente en Google Sheets, los cambios no se veían reflejados en el Frontend hasta presionar manualmente F5 en el navegador. El usuario reportó que antes este comportamiento era automático.
+- **Causa Raíz**:
+  - En intervenciones anteriores se desactivó el polling (`refreshIntervalMs = 0`) y se removieron los escuchadores de eventos `focus` y `visibilitychange`, bajo el supuesto de que el canal de Server-Sent Events (SSE) notificaría cualquier cambio.
+  - Sin embargo, las modificaciones directas que un usuario realiza sobre la planilla de Google Sheets no ejecutan webhooks hacia la API, por lo que el Frontend retenía los datos cacheados en memoria de forma indefinida hasta recargar la página.
+- **Solución Técnica Aplicada**:
+  - Se reactivó y optimizó la sincronización reactiva en las 4 vistas principales (`HomeEstimativo`, `Mensual`, `Inicio`, `Anual`):
+    1. **Recarga Inmediata al Retornar al Frontend**: Se implementaron escuchadores de `window:focus` y `document:visibilitychange` con un mecanismo de protección/cooldown de 3.5 segundos. Cuando el usuario pasa de editar en Google Sheets a la pestaña de la aplicación, esta detecta el foco y recarga automáticamente la información en pantalla.
+    2. **Polling Inteligente de Respaldo (12s)**: Se estableció un intervalo periódico de 12 segundos (`refreshIntervalMs = 12000`) que opera únicamente si la pestaña se encuentra visible (`document.visibilityState !== 'hidden'`), garantizando actualización en tiempo real para flujos de doble monitor sin saturar cuotas ni consumir recursos en segundo plano.
+    3. **Ciclo de Vida Limpio**: En todos los componentes se garantiza la desuscripción y remoción de los listeners de ventana en `ngOnDestroy`.
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/home.ts`
+  - `src/app/pages/mensual/mensual.ts`
+  - `src/app/pages/inicio/inicio.ts`
+  - `src/app/pages/anual/anual/anual.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-01 21:55] - Estimativos Mensual: Haz de Luz Perimetral del Día Actual en Degradado Continuo
+- **Problema / Solicitud**:
+  - En la fila del día actual, el haz de luz animado mostraba cortes de color abruptos y escalonados entre capas (blanco, menta, lima, esmeralda y verde oscuro) debido a la superposición discreta de múltiples rectángulos SVG de longitudes fijas.
+  - El usuario solicitó que la transición de colores del haz fuera un degradado fluido y continuo sin saltos notorios.
+- **Causa Raíz**:
+  - La implementación previa utilizaba 5 elementos `<rect>` con diferentes `stroke-dasharray` y colores opacos fijos, generando 5 bloques rectangulares visibles con cortes secos en cada final de trazo.
+- **Solución Técnica Aplicada**:
+  - Se sustituyó la estructura de múltiples trazos SVG por un sistema perimetral de CSS moderno basado en:
+    1. Una pista base sutil con bordes redondeados (`haz-luz-pista-dia-actual`).
+    2. Un contenedor enmascarado (`haz-luz-dia-actual`) que aísla estrictamente el perímetro (`1.5px`) excluyendo el interior del elemento (`mask-composite: exclude`).
+    3. Un rayo luminoso continuo (`haz-luz-rayo`) guiado mediante `offset-path: rect(0 100% 100% 0 round 6px)` con degradado radial multicapa (núcleo blanco nuclear `#ffffff`, transición lima/menta neón `#4ade80`, cuerpo esmeralda `#22c55e` y disolución suave) animado a lo largo del perímetro.
+    4. Soporte optimizado para modo claro y modo oscuro.
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/mensual/mensual.html`
+  - `src/app/pages/estimativos/mensual/mensual.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-01 20:30] - Parser Galicia (Mastercard/Visa): Detección de Compras en Dólares / Exterior tras Salto de Página
+- **Problema / Solicitud**:
+  - En resúmenes de Mastercard Galicia con múltiples páginas, consumos en el exterior facturados en dólares (ej. `27-Oct-26 GOOGLE *Google O(USA,USD, 9,99) 00705 9,99`) que aparecían en la página 2 bajo el encabezado repetido `DETALLE DEL CONSUMO` se asignaban erróneamente a la columna de Pesos en lugar de Dólares, y no se limpiaba el detalle entre paréntesis `(USA,USD, ...)`.
+- **Causa Raíz**:
+  - La lógica de `GaliciaParser` supeditaba el procesamiento de compras internacionales exclusivamente a que la sección activa fuera `COMPRAS`. Al pasar a la segunda página con encabezado `DETALLE DEL CONSUMO`, el estado cambiaba a `DETALLE`, haciendo que la compra cayera en el flujo genérico de compras en 1 pago en pesos.
+- **Solución Técnica Aplicada**:
+  - Se implementó la regla `isForeignLine` en `GaliciaParser` que detecta consumos internacionales por su patrón de moneda y país (ej. `(USA,USD, ...)`, `(USA,ARS, ...)` o marca `USD`) sin importar si están bajo `COMPRAS DEL MES` o `DETALLE DEL CONSUMO` tras un salto de página.
+  - Asigna el monto a la columna **Dólares** (`9.99`), deja **Pesos** en blanco (`null`) y normaliza la referencia (`GOOGLE *Google O`).
+- **Validación de Compilación**:
+  - `npm run build` en `control-de-gastos-front`: **Código 0, 100% exitoso**.
+- **Archivos Afectados**:
+  - `src/app/pages/importar-resumen/parsers/galicia.parser.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+
+### [2026-11-01 20:10] - Módulo "Importar Resumen": Corrección en Parsers Naranja X y Visa Galicia (Reintegros, IVA e Índices)
+- **Problema / Solicitud**:
+  1. **Parser Naranja X**:
+     - Al pegar consumos con Plan Z (ej. `09/10/26 Naranja X 967224 ZETA OCT/26 02/03 4.679,71`), se eliminaba erróneamente la palabra `ZETA` y el número de cuotas `02/03`, dejando `OCT/26` como referencia y `ZETA` como cuota.
+     - Los números de página residuales del PDF (ej. `Hoja 3`) eran capturados erróneamente al final del resumen como un consumo con importe `$3.00`.
+     - Descripciones con fechas intermedias (ej. `COOPERATIVA - 0021233 - 13/10/2026 - 0926/41 Deb.Aut.`) eran truncadas por coincidir con patrones de cuotas `XX/XX`.
+     - Cargos en dos líneas (`IVA Operaciones Identificadas con *` + `(Base Imponible $13.239,67) 2.780,33`) se perdían o quedaban incompletos.
+  2. **Parser Visa Galicia**:
+     - En consumos e impuestos como `29-10-26 DB IVA $ 21% 10.946,99 2.298,87`, al contener dos montos numéricos (la base imponible y el IVA liquidado), el parser asignaba `10.946,99` a Pesos y `2.298,87` a Dólares. La base debía formar parte de la descripción y el monto real ser `$2.298,87` en Pesos (y Dólares vacío).
+     - Las devoluciones o anulaciones de compras (ej. `06-10-26 K MERPAGO*MERCADOLIBRE 486204 -224.487,02`) eran etiquetadas automáticamente como `"Pago anterior (Informativo)"` por tener importe negativo, excluyéndose del cálculo mensual. Debían computarse restando como gasto negativo (reintegro).
+- **Causa Raíz**:
+  - En `GeneralParser`: la búsqueda de `Zeta` se ejecutaba antes de evaluar la posición del plan de cuotas al final de la línea. Se filtraban de forma laxa las líneas sin fecha sin requerir formato monetario con decimales.
+  - En `GaliciaParser`: el método de parsing genérico asumía que cualquier línea con dos importes correspondía a Pesos y Dólares, ignorando las estructuras tributarias con base imponible.
+  - En `ImportarResumenComponent`: `isPagoResumen(m)` evaluaba `m.pesos < 0` sin comprobar si la referencia era efectivamente un pago de saldo a la tarjeta (`SU PAGO`) o una anulación/reintegro comercial.
+- **Solución Técnica Aplicada**:
+  - **1. `general.parser.ts`**:
+    - Se reestructuró la extracción de cuotas y montos al final de la línea, detectando cuotas compuestas (`02/03`, `01/06`), planes textuales (`Zeta`, `Deb.Aut`) y manteniendo la referencia completa (`ZETA OCT/26`).
+    - Se endureció el filtro de líneas sin fecha exigiendo formato monetario con coma decimal (`X,XX`) e ignorando explícitamente encabezados y pies de página (`Hoja \d+`, `Otros`, `cargos:`).
+  - **2. `galicia.parser.ts`**:
+    - Se agregó detección de conceptos tributarios (`DB IVA`, `IVA`, `PERCEP`, `RETENC`, `%`, `BASE`). Si hay dos importes, el primero (base) se concatena a la descripción (`DB IVA $ 21% 10.946,99`), el segundo se asigna como monto en Pesos (`2.298,87`) y Dólares queda `null`.
+  - **3. `importar-resumen.component.ts` / `.html` / `.scss`**:
+    - Se restringió `isPagoResumen` únicamente a pagos de la tarjeta (`su pago`, `pago de tu tarjeta`, `pago de resumen`).
+    - Se creó la función `isReintegro(m)` y la etiqueta visual `.badge-reintegro` (verde claro) para destacar reintegros y devoluciones de compras, garantizando que sumen negativamente (descuenten) en el cálculo del resumen mensual.
+- **Validación de Compilación**:
+  - Frontend (`control-de-gastos-front`): `npm run build` (**Código 0, 100% exitoso**).
+- **Archivos Afectados**:
+  - `src/app/pages/importar-resumen/parsers/general.parser.ts`
+  - `src/app/pages/importar-resumen/parsers/galicia.parser.ts`
+  - `src/app/pages/importar-resumen/importar-resumen.component.ts`
+  - `src/app/pages/importar-resumen/importar-resumen.component.html`
+  - `src/app/pages/importar-resumen/importar-resumen.component.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+
+
 ### [2026-10-27 21:50] - Corrección de Chips Duplicados de Entidades (Mercado Libre y Otros) en Modal Cargar Ítem
 - **Problema / Solicitud**:
   - En la vista Mensual, al abrir el modal "Cargar Ítem o Cuota Mensual", aparecían chips duplicados de "Mercado Libre" (`Mercado Libre` y `Mercado Libre / Pago`) y de "Otros" (`Otros` y `Otros (Servicios / Gastos)`).

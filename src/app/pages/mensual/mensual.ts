@@ -38,6 +38,7 @@ import { SelectorAnioDelorean } from '../../common/selector-anio-delorean/select
 import { OrigenDatosComponent } from '../../common/origen-datos/origen-datos.component';
 import { ModalProyeccionEntidad } from './proyeccion-entidad/modal-proyeccion-entidad';
 import { ProyeccionOverlayService } from '../../services/proyeccion-overlay.service';
+import { SheetConfigService } from '../../services/sheet-config.service';
 import { GastosReembolsablesComponent } from './gastos-reembolsables/gastos-reembolsables.component';
 import { TarjetaEntidadComponent, TarjetaEntidadItem } from './tarjeta-entidad/tarjeta-entidad.component';
 
@@ -85,6 +86,7 @@ export class Mensual implements OnInit, OnDestroy {
   public reembolsablesService = inject(ReembolsablesService);
   private mensualItemsService = inject(MensualItemsService);
   public syncMensualService = inject(SyncMensualSheetsDbService);
+  private sheetConfigService = inject(SheetConfigService);
 
   @ViewChild(GastosReembolsablesComponent) gastosReembolsablesComp?: GastosReembolsablesComponent;
   readonly esOrigenBD = signal<boolean>(false);
@@ -677,8 +679,23 @@ export class Mensual implements OnInit, OnDestroy {
   private appConfig = inject(AppConfigService);
   private sseService = inject(SseService);
   anios: number[] = [];
-  // Polling desactivado: delegado a la API con notificaciones SSE en tiempo real
-  readonly refreshIntervalMs = 0;
+  // Refresco periódico inteligente (12s) condicionado a pestaña visible + eventos de foco
+  readonly refreshIntervalMs = 12000;
+  private ultimoRefrescoFocoMs = 0;
+  private handleFocus = () => {
+    this.comprobarYRefrescarEnFoco();
+  };
+  private handleVisibilityChange = () => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      this.comprobarYRefrescarEnFoco();
+    }
+  };
+  private comprobarYRefrescarEnFoco() {
+    const ahora = Date.now();
+    if (ahora - this.ultimoRefrescoFocoMs < 3500) return;
+    this.ultimoRefrescoFocoMs = ahora;
+    void this.refrescarAutomaticamente();
+  };
   anioSeleccionado = signal<number>(new Date().getFullYear());
   mesSeleccionado = signal(this.meses[0]);
   isCargando = signal(false);
@@ -778,6 +795,11 @@ export class Mensual implements OnInit, OnDestroy {
     this.mensajeEstado = ``;
     this.iniciarAutoRefresh();
 
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', this.handleFocus);
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    }
+
     // 📡 Suscripción reactiva en tiempo real al canal SSE
     this.sseSub = this.sseService.getEvents$().subscribe((msg) => {
       if (msg.event === 'DATA_UPDATED' || msg.event === 'MONTHLY_UPDATED') {
@@ -789,6 +811,10 @@ export class Mensual implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('focus', this.handleFocus);
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    }
     this.sseSub?.unsubscribe();
     this.detenerAutoRefresh();
     void this.wakeLockService.releaseWakeLock();
@@ -817,6 +843,13 @@ export class Mensual implements OnInit, OnDestroy {
       }
       const anio = this.anioSeleccionado();
       const isSheetsActivo = this.appConfig.isSheetsActivo(anio);
+
+      // 📡 Notificar a la API la hoja activa que el usuario está viendo para enfocar el poller en vivo
+      if (isSheetsActivo) {
+        this.sheetConfigService.notificarContextoActivo(anio, mes, 'mensual').subscribe({
+          error: () => {},
+        });
+      }
 
       if (isSheetsActivo) {
         // 1. INTERRUPTOR ACTIVADO: Obtener datos desde Google Sheets

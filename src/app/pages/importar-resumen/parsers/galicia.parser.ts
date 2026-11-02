@@ -288,11 +288,16 @@ export class GaliciaParser implements EntityParserStrategy {
 
         // 3. Compras del mes (en el exterior / dólares):
         // "GOOGLE *Google O(USA,USD, 2,99) 00202 2,99"
-        if (currentSection === 'COMPRAS') {
+        const isForeignLine =
+          currentSection === 'COMPRAS' ||
+          /\([A-Za-z]{3}\s*,\s*(?:USD|ARS)/i.test(rest) ||
+          /\bUSD\b/i.test(rest);
+
+        if (isForeignLine) {
           const foreignMatch = rest.match(
             /^(.*?)(?:\((.*?)\))?\s*(\d{4,8})\s+(-?\s*[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})$/
           );
-          if (foreignMatch) {
+          if (foreignMatch && (currentSection === 'COMPRAS' || foreignMatch[2])) {
             const desc = cleanCell(foreignMatch[1]);
             const amount = moneyToNumber(foreignMatch[4]);
             out.push({
@@ -366,9 +371,18 @@ export class GaliciaParser implements EntityParserStrategy {
         if (moneyMatches.length >= 2) {
           const last1 = moneyMatches[moneyMatches.length - 1];
           const last2 = moneyMatches[moneyMatches.length - 2];
-          dolares = moneyToNumber(last1[0]);
-          pesos = moneyToNumber(last2[0]);
-          rest = rest.slice(0, last2.index).trim();
+
+          // Si es una línea de IVA, percepción o impuesto con base imponible,
+          // el primer importe es la base (que forma parte de la descripción) y el segundo es el monto real en pesos.
+          if (/(?:DB\.?\s*)?IVA\b|PERCEP|RETENC|RG\s*\d+|%|\bBASE\b/i.test(rest)) {
+            pesos = moneyToNumber(last1[0]);
+            dolares = null;
+            rest = rest.slice(0, last1.index).trim();
+          } else {
+            dolares = moneyToNumber(last1[0]);
+            pesos = moneyToNumber(last2[0]);
+            rest = rest.slice(0, last2.index).trim();
+          }
         } else if (moneyMatches.length === 1) {
           const last = moneyMatches[0];
           pesos = moneyToNumber(last[0]);
@@ -391,10 +405,17 @@ export class GaliciaParser implements EntityParserStrategy {
           /^([A-Za-z0-9\.\%\/\,\-\s]+?)\s+(-?\s*[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})(?:\s+(-?\s*[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}))?$/
         );
         if (taxMatch) {
-          const referencia = cleanCell(taxMatch[1]);
+          let referencia = cleanCell(taxMatch[1]);
           if (!this.isSummaryIgnoredLine(referencia)) {
-            const pesos = moneyToNumber(taxMatch[2]);
-            const dolares = taxMatch[3] ? moneyToNumber(taxMatch[3]) : null;
+            let pesos = moneyToNumber(taxMatch[2]);
+            let dolares = taxMatch[3] ? moneyToNumber(taxMatch[3]) : null;
+
+            if (taxMatch[3] && /(?:DB\.?\s*)?IVA\b|PERCEP|RETENC|RG\s*\d+|%|\bBASE\b/i.test(referencia)) {
+              referencia = cleanCell(`${referencia} ${taxMatch[2]}`);
+              pesos = moneyToNumber(taxMatch[3]);
+              dolares = null;
+            }
+
             out.push({
               fecha: '',
               referencia,
@@ -418,6 +439,8 @@ export class GaliciaParser implements EntityParserStrategy {
       /^Resumen\s+N[°o]\b/i.test(line) ||
       /^Tarjeta\s+(?:de\s+)?Cr[ée]dito/i.test(line) ||
       /^(?:MASTERCARD|VISA|AMERICAN\s+EXPRESS|AMEX)\b/i.test(line) ||
+      /^TARJETA\s+\d+.*Total/i.test(line) ||
+      /Total\s+Consumos/i.test(line) ||
       /CUIT\s+Banco/i.test(line) ||
       /N[°o]\s+de\s+Socio/i.test(line) ||
       /^P[áa]gina\s+\d+/i.test(line) ||

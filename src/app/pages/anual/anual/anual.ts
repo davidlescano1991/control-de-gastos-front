@@ -101,8 +101,23 @@ export class Anual implements OnInit, OnDestroy {
     });
   }
 
-  // Polling desactivado: delegado a la API con notificaciones SSE en tiempo real
-  readonly refreshIntervalMs = 0;
+  // Refresco periódico inteligente (12s) condicionado a pestaña visible + eventos de foco
+  readonly refreshIntervalMs = 12000;
+  private ultimoRefrescoFocoMs = 0;
+  private handleFocus = () => {
+    this.comprobarYRefrescarEnFoco();
+  };
+  private handleVisibilityChange = () => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      this.comprobarYRefrescarEnFoco();
+    }
+  };
+  private comprobarYRefrescarEnFoco() {
+    const ahora = Date.now();
+    if (ahora - this.ultimoRefrescoFocoMs < 3500) return;
+    this.ultimoRefrescoFocoMs = ahora;
+    void this.refrescarAutomaticamente();
+  };
   isCargando = signal(false);
   filas = signal<Prestamo[]>([]);
   filasSecundarias = signal<Prestamo[]>([]);
@@ -247,6 +262,11 @@ export class Anual implements OnInit, OnDestroy {
     await this.Inicio();
     this.iniciarAutoRefresh();
 
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', this.handleFocus);
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    }
+
     // 📡 Suscripción reactiva en tiempo real al canal SSE
     this.sseSub = this.sseService.getEvents$().subscribe((msg) => {
       if (msg.event === 'DATA_UPDATED') {
@@ -267,6 +287,10 @@ export class Anual implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('focus', this.handleFocus);
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    }
     this.sseSub?.unsubscribe();
     this.detenerAutoRefresh();
     void this.wakeLockService.releaseWakeLock();
