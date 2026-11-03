@@ -679,8 +679,8 @@ export class Mensual implements OnInit, OnDestroy {
   private appConfig = inject(AppConfigService);
   private sseService = inject(SseService);
   anios: number[] = [];
-  // Refresco periódico inteligente (12s) condicionado a pestaña visible + eventos de foco
-  readonly refreshIntervalMs = 12000;
+  // Refresco conducido 100% por eventos SSE desde la API (polling local deshabilitado = 0ms)
+  readonly refreshIntervalMs = 0;
   private ultimoRefrescoFocoMs = 0;
   private handleFocus = () => {
     this.comprobarYRefrescarEnFoco();

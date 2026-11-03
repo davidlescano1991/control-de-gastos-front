@@ -19,6 +19,43 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-11-02 08:30] - Arquitectura Híbrida: Suscripción de Contexto Activo (Context-Aware Focused Polling) en API & Frontend
+- **Problema / Solicitud**:
+  - Al editar valores directamente en Google Sheets en flujos de doble pantalla, los cambios no se reflejaban en la Web App sin forzar un refresco manual (`F5`) o mediante listeners de foco locales en el Frontend.
+  - El usuario cuestionó con precisión arquitectónica por qué el Frontend debía asumir la responsabilidad de vigilar y forzar refrescos en lugar de que la API monitoree dinámicamente la hoja y mes en que se encuentra el Frontend y emita eventos Server-Sent Events (SSE) cuando detecte cambios reales.
+- **Causa Raíz**:
+  - Google Sheets no posee webhooks nativos hacia servidores externos al editar celdas.
+  - La API ejecutaba un poller periódico de 8 segundos (`SheetsSyncService`), pero monitoreaba exclusivamente la hoja `Movimientos!A1:F3000`, sin conocimiento de qué hoja mensual o de estimativo estaba abierta en el navegador.
+  - El monitoreo simultáneo de las 12 hojas mensuales superaría el límite de cuota gratuita de Google Sheets API (60 req/min).
+- **Solución Técnica Aplicada**:
+  - **1. Backend (`control-de-gastos-api`)**:
+    - **Endpoint de Contexto (`POST /api/sync/context`)**: Permite que el Frontend registre qué año y hoja está visualizando el usuario (ej: `{ year: 2026, sheet: 'Estimativo Noviembre', view: 'estimativo' }`).
+    - **Poller Enfocado en Segundo Plano (`SheetsSyncService`)**: Durante el ciclo de 8s (condicionado a clientes SSE activos `connectedCount > 0`), la API consulta únicamente la hoja activa reportada (`!A1:N120`), calcula su hash MD5 y lo compara con el anterior.
+    - Consumo mínimo de cuota: ~7 req/min (menos del 15% del límite permitido de 60 req/min).
+    - **Emisión en Tiempo Real vía SSE**: Al detectar un cambio en el hash, la API invalida su caché (`sheetsService.limpiarCache`) y emite inmediatamente `ESTIMATE_UPDATED` y `DATA_UPDATED` a todos los clientes SSE conectados.
+  - **2. Frontend (`control-de-gastos-front`)**:
+    - **Servicio `SheetConfigService`**: Incorpora el método `notificarContextoActivo(year, sheet, view)` hacia `/api/sync/context`.
+    - **Integración en Vistas (`HomeEstimativo` y `MensualComponent`)**: Al inicializarse o al cambiar de mes o año, notifican automáticamente a la API la hoja activa.
+    - **Desactivación de Polling Local en Frontend**: Se estableció `refreshIntervalMs = 0` tanto en `HomeEstimativo` como en `MensualComponent`, eliminando definitivamente los bucles de refresco forzado y timers locales desde el navegador. El Frontend pasa a ser 100% pasivo y reactivo por SSE.
+    - **Recepción Reactiva e Inmediata**: Al recibir `ESTIMATE_UPDATED`, `MONTHLY_UPDATED` o `DATA_UPDATED` por SSE, `MovimientosStoreGoogle` invalida la caché de la hoja en cuestión y la vista recarga los datos preservando atómicamente los eventos y notas en memoria.
+  - **3. Documentación Exhaustiva**:
+    - Actualizados: `PLAN_MIGRACION_CLOUD_API.md`, `ARQUITECTURA_SISTEMA.html`, `readme.md` (Frontend), `README.md` (Backend) y `REGISTRO_ACCIONES_FRONT.md`.
+- **Validación de Compilación**:
+  - Backend: `npm run build` en `control-de-gastos-api`: **Código 0, 100% exitoso**.
+  - Frontend: `npx ng build --configuration development` en `control-de-gastos-front`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `control-de-gastos-api/src/routes/sync.routes.ts`
+  - `control-de-gastos-api/src/services/sheets-sync.service.ts`
+  - `control-de-gastos-api/README.md`
+  - `src/app/services/sheet-config.service.ts`
+  - `src/app/stores/movimiento.google.ts`
+  - `src/app/pages/estimativos/home.ts`
+  - `src/app/pages/mensual/mensual.ts`
+  - `PLAN_MIGRACION_CLOUD_API.md`
+  - `ARQUITECTURA_SISTEMA.html`
+  - `readme.md`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-11-01 22:45] - Estimativos: Haz de Luz Único Antihorario y Solución a Desaparición Temporal de Eventos al Actualizar
 - **Problema / Solicitud**:
   1. **Haz de Luz del Día Actual**: El haz se mostraba duplicado (dos haces paralelos corriendo simultáneamente en el borde superior e inferior de la fila del día actual). Su sentido debe ser estrictamente uno solo, en sentido antihorario recorriendo todo el borde, y manteniendo un degradado continuo y fluido sin escalones bruscos de color.
