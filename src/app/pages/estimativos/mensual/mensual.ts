@@ -11,6 +11,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { esDiaNoLaborable, esFinDeSemana, esFeriadoNacional, obtenerInfoDia } from '../../../utils/feriados.utils';
+import { parseFechaEsAR } from '../../../utils/grafico.utils';
 import { OrigenDatosComponent } from '../../../common/origen-datos/origen-datos.component';
 import { AuthService } from '../../../services/auth.service';
 import { FormsModule } from '@angular/forms';
@@ -133,12 +134,28 @@ export class EstimativoMensual {
     return esFeriadoNacional(fecha);
   }
 
+  esHoy(fechaInput: string | Date | undefined | null): boolean {
+    if (!fechaInput) return false;
+    const d = parseFechaEsAR(fechaInput);
+    if (!d || isNaN(d.getTime())) return false;
+    const hoy = new Date();
+    return (
+      d.getDate() === hoy.getDate() &&
+      d.getMonth() === hoy.getMonth() &&
+      d.getFullYear() === hoy.getFullYear()
+    );
+  }
+
   obtenerClaseFila(filaOrFecha: any): string {
     const fecha = typeof filaOrFecha === 'string' ? filaOrFecha : filaOrFecha?.fecha || '';
     const clases: string[] = [];
     const info = obtenerInfoDia(fecha);
     if (info.esFeriado) clases.push('fila-no-laborable fila-feriado');
     else if (info.esFinDeSemana) clases.push('fila-no-laborable fila-fin-de-semana');
+
+    if (this.esHoy(fecha)) {
+      clases.push('fila-dia-actual');
+    }
 
     if (typeof filaOrFecha === 'object' && (filaOrFecha?.color || filaOrFecha?.evento)) {
       clases.push('fila-personalizada');
@@ -155,13 +172,26 @@ export class EstimativoMensual {
     return {};
   }
 
+  obtenerEventosFila(fila: any): string[] {
+    if (!fila?.evento) return [];
+    return String(fila.evento)
+      .split(/\s*[\/,]\s*/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+  }
+
   obtenerTooltipFecha(filaOrFecha: any): string {
     const fila = typeof filaOrFecha === 'object' ? filaOrFecha : null;
     const fecha = typeof filaOrFecha === 'string' ? filaOrFecha : filaOrFecha?.fecha || '';
     const partes: string[] = [];
 
     if (fila?.evento) {
-      partes.push(`📌 Evento: ${fila.evento}`);
+      const eventos = this.obtenerEventosFila(fila);
+      if (eventos.length > 1) {
+        partes.push(`📌 Eventos (${eventos.length}): ${eventos.join(' • ')}`);
+      } else {
+        partes.push(`📌 Evento: ${fila.evento}`);
+      }
     }
 
     const info = obtenerInfoDia(fecha);

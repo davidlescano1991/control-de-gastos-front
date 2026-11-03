@@ -242,9 +242,9 @@ export class MovimientosStoreGoogle {
    */
   private suscribirEventosSSE(): void {
     this.sseService.getEvents$().subscribe((msg) => {
-      if (msg.event === 'DATA_UPDATED') {
+      if (msg.event === 'DATA_UPDATED' || msg.event === 'ESTIMATE_UPDATED') {
         const year = msg.data?.year || new Date().getFullYear();
-        console.log(`⚡ [MovimientosStoreGoogle] Evento DATA_UPDATED recibido vía SSE para año ${year}. Invalidando caché...`);
+        console.log(`⚡ [MovimientosStoreGoogle] Evento ${msg.event} recibido vía SSE para año ${year}. Invalidando caché...`, msg.data);
 
         // Invalidar cachés en memoria del año afectado
         this.movimientosPorAnio.delete(year);
@@ -257,7 +257,19 @@ export class MovimientosStoreGoogle {
           if (nombreMes) {
             this.mensualPorMes.delete(`${year}::${nombreMes}`);
             this.estimativoPorMes.delete(`${year}::${nombreMes}`);
+            this.estimativoConfigPorMes.delete(`${year}::${nombreMes}`);
           }
+        }
+
+        if (msg.data?.sheet) {
+          const sheetName = String(msg.data.sheet);
+          // Si es "Estimativo Noviembre", invalidar tanto con el nombre de hoja como con el mes limpio
+          const mesLimpio = sheetName.replace(/^Estimativo\s+/i, '').trim();
+          this.mensualPorMes.delete(`${year}::${mesLimpio}`);
+          this.estimativoPorMes.delete(`${year}::${mesLimpio}`);
+          this.estimativoPorMes.delete(`${year}::${sheetName}`);
+          this.estimativoConfigPorMes.delete(`${year}::${mesLimpio}`);
+          this.estimativoConfigPorMes.delete(`${year}::${sheetName}`);
         }
       }
     });

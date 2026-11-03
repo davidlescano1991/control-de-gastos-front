@@ -171,20 +171,6 @@
             </option>
           </select>
         </div>
-        <div class="select-field vencimiento-field">
-          <label for="db-vencimiento" title="Fecha en que vence este resumen para alertas y recordatorios automáticos">
-            <mat-icon class="label-mini-icon">event</mat-icon> Vencimiento:
-          </label>
-          <input
-            id="db-vencimiento"
-            type="text"
-            [ngModel]="fechaVencimiento()"
-            (ngModelChange)="fechaVencimiento.set($event)"
-            placeholder="DD/MM/AAAA"
-            class="input-vencimiento"
-            title="Ingresa o verifica la fecha de vencimiento del resumen para guardarlo como evento en la base de datos"
-          />
-        </div>
 
         <button
           class="btn btn-db-sync"
@@ -243,9 +229,16 @@
               <span
                 *ngIf="isPagoResumen(m)"
                 class="badge-pago-informativo"
-                matTooltip="Pago del período anterior informado por el banco. No se computará en los gastos del mes en la base de datos."
+                matTooltip="Pago del saldo del resumen anterior informado por el banco. No se computará en los gastos del mes en la base de datos."
               >
                 Pago anterior (Informativo)
+              </span>
+              <span
+                *ngIf="isReintegro(m)"
+                class="badge-reintegro"
+                matTooltip="Reintegro o devolución de compra. Se computa restando a los gastos del mes."
+              >
+                Reintegro / Devolución
               </span>
             </td>
             <td class="text-center cell-cuotas">
@@ -336,10 +329,6 @@
         <span class="target-chip">
           <mat-icon>credit_card</mat-icon>
           {{ selectedEntidadDestino() }}
-        </span>
-        <span class="target-chip chip-vto" *ngIf="resultadoImportacion()?.fechaVencimiento">
-          <mat-icon>event_available</mat-icon>
-          Vence: {{ resultadoImportacion()?.fechaVencimiento }} (Guardado como evento)
         </span>
       </div>
 

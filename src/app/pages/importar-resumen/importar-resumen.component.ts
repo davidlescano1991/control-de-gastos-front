@@ -85,7 +85,6 @@ export class ImportarResumenComponent implements OnInit {
   });
 
   // Estados de carga y modales de feedback
-  fechaVencimiento = signal<string>('');
   isImportando = signal<boolean>(false);
   modalResultadoVisible = signal<boolean>(false);
   resultadoImportacion = signal<any | null>(null);
@@ -206,19 +205,12 @@ export class ImportarResumenComponent implements OnInit {
     );
 
     this.movimientos = this.normalizeMovements(rawMovements);
-
-    // Auto-detección inteligente de fecha de vencimiento del resumen (ej: "Vto: 10/11/2026", "Vencimiento Actual: 08/11/26", "Vence: 10-11-2026")
-    const matchVto = txt.match(/(?:fecha\s+de\s+vencimiento|vencimiento\s+actual|vto\.?\s+actual|vencimiento|vto\.?|vence)\s*[:\-]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
-    if (matchVto && matchVto[1]) {
-      this.fechaVencimiento.set(matchVto[1].trim());
-    }
   }
 
   clear(): void {
     this.inputCtrl.setValue('');
     this.textBuffer[this.getBufferKey()] = '';
     this.movimientos = [];
-    this.fechaVencimiento.set('');
   }
 
   private normalizeMovements(list: Movement[]): Movement[] {
@@ -290,7 +282,6 @@ export class ImportarResumenComponent implements OnInit {
         year: Number(this.selectedYear),
         mes: Number(this.selectedMonth),
         entidad: this.selectedEntidadDestino(),
-        fechaVencimiento: this.fechaVencimiento().trim() || undefined,
         movements: this.movimientos,
       })
       .subscribe({
@@ -333,8 +324,19 @@ export class ImportarResumenComponent implements OnInit {
   }
 
   isPagoResumen(m: Movement): boolean {
-    if (m.pesos !== null && m.pesos < 0) return true;
-    const ref = (m.referencia ?? '').toLowerCase();
-    return ref.includes('pago de tu tarjeta') || ref.includes('su pago') || ref.startsWith('pago');
+    const ref = (m.referencia ?? '').toLowerCase().trim();
+    return (
+      ref.includes('pago de tu tarjeta') ||
+      ref.includes('su pago') ||
+      ref.startsWith('pago de resumen') ||
+      ref.startsWith('pago en pesos') ||
+      ref.startsWith('pago de saldo') ||
+      /^pago\b/.test(ref)
+    );
+  }
+
+  isReintegro(m: Movement): boolean {
+    if (this.isPagoResumen(m)) return false;
+    return (m.pesos !== null && m.pesos < 0) || (m.dolares !== null && m.dolares < 0);
   }
 }
