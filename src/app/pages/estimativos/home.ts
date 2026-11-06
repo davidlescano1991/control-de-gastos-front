@@ -160,23 +160,6 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   meses = signal<string[]>([]);
   private appConfig = inject(AppConfigService);
   anios: number[] = [];
-  // Refresco conducido 100% por eventos SSE desde la API (polling local deshabilitado = 0ms)
-  readonly refreshIntervalMs = 0;
-  private ultimoRefrescoFocoMs = 0;
-  private handleFocus = () => {
-    this.comprobarYRefrescarEnFoco();
-  };
-  private handleVisibilityChange = () => {
-    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-      this.comprobarYRefrescarEnFoco();
-    }
-  };
-  private comprobarYRefrescarEnFoco() {
-    const ahora = Date.now();
-    if (ahora - this.ultimoRefrescoFocoMs < 3500) return;
-    this.ultimoRefrescoFocoMs = ahora;
-    void this.refrescarAutomaticamente();
-  };
   estimativoFilas = signal<EstimativoRow[]>([]);
 
   anioSeleccionado = signal<number>(new Date().getFullYear());
@@ -185,8 +168,6 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   isCargandoHistorico = signal(true);
   mensajeEstado = signal<string>('');
   datosHistoricosEstimativos = signal<EstimativoRow[]>([]);
-  private refreshTimerId: number | null = null;
-  private autoRefreshInProgress = false;
 
   private storeGoogle = inject(MovimientosStoreGoogle);
   private wakeLockService = inject(WakeLockService);
@@ -260,19 +241,18 @@ export class HomeEstimativo implements OnInit, OnDestroy {
     // 2. Cargar histórico en segundo plano sin bloquear la UI
     void this.cargaInicial(false);
 
-    // 3. Iniciar auto-refresco del mes activo y listeners de foco
-    this.iniciarAutoRefresh();
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener('focus', this.handleFocus);
-      document.addEventListener('visibilitychange', this.handleVisibilityChange);
-    }
-
-    // 📡 Suscripción reactiva en tiempo real al canal SSE
+    // 📡 Suscripción reactiva en tiempo real al canal SSE (solo recarga si la API notifica cambio en este mes)
     this.sseSub = this.sseService.getEvents$().subscribe((msg) => {
-      if (msg.event === 'DATA_UPDATED' || msg.event === 'ESTIMATE_UPDATED') {
-        console.log('⚡ [Estimativos] Actualización en tiempo real recibida vía SSE. Recargando...', msg.data);
-        void this.refrescarAutomaticamente();
+      if (msg.event === 'ESTIMATE_UPDATED') {
+        const anioEvento = msg.data?.year;
+        const hojaEvento = msg.data?.sheet;
+        const hojaActual = 'Estimativo ' + this.mesSeleccionado();
+        if (!anioEvento || anioEvento === this.anioSeleccionado()) {
+          if (!hojaEvento || hojaEvento === hojaActual || hojaEvento === this.mesSeleccionado()) {
+            console.log(`⚡ [Estimativos] Actualización en tiempo real recibida para "${hojaActual}". Recargando sin parpadeos...`, msg.data);
+            void this.seleccionarMesMensual(this.mesSeleccionado(), true);
+          }
+        }
       }
     });
   }
@@ -356,12 +336,7 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('focus', this.handleFocus);
-      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
-    }
     this.sseSub?.unsubscribe();
-    this.detenerAutoRefresh();
     void this.wakeLockService.releaseWakeLock();
   }
 
@@ -630,35 +605,6 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   }
   trackByAnio(index: number, anio: number): number {
     return anio;
-  }
-
-  private iniciarAutoRefresh() {
-    if (typeof window === 'undefined' || this.refreshIntervalMs <= 0) return;
-    this.detenerAutoRefresh();
-    this.refreshTimerId = window.setInterval(() => {
-      void this.refrescarAutomaticamente();
-    }, this.refreshIntervalMs);
-  }
-
-  private detenerAutoRefresh() {
-    if (this.refreshTimerId == null) return;
-    clearInterval(this.refreshTimerId);
-    this.refreshTimerId = null;
-  }
-
-  private async refrescarAutomaticamente() {
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-    if (this.autoRefreshInProgress || this.isCargando()) return;
-    this.autoRefreshInProgress = true;
-
-    try {
-      // Refrescar directamente la hoja del mes y año actualmente en pantalla sin re-descargar todo el histórico
-      await this.seleccionarMesMensual(this.mesSeleccionado(), true);
-    } catch (err) {
-      console.warn('⚠️ Error en refresco automático de estimativos:', err);
-    } finally {
-      this.autoRefreshInProgress = false;
-    }
   }
 
   private setSignalIfChanged<T>(target: WritableSignal<T>, nextValue: T) {

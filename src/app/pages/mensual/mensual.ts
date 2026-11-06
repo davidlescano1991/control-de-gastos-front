@@ -679,23 +679,6 @@ export class Mensual implements OnInit, OnDestroy {
   private appConfig = inject(AppConfigService);
   private sseService = inject(SseService);
   anios: number[] = [];
-  // Refresco conducido 100% por eventos SSE desde la API (polling local deshabilitado = 0ms)
-  readonly refreshIntervalMs = 0;
-  private ultimoRefrescoFocoMs = 0;
-  private handleFocus = () => {
-    this.comprobarYRefrescarEnFoco();
-  };
-  private handleVisibilityChange = () => {
-    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-      this.comprobarYRefrescarEnFoco();
-    }
-  };
-  private comprobarYRefrescarEnFoco() {
-    const ahora = Date.now();
-    if (ahora - this.ultimoRefrescoFocoMs < 3500) return;
-    this.ultimoRefrescoFocoMs = ahora;
-    void this.refrescarAutomaticamente();
-  };
   anioSeleccionado = signal<number>(new Date().getFullYear());
   mesSeleccionado = signal(this.meses[0]);
   isCargando = signal(false);
@@ -793,30 +776,24 @@ export class Mensual implements OnInit, OnDestroy {
     this.mensajeEstado = `Inicializando seleccionarMes(mesPorDefecto=${mesPorDefecto})`;
     await this.seleccionarMes(mesPorDefecto);
     this.mensajeEstado = ``;
-    this.iniciarAutoRefresh();
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('focus', this.handleFocus);
-      document.addEventListener('visibilitychange', this.handleVisibilityChange);
-    }
-
-    // 📡 Suscripción reactiva en tiempo real al canal SSE
+    // 📡 Suscripción reactiva en tiempo real al canal SSE (solo recarga si la API notifica cambio en este mes)
     this.sseSub = this.sseService.getEvents$().subscribe((msg) => {
-      if (msg.event === 'DATA_UPDATED' || msg.event === 'MONTHLY_UPDATED') {
-        console.log('⚡ [Mensual] Actualización en tiempo real recibida vía SSE. Recargando...', msg.data);
-        void this.refrescarAutomaticamente();
-        void this.cargarTotalesTotales(false, true);
+      if (msg.event === 'MONTHLY_UPDATED') {
+        const anioEvento = msg.data?.year;
+        const hojaEvento = msg.data?.sheet;
+        if (!anioEvento || anioEvento === this.anioSeleccionado()) {
+          if (!hojaEvento || hojaEvento === this.mesSeleccionado()) {
+            console.log(`⚡ [Mensual] Actualización en tiempo real recibida para "${this.mesSeleccionado()}". Recargando sin parpadeos...`, msg.data);
+            void this.seleccionarMes(this.mesSeleccionado(), true, false);
+          }
+        }
       }
     });
   }
 
   ngOnDestroy(): void {
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('focus', this.handleFocus);
-      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
-    }
     this.sseSub?.unsubscribe();
-    this.detenerAutoRefresh();
     void this.wakeLockService.releaseWakeLock();
   }
 
@@ -878,16 +855,6 @@ export class Mensual implements OnInit, OnDestroy {
           const descHoja = this.appConfig.raw?.origenPorAnio?.[String(anio)]?.descripcion || `Cuentas claras_${anio}`;
           this.leyendaFallback.set(`* Información obtenida desde la hoja ${descHoja} (Fallback: API no disponible)`);
           await this.cargarEntidadesDesdeSheets(anio, mes, force);
-        }
-
-        // 5. Sincronización en segundo plano para 2027 si existen pestañas (ej: Enero_2027) en Sheets
-        if (anio === 2027 && this.sseService.isConnected()) {
-          void this.syncMensualService.sincronizarMesDesdeSheets(anio, mes, force).then((res) => {
-            if (res.sincronizados > 0) {
-              void this.cargarEntidadesDesdeBD(anio, mes);
-              void this.cargarTotalesTotales(false, true);
-            }
-          });
         }
       }
     } finally {
@@ -989,36 +956,13 @@ export class Mensual implements OnInit, OnDestroy {
     }
   }
 
-  private iniciarAutoRefresh() {
-    if (typeof window === 'undefined' || this.refreshIntervalMs <= 0) return;
-    this.detenerAutoRefresh();
-    this.refreshTimerId = window.setInterval(() => {
-      void this.refrescarAutomaticamente();
-    }, this.refreshIntervalMs);
-  }
-
-  private detenerAutoRefresh() {
-    if (this.refreshTimerId == null) return;
-    clearInterval(this.refreshTimerId);
-    this.refreshTimerId = null;
-  }
-
-  private async refrescarAutomaticamente() {
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-    if (this.autoRefreshInProgress || this.isCargando()) return;
-    this.autoRefreshInProgress = true;
-
-    try {
-      await this.cargarTotalesTotales(false, true);
-      await this.seleccionarMes(this.mesSeleccionado(), true, false);
-    } finally {
-      this.autoRefreshInProgress = false;
-    }
-  }
-
   private setSignalIfChanged<T>(target: WritableSignal<T>, nextValue: T) {
     if (JSON.stringify(target()) === JSON.stringify(nextValue)) return;
     target.set(nextValue);
+  }
+
+  trackPorKey(index: number, tarjeta: any): string {
+    return tarjeta?.key || String(index);
   }
 
   normalizar(texto: string | undefined): string {

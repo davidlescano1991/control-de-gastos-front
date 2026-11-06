@@ -579,7 +579,7 @@ export class MovimientosStoreGoogle {
       // Fallback a constantes locales
     }
 
-    if (anioValidar === 2026) return RANGOS_ENTIDADES_2026;
+    if (anioValidar >= 2026) return RANGOS_ENTIDADES_2026;
     if (anioValidar === 2025) return RANGOS_ENTIDADES_2025;
     if (anioValidar === 2024) return RANGOS_ENTIDADES_2024;
     if (anioValidar === 2023) return RANGOS_ENTIDADES_2023;
@@ -691,7 +691,7 @@ export class MovimientosStoreGoogle {
     const hojaReal = this.resolverNombreHoja(anio, hoja);
     const clave = `${anio}::${hoja}`;
 
-    if (!this.appConfig.isSheetsActivo(anio)) {
+    if (!this.appConfig.isSheetsActivo(anio) && anio !== 2027) {
       this.mensualPorMes.set(clave, signal({ values: [] }));
       return;
     }
@@ -729,9 +729,11 @@ export class MovimientosStoreGoogle {
     force = false,
   ): Promise<void> {
     if (!this.appConfig.isSheetsActivo(anio)) {
-      console.log(`ℹ️ [MovimientosStoreGoogle] Año ${anio} en modo BD: mensual aún no migrado a la BD, sin información.`);
+      console.log(`ℹ️ [MovimientosStoreGoogle] Año ${anio} en modo BD: mensual no consulta Sheets.`);
       for (const mes of meses) {
-        this.mensualPorMes.set(`${anio}::${mes}`, signal({ values: [] }));
+        if (!this.mensualPorMes.has(`${anio}::${mes}`)) {
+          this.mensualPorMes.set(`${anio}::${mes}`, signal({ values: [] }));
+        }
       }
       return;
     }

@@ -19,6 +19,377 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-11-05 14:15] - Configuración de Estimativos: Cálculo Automático Fiel al Excel Tildado por Defecto
+- **Problema / Solicitud**:
+  - En el modal "Configurar Ciclo Estimativo" (`modal-config-estimativo`), la opción "Cálculo Automático Fiel al Excel" aparecía destildada (en modo manual) por defecto al abrir o editar un ciclo existente, mostrando el campo de texto manual en vez del cálculo automático contable.
+- **Causa Raíz**:
+  - En `modal-config-estimativo.ts`, al recuperar la configuración previa (`existente.config`), se ejecutaba explícitamente `this.usarCalculoAutomatico = false;`.
+- **Solución Técnica Aplicada**:
+  - Se ajustó `modal-config-estimativo.ts` para que `usarCalculoAutomatico = true` sea el valor predeterminado tanto al iniciar el formulario como al cargar una configuración existente.
+  - De esta forma, el modal siempre abre con el cálculo contable activo y tildado, calculando fielmente el Saldo Inicial Día 1 según los ingresos, tarjetas, préstamos, otros/servicios y remanentes, permitiendo al usuario destildarlo solo si desea ingresar un saldo manual.
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/modal-config-estimativo/modal-config-estimativo.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-05 13:55] - Reordenamiento de Columna Derecha en Estimativos (Parámetros del Estimativo Primero)
+- **Problema / Solicitud**:
+  - En la vista de Estimativos mensuales (`/estimativos`), el usuario solicitó que la tarjeta de "Parámetros del estimativo" (con Gasto Diario Est., Interés Billeteras y Gasto Est. Mes) se visualice primero, por encima del "Gráfico Estimativo", en la columna derecha.
+- **Causa Raíz**:
+  - En la plantilla `src/app/pages/estimativos/home.html`, el componente `<app-grafico-estimativo>` estaba posicionado en el DOM antes del `<mat-card class="tabla-resumen-card parametros-estimativo-card">`.
+- **Solución Técnica Aplicada**:
+  - Se reordenó la estructura dentro de `.col-derecha-scroll > .contenido-derecho`, colocando la tarjeta `mat-card.parametros-estimativo-card` en la parte superior y a continuación el `<app-grafico-estimativo>`.
+  - Se respetaron al 100% las clases de diseño, bordes, sombras y comportamiento colapsable de ambos componentes.
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/home.html`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+
+### [2026-11-05 13:05] - Corrección de Propagación de Cuotas al Cargar Enero 2027 (Depuración de Datos Fantasma de Diciembre 2026)
+- **Problema / Solicitud**:
+  - Al abrir el modal "Cargar Ítem o Cuota Mensual" para Visa Galicia en Enero 2027, la precarga de ítems sugeridos traía compras y conceptos correspondientes a Noviembre 2026 (por ejemplo `K MERPAGO*MERCADOLIBRE -$224.487,02`, `Intereses Financiacion $10.946,99`, `MPago 4/6 $37.414,50`) en lugar de tomar los movimientos vigentes de Diciembre 2026 con +1 cuota.
+- **Causa Raíz**:
+  - El endpoint `/api/mensual/items/preview-anterior?year=2027&mes=1&entidad=Visa%20Galicia` consulta la tabla `monthly_items` en PostgreSQL para el mes origen (`year: 2026, mes: 12`).
+  - En la base de datos PostgreSQL, los registros de Diciembre 2026 habían sido poblados previamente con una copia propagada desde Noviembre que incluía reintegros de una sola vez, intereses y cuotas que no existían en la hoja oficial de Google Sheets de Diciembre 2026.
+  - Al calcular el mes anterior para Enero 2027, el backend tomaba esos registros obsoletos y volvía a incrementarles 1 cuota (`MPago 3/6` pasaba a `MPago 4/6`) y arrastraba los gastos no recurrentes de Noviembre.
+- **Solución Técnica Aplicada**:
+  - **Auditoría y Resincronización de Diciembre 2026**: Se consultó la hoja oficial `Diciembre` de Google Sheets (donde reside la verdad histórica de 2026) y se resincronizaron las entidades en la base de datos PostgreSQL:
+    - Se eliminaron los ítems fantasma de Noviembre (`K MERPAGO*MERCADOLIBRE`, `Intereses Financiacion`, `Un Pago 1/1`, `MPago 3/6 $37.414,50` y compensaciones intermedias).
+    - Se cargaron los movimientos exactos de Diciembre 2026:
+      - `MPago 2/6` ($73.229,12) -> en Enero 2027 sugiere **`MPago 3/6` ($73.229,12)**
+      - `MPago 5/6` ($20.597,00) -> en Enero 2027 sugiere **`MPago 6/6` ($20.597,00)**
+      - `MPago 2/3` ($85.793,78) -> en Enero 2027 sugiere **`MPago 3/3` ($85.793,78)**
+      - `MPago 4/6` ($68.348,91) -> en Enero 2027 sugiere **`MPago 5/6` ($68.348,91)**
+      - `Impuesto al sello` -> **`$949,60`**
+      - `DB IVA $ 21% 1.209,60` -> **`$252,96`**
+    - Las cuotas que terminaron en Diciembre (`MPago 3/3` $98.389,65 y `MPago 6/6` $18.877,00) quedan automáticamente descartadas.
+  - **Verificación de Endpoint**:
+    - Se testeó el endpoint `/api/mensual/items/preview-anterior?year=2027&mes=1&entidad=Visa%20Galicia`. Ahora entrega exactamente los 6 ítems vigentes de Diciembre 2026 incrementados en +1 cuota, totalizando `$ 249.171,37`, coincidiendo con la columna Enero de la hoja oficial.
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - Base de datos PostgreSQL (`monthly_items` de 2026-12)
+  - `src/app/services/proyeccion-entidad.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-05 12:30] - Sincronización Exacta de Totales Futuros en Modal de Proyección (Híbrido Sheets / PostgreSQL)
+- **Problema / Solicitud**:
+  - En la vista de Noviembre 2026, los totales proyectados para meses futuros en el modal de proyección multi-mes no coincidían con la tabla "Resumen por Entidad":
+    1. **Diciembre 2026**: En la tabla "Resumen por Entidad" figuraba `$ 366.438,02` (correcto), pero en el modal figuraba `$ 403.852,52` (discrepancia de `$ 37.414,50`).
+    2. **Enero 2027**: En la tabla "Resumen por Entidad" figuraba `$ 320.175,31` (correcto, origen BD), pero en el modal figuraba `$ 286.585,87` (columna desactualizada de la planilla 2026).
+- **Causa Raíz**:
+  1. **Discrepancia en Diciembre 2026**: Existía un fallback automático `if (montoFut === 0 && montoActual !== 0) montoFut = montoActual;` en `proyeccion-entidad.service.ts`. La compra `MPago 2/6` tenía un importe de `$ 37.414,50` en Noviembre y un valor vacío (0) en la columna Diciembre de la hoja. Dicho fallback forzó artificialmente `$ 37.414,50` en Diciembre, inflando el total a `$ 403.852,52`.
+  2. **Discrepancia en Enero 2027 (y meses BD posteriores)**: En `obtenerProyeccionCompleta`, cuando la ventana de proyección cruza de 2026 a 2027, las columnas de 2027 estaban leyendo la columna "Enero" de la hoja de Google Sheets 2026 (datos obsoletos previos a la migración) en lugar de consultar la base de datos PostgreSQL donde reside la información real del año 2027.
+- **Solución Técnica Aplicada**:
+  - **Eliminación de Fallback Artificial en Cuotas Futuras**: Se removió la asignación automática `montoFut = montoActual` cuando la celda de la columna en Google Sheets es 0 o vacía. Ahora se respeta estrictamente lo registrado en la columna del mes correspondiente. Resultado: Diciembre 2026 pasa a ser **`$ 366.438,02`**, coincidiendo al centavo con "Resumen por Entidad".
+  - **Integración de PostgreSQL en Columnas Multi-Mes que Cruzan de Año**: Para cualquier columna futura cuyo año esté en modo BD (`!this.appConfig.isSheetsActivo(col.anio)`, como 2027):
+    - Se pre-cargan los ítems desde PostgreSQL (`mensualItemsService.getItems`).
+    - Las filas de cuotas y conceptos no-cuota se emparejan con los registros reales de PostgreSQL.
+    - Los ítems de la BD no emparejados previamente se incorporan automáticamente como filas adicionales.
+    - Se garantiza que la suma de la columna coincida exactamente con la sumatoria de ítems de PostgreSQL para esa entidad. Resultado: Enero 2027 marca **`$ 320.175,31`**, Febrero 2027 **`$ 213.784,53`** y Marzo 2027 **`$ 182.850,14`**, 100% idéntico a "Resumen por Entidad".
+  - **Soporte Bidireccional en BD**: Se añadió la lectura de hojas pasadas de Google Sheets en `obtenerProyeccionCompletaDesdeBD` para que conceptos como `SALDO ANTERIOR` de Diciembre 2026 se visualicen correctamente al consultar desde meses de 2027.
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/services/proyeccion-entidad.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-04 11:10] - Corrección de Coincidencia de Totales en BD (2027) y Consistencia de Totales Futuros en Sheets (Noviembre 2026)
+- **Problema / Solicitud**:
+  1. En Enero 2027 (Modo BD), el total de la tarjeta Visa Galicia marcaba `$ 320.175,31`, pero en el modal de proyección marcaba solo `$ 141.182,78` (faltaban cuotas múltiples de un mismo proveedor con idéntico número de cuotas, ej. varios MPago de 6 cuotas).
+  2. En Noviembre 2026 (Modo Sheets), el total del modal para Diciembre no coincidía con los totales futuros del resto de la aplicación ni con la hoja (marcando `$ 484.267,89` en lugar del total proyectado oficial de `$ 366.438,02`).
+- **Causa Raíz**:
+  1. En `obtenerProyeccionCompletaDesdeBD` (`proyeccion-entidad.service.ts`), se utilizaba una clave de deduplicación basada en `baseDesc + totalCuotas` (`serieKey = cuota::mpago::6`). Si en el mismo mes existían varias compras independientes de Mercado Pago en 6 cuotas (ej: `MPago 6/6`, `MPago 5/6`, `MPago 3/6`, `MPago 4/6`), solo se tomaba la primera y se descartaban las demás 3 compras, restando `$ 178.992,53` del total del modal.
+  2. En `obtenerProyeccionCompleta`, para columnas futuras en modo Sheets (ej. Diciembre estando en Noviembre), se había inyectado el `SALDO ANTERIOR` de la hoja de Diciembre. En Google Sheets, las columnas futuras solo suman compromisos de cuotas y cargos proyectados ($ 366.438,02) y no incorporan deudas de liquidaciones pasadas en las fórmulas de futuro. Al sumarlo, el total de Diciembre quedaba inflado a $ 484.267,89.
+- **Solución Técnica Aplicada**:
+  - **Inclusión Total de Ítems del Mes Actual en BD**: Se refactorizó `obtenerProyeccionCompletaDesdeBD` para procesar el 100% de los ítems presentes en la tarjeta del mes actual (`itemsMesActual`) sin descartar compras con nombres o cantidades de cuotas homónimas. Cada fila se empareja a lo largo de las columnas usando `grupoCuotaId`, cuota esperada y aproximación de montos.
+    - Resultado en Enero 2027: El modal suma con exactitud los 7 ítems llegando a **`$ 320.175,31`**, igualando al centavo el total de la tarjeta.
+  - **Consistencia de Totales Futuros en Sheets**: Se revirtió la inyección de saldo anterior en columnas futuras de modo Sheets. Ahora las columnas futuras leen directamente de la columna del mes actual correspondiente.
+    - Resultado en Noviembre 2026: El total del modal para Diciembre vuelve a ser de **`$ 366.438,02`**, coincidiendo al 100% con la columna Diciembre de Sheets, con la tabla de "Resumen por Entidad" y con el gráfico de "Proyección de Próximos Meses ($)".
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/services/proyeccion-entidad.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-03 22:10] - Carga de SALDO ANTERIOR y Conceptos No-Cuota en Meses Futuros (Diciembre) en Proyección de Entidades
+- **Problema / Solicitud**:
+  - En la proyección multi-mes y anual de Visa Galicia (estando en Noviembre 2026), la fila `SALDO ANTERIOR` mostraba un guión `-` (vacío) en la columna de `Diciembre`, a pesar de que en la hoja Google Sheets de Diciembre 2026 figura cargado el saldo anterior por `$ 117.829,87`.
+- **Causa Raíz**:
+  - Para meses pasados, el servicio consultaba la hoja individual de cada mes anterior.
+  - Sin embargo, para meses futuros (`col.esFuturo`), los conceptos que no son cuotas (como `SALDO ANTERIOR`, `Impuesto al sello`, `DB IVA`) solo se buscaban en las columnas de la hoja del mes actual (`Noviembre`).
+  - Como en Sheets la fila `SALDO ANTERIOR` de Noviembre no contiene un valor proyectado en la columna de Diciembre (el saldo anterior se introduce mes a mes en su propia pestaña), el valor quedaba en 0 (`-`), omitiendo los `$ 117.829,87` de Diciembre y restándolo del total general.
+- **Solución Técnica Aplicada**:
+  - **Búsqueda en Hojas Futuras Existentes (`proyeccion-entidad.service.ts`)**:
+    - Se agregó soporte para que conceptos no-cuota (`SALDO ANTERIOR`, impuestos, etc.), si están en 0 en la hoja actual, consulten la hoja propia del mes futuro si ya existe y está disponible en Sheets (ej. `Diciembre`).
+    - Se normalizó el helper `coincideConcepto` a nivel de clase para identificar con precisión variaciones de conceptos (`saldo anterior` -> `saldo_anterior`).
+    - Se actualizó tanto `obtenerProyeccionCompleta` (modal anual) como `obtenerProyeccionFila` (tooltip flotante).
+    - Ahora `SALDO ANTERIOR` en Diciembre muestra con exactitud `$ 117.829,87`, y el total de Diciembre coincide al centavo con el total de Google Sheets (`$ 484.267,89`).
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/services/proyeccion-entidad.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-03 21:50] - Corrección de Modal Borroso en Proyección Anual de Entidad (Colisión Global de `.modal-backdrop` con `z-index: 999999 !important`)
+- **Problema / Solicitud**:
+  - Al expandir la proyección de una entidad desde el tooltip (modo "Proyección Multi-mes", que se veía nítido) hacia el modal completo ("Proyección Anual"), todo el modal se veía borroso en el navegador y bloqueaba los clics.
+- **Causa Raíz**:
+  - En `src/styles.scss` (línea 2049), se había definido una regla global sin alcance:
+    ```scss
+    .modal-backdrop {
+      backdrop-filter: blur(5px);
+      z-index: 999999 !important;
+    }
+    ```
+  - En `modal-proyeccion-entidad.html`, el elemento `<div class="modal-backdrop"></div>` es un **hermano** (sibling) de `<div class="proyeccion-panel">`, donde `.modal-backdrop` tenía `z-index: 1` y `.proyeccion-panel` tenía `z-index: 2`.
+  - Debido al `z-index: 999999 !important` global de `styles.scss`, el `.modal-backdrop` pasaba por **delante** de `.proyeccion-panel` (`999999 > 2`), tapando el propio modal por encima y aplicándole `backdrop-filter: blur(5px)`.
+- **Solución Técnica Aplicada**:
+  - **Restricción del selector global en `src/styles.scss`**: Se acotó `.modal-backdrop` a `.modal-backdrop:has(> .modal-card)` para que solo afecte a los modales cuyo backdrop actúa como contenedor padre de `.modal-card` (como el modal de baja de entidad), sin invadir componentes donde el backdrop es un elemento hermano.
+  - **Jerarquía de capas blindada en `modal-proyeccion-entidad.scss`**: Se aseguró `z-index: 1 !important` en `.modal-backdrop` y `z-index: 2 !important` en `.proyeccion-panel`, garantizando que el panel del modal siempre quede por encima del fondo difuminado.
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/styles.scss`
+  - `src/app/pages/mensual/proyeccion-entidad/modal-proyeccion-entidad.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-03 21:20] - Corrección de Llamadas Sheets 400 Bad Request en Proyecciones Hacia Años BD (2027) y Soporte ESC
+- **Problema / Solicitud**:
+  - Al abrir la proyección multi-mes o anual de una entidad desde la vista mensual de 2026 (por ejemplo en Noviembre), la consola seguía mostrando 2 errores en rojo:
+    `GET https://sheets.googleapis.com/...values/Marzo_2027!A1:R500?key=... 400 (Bad Request)`
+    `Hoja Marzo no encontrada en año 2027, omitiendo`
+    `HttpErrorResponse`
+- **Causa Raíz**:
+  - En `src/app/stores/movimiento.google.ts`, el método `asegurarMensualPorAnioRange` mantenía una condición residual previa a la migración:
+    `if (!this.appConfig.isSheetsActivo(anio) && anio !== 2027)`
+  - Esto permitía que cualquier solicitud hacia 2027 (el cual está en Base de Datos PostgreSQL) saltara el guardia e intentara consultar pestañas remotas inexistentes de Google Sheets como `Marzo_2027`, disparando el error 400.
+  - Además, `proyeccion-entidad.service.ts` no filtraba `isSheetsActivo(col.anio)` al armar el mapa de hojas requeridas.
+- **Solución Técnica Aplicada**:
+  - **Blindaje Estricto en `movimiento.google.ts`**: Se removió el bypass `&& anio !== 2027`. Todo año con `!isSheetsActivo(anio)` resuelve localmente sin invocar la API de Google Sheets.
+  - **Filtro Preventivo en `ProyeccionEntidadService`**: Se ignoran años que no pertenezcan a Google Sheets dentro de `asegurarHojasColumnas`.
+  - **Soporte de Tecla ESC y Auto-scroll**:
+    - Se agregó `@HostListener('window:keydown.escape')` en `modal-proyeccion-entidad.ts` para permitir cerrar el modal cómodamente con la tecla Escape.
+    - Se implementó auto-scroll suave hacia la columna actual (`.col-actual`) al abrir la vista de año completo para posicionar de inmediato los meses relevantes (ej. Noviembre) en lugar de quedar al inicio en Enero.
+  - **Optimización de Tracking en `mensual.html`**:
+    - Se incorporó `trackBy: trackPorKey` en `*ngFor="let tarjeta of listaTarjetasEntidades()"` para eliminar la advertencia `NG0956` de recreación de colecciones.
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/stores/movimiento.google.ts`
+  - `src/app/services/proyeccion-entidad.service.ts`
+  - `src/app/pages/mensual/proyeccion-entidad/modal-proyeccion-entidad.ts`
+  - `src/app/pages/mensual/mensual.html`
+  - `src/app/pages/mensual/mensual.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-03 20:55] - Corrección de Congelamiento en Modal Proyección Anual de Entidad (Error NG0955: Duplicate Tracking Keys)
+- **Problema / Solicitud**:
+  - Al hacer clic en "Expandir" / proyección anual de una entidad (ej. Visa Galicia) en la vista mensual, la aplicación se congelaba y el modal quedaba inutilizable.
+  - En la consola de DevTools aparecía de forma reiterada el error en runtime de Angular:
+    `NG0955: Tracking keys must be unique within an iterator! key "MPago 6/6 (Finalizada)" at index "16" and "17"... key "MPago 3/3 (Finalizada)" at index "25" and "31"...`
+- **Causa Raíz**:
+  - En la plantilla `src/app/pages/mensual/proyeccion-entidad/modal-proyeccion-entidad.html`:
+    - Se utilizaba `@for (fila of datos.filas; track fila.descripcion)`.
+    - Cuando una tarjeta o entidad posee múltiples compras en cuotas finalizadas o ítems con descripciones homónimas (por ejemplo múltiples compras de Mercado Pago terminadas que pasan a llamarse `"MPago 6/6 (Finalizada)"` o `"MPago 3/3 (Finalizada)"`), la directiva `@for` de Angular 17+ detecta claves de tracking duplicadas (`NG0955`).
+    - Este fallo interrumpe la detección de cambios de Angular, dejando el modal congelado.
+  - Además, las columnas en los bucles internos utilizaban `track col.mes`, lo cual también podía originar colisiones en tablas multianuales con meses repetidos.
+- **Solución Técnica Aplicada**:
+  - **Tracking por Índice en Filas (`modal-proyeccion-entidad.html`)**:
+    - Se reemplazó `@for (fila of datos.filas; track fila.descripcion)` por `@for (fila of datos.filas; track $index)`.
+  - **Tracking Compuesto en Columnas (`modal-proyeccion-entidad.html`)**:
+    - Se reemplazó `track col.mes` por `track (col.mes + '_' + col.anio)`.
+  - **Blindaje Preventivo en `resumen.html`**:
+    - Se reemplazó `track mes` por `track $index` en iteraciones de columnas dinámicas para evitar posibles colisiones en ventanas móviles entre años.
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/proyeccion-entidad/modal-proyeccion-entidad.html`
+  - `src/app/pages/mensual/resumen/resumen.html`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-03 17:18] - Ordenamiento Canónico de Entidades en Resumen por Entidad Idéntico a la Columna Izquierda
+- **Problema / Solicitud**:
+  - En la tabla de "Resumen por Entidad" de la vista mensual, las entidades se mostraban en un orden desorganizado (por ejemplo: Mercado Libre arriba de todo, luego Visa, luego los ítems de Otros, y al fondo Mastercard, Naranja y Bancor), lo cual difería y resultaba confuso respecto al orden en que aparecen las tarjetas de entidades en la columna izquierda.
+- **Causa Raíz**:
+  - `resumen.ts` obtenía la lista de entidades financieras mediante `Object.keys(rangosBase)`.
+  - Los rangos provistos dinámicamente por la API (`runtime-config`) devuelven un objeto JSON con llaves sin garantía de orden (`ml`, `visa`, `otros`, `bancor`, `naranja`, `mastercard`).
+  - Esto provocaba que `ml` (Mercado Libre) se posicionara primera, seguida de `visa` y luego los sub-conceptos de `otros`, relegando a `mastercard`, `naranja` y `bancor` a las últimas posiciones bajo el scroll de la tabla.
+- **Solución Técnica Aplicada**:
+  - **Orden Canónico Oficial**: Se definió la secuencia canónica idéntica a la columna izquierda (`ORDEN_CANONICO_ENTIDADES = ['visa', 'mastercard', 'naranja', 'bancor', 'ml', 'otros']`).
+  - **Ordenamiento Estable en `resumen.ts`**:
+    - Las entidades de configuración base se ordenan estrictamente según dicha prioridad antes de expandir los sub-conceptos de `otros`.
+    - Se garantiza que los sub-conceptos de `otros` queden agrupados después de Mercado Libre.
+    - Se reubica `Compensaciones` siempre al final de los sub-conceptos de Otros, justo antes del Total.
+  - **Resultado Visual**:
+    1. **Visa** (con logo)
+    2. **Mastercard** (con logo)
+    3. **Naranja** (con logo)
+    4. **Bancor** (con logo)
+    5. **Mercado Libre** (con logo)
+    6. **Sub-conceptos de Otros** (`internet`, `Expensas`, `seguro`, `Prestamo madre`, `Nafta`, `Cuota Alimentaria`, `Claro`, `Prestamo`, `Compensaciones`).
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/resumen/resumen.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-03 16:45] - Corrección de Eliminación, Vaciado de Ítems y Precarga Limpia en Enero 2027 (Modo BD)
+- **Problema / Solicitud**:
+  - En Enero 2027, el usuario no podía eliminar los ítems de la tarjeta "Otros" (como `=Noviembre!A80`, `=Noviembre!A84`, `=Noviembre!A86`) ni vaciar la entidad completa para precargarla de cero con los conceptos limpios de Diciembre 2026.
+  - Al intentar borrar o vaciar, los ítems reaparecían casi de inmediato.
+- **Causa Raíz**:
+  1. **Resurrección por Sincronización Innecesaria**: En `mensual.ts` (línea 861), cada vez que se cambiaba o refrescaba el mes en 2027, se ejecutaba en segundo plano `sincronizarMesDesdeSheets(anio, mes, force)` hacia Google Sheets. Al tener una pestaña remota `Enero_2027` con borradores antiguos, el sincronizador volvía a insertar en PostgreSQL los 3 ítems con fórmulas de celda inmediatamente después de que el usuario los borraba.
+  2. **Condición de Carrera en el Modal de Eliminación**: En `modal-cargar-item.ts`, `@Input() modoEliminarDirecto: boolean = false;` era una propiedad simple evaluada después de `itemAEditar`. Si Angular asignaba el ítem antes de dicha propiedad, `confirmandoEliminar` se inicializaba en `false` en lugar del diálogo de confirmación de eliminación.
+  3. **Fórmulas de Celda en Precarga**: En la API (`monthly-item.service.ts`), `getPreviewMesAnterior` y `precargarMesAnterior` no filtraban conceptos que iniciaran con `=` (ej. `=Noviembre!A80`), lo cual proponía referencias a celdas de hojas en lugar de conceptos limpios como `internet`, `Nafta`, `Cuota Alimentaria`, `Claro` y `Prestamo`.
+- **Solución Técnica Aplicada**:
+  - **Eliminación del Hook de Sincronización Sheets en 2027 (`mensual.ts`)**: Se eliminó el bloque que disparaba `syncMensualService.sincronizarMesDesdeSheets` para 2027.
+  - **Blindaje en `SyncMensualSheetsDbService`**: Se agregó una verificación inicial: si `!this.appConfig.isSheetsActivo(anio)`, el servicio aborta inmediatamente con `{ sincronizados: 0 }`, impidiendo que años en Base de Datos importen filas de Sheets.
+  - **Setter reactivo para `modoEliminarDirecto` en `modal-cargar-item.ts`**: Convirtió `modoEliminarDirecto` en getter/setter para activar inmediatamente `confirmandoEliminar.set(true)` sin importar el orden de resolución de `@Input()`.
+  - **Filtro de Conceptos Fórmula en API (`monthly-item.service.ts`)**: En `getPreviewMesAnterior` y `precargarMesAnterior`, se ignora cualquier ítem cuyo concepto comience con `=`.
+  - **Limpieza de la Base de Datos**: Se eliminaron los 2 ítems residuales con fórmula en la entidad "Otros" de Enero 2027 (`=Noviembre!A84` y `=Noviembre!A86`).
+  - **Resultado**: Ahora "Otros" en Enero 2027 queda listo para precargarse con los datos reales y limpios de Diciembre 2026 (`internet`, `Nafta`, `Cuota Alimentaria`, `Claro`, `Prestamo`), y cualquier eliminación individual o vaciado de entidad persiste sin que nada lo resucite.
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/mensual.ts`
+  - `src/app/services/sync-mensual-sheets-db.service.ts`
+  - `src/app/pages/mensual/modal-cargar-item/modal-cargar-item.ts`
+  - `control-de-gastos-api/src/services/monthly-item.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-03 15:35] - Resumen por Entidad: Intenciones de Pago y Regla de Compensaciones para Columnas en Base de Datos (2027+)
+- **Problema / Solicitud**:
+  - Para los datos provenientes de Base de Datos (ej. 2027), se debe mostrar en cada entidad su **intención de pago**.
+  - Si una entidad no tiene cargada esa intención de pago, se asume que se paga la entidad en su totalidad (100% de sus gastos/items).
+  - Los ítems de compensaciones deben mostrarse en la tabla, pero **NO deben tenerse en cuenta a la hora del cálculo de los totales** para meses en BD.
+  - La fila Total en BD debe mostrar en definitiva **cuánto se va a pagar ese mes**, mientras que la fila de Compensaciones debe reflejar lo que faltará (o faltó si el mes ya pasó) para llegar a ese total.
+- **Causa Raíz**:
+  - Anteriormente, el cálculo de `getTotalPorMes()` sumaba indiscriminadamente todas las entidades incluyendo `otros_compensaciones` sin distinguir si la columna era de Google Sheets (donde las compensaciones vienen incorporadas en la fórmula de hoja) o de Base de Datos (donde el total debe responder a los desembolsos planificados/intenciones de pago).
+  - En BD no se consultaban las intenciones de pago (`EntityPaymentService`) para las celdas de las entidades financieras ni se calculaba el remanente impago hacia Compensaciones.
+- **Solución Técnica Aplicada**:
+  - **Inyección de `EntityPaymentService` en `Resumen` (`resumen.ts`)**:
+    - Se pre-cargan los pagos e intenciones para cada columna en modo BD mediante `EntityPaymentService.getPayments(col.anio, mesNum)`.
+  - **Visualización y Sumatoria por Entidad en BD**:
+    - Si existe un pago/intención para la entidad en ese mes (`pago.montoPagado`), se toma dicho monto.
+    - Si no existe intención de pago, se toma el total de los gastos de la entidad (se asume pagada en su totalidad).
+  - **Cálculo de Compensaciones en BD**:
+    - Refleja el monto compensatorio base existente en BD (ej. -$ 1.695.580,87) ajustado por cualquier remanente o diferencia impaga de las intenciones de pago (`totalGastos - montoPagado`).
+  - **Exclusión de Compensaciones en el Total de Columnas BD (`getTotalPorMes`)**:
+    - Mediante el helper `isColumnaBD(mes)`, para columnas de Base de Datos se omiten `otros_compensaciones` y cualquier concepto de compensación del cálculo de la fila final `Total`.
+    - La fila `Total` refleja con exactitud la suma de lo que se va a pagar en ese mes.
+    - Para columnas de Google Sheets (ej. 2026), se mantiene el comportamiento de Sheets.
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/resumen/resumen.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-03 15:05] - Corrección de Fila de Totales en Resumen por Entidad (Reincorporación de Compensaciones y Fix de parseMoneda)
+- **Problema / Solicitud**:
+  1. En la tabla "Resumen por Entidad" de `/mensual`, la fila final de **Total** mostraba importes inflados al doble (ej. $ 6.771.423,53 en Octubre, $ 6.681.639,83 en Noviembre, $ 5.174.119,84 en Diciembre), cuando los totales netos reales de la hoja y de la vista debían ser $ 3.031.732,09 en Octubre, $ 3.438.788,15 en Noviembre y $ 3.269.210,23 en Diciembre.
+  2. Aclarar el alcance de la proyección de 6 meses hacia el año siguiente: verificar que en Diciembre 2026 se alcancen a mostrar los datos cargados hasta Abril 2027.
+- **Causa Raíz**:
+  1. **Exclusión indebida de Compensaciones**: En `resumen.ts` se había filtrado el concepto `compensaciones`. Dicha fila contiene los saldos compensatorios netos negativos (ej. -$ 3.739.691,44 en Octubre, -$ 3.242.851,68 en Noviembre, -$ 1.904.909,61 en Diciembre, y -$ 1.695.580,87 en 2027). Al omitir dicha fila, la suma total correspondía al total bruto de tarjetas y servicios sin balancear.
+  2. **Bug en `parseMoneda` con montos negativos con signo pesos**: La expresión `Number(valor.replace(/\./g, '').replace(',', '.').replace('$', ''))` aplicada a strings como `-$ 3.242.851,68` dejaba un espacio en blanco entre el signo menos y los dígitos (`"- 3242851.68"`), lo que en JavaScript evalúa a `NaN`, y por ende retornaba `0`.
+- **Solución Técnica Aplicada**:
+  - **Limpieza de espacios en `parseMoneda`**: Se agregó `.replace(/\s+/g, '')` en `parseMoneda()`, permitiendo parsear de forma exacta números monetarios negativos como `-3242851.68`.
+  - **Inclusión de `Compensaciones`**: Se eliminó el filtro que excluía `compensaciones` en la detección de sub-conceptos de `Otros` y en la acumulación de importes tanto para Sheets como para Base de Datos.
+  - **Resultado de Totales**:
+    - Octubre 2026: **$ 3.031.732,09** (coincidencia exacta).
+    - Noviembre 2026: **$ 3.438.788,15** (coincidencia exacta).
+    - Diciembre 2026: **$ 3.269.210,23** (coincidencia exacta).
+    - Enero 2027: **$ 3.013.064,38** (neto exacto de items BD).
+  - **Ventana de 6 meses en Diciembre 2026**: Al estar en Diciembre (`index = 11`), los 6 meses de la ventana son `Noviembre 2026 | Diciembre 2026 | Enero 2027 | Febrero 2027 | Marzo 2027 | Abril 2027`, alcanzando Abril 2027 donde se confirman los 21 registros cargados en PostgreSQL.
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/resumen/resumen.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-03 14:25] - Corrección de Resumen por Entidad: Origen Híbrido Real Columna por Columna (Mercado Libre $37.603,42 y Meses hasta Abril 2027)
+- **Problema / Solicitud**:
+  1. Al estar en la vista de 2026, la columna de **Enero** mostraba **$ 0,00** para **Mercado Libre**, a pesar de que al ingresar a 2027 Enero figuraba con **$ 37.603,42** (con un total mensual de $ 3.079.738,33).
+  2. En el año 2026 (especialmente en Diciembre), no se mostraban los meses cargados hasta **Abril 2027**, quedándose truncada la tabla.
+- **Causa Raíz**:
+  1. **Disparidad de Origen por Año**: En la configuración (`years-and-ranges.json` / `runtime-config`), el año **2026** está activo en **Google Sheets**, pero el año **2027** está activo en **Base de Datos (PostgreSQL)** (`activo: false`).
+  2. **Suposición Monolítica de Origen en la Ventana**: El método `cargarTotales()` decidía el origen de TODAS las columnas de la ventana basándose exclusivamente en `this.anioSeleccionado`. Cuando el usuario estaba en 2026, asumía que todos los meses futuros (Enero, Febrero 2027) debían provenir de Google Sheets.
+  3. **Incompatibilidad de Hojas de Sheets vs BD en 2027**: En Google Sheets solo existían borradores parciales antiguos (`Enero_2027` y `Febrero_2027` con fila de cabecera vacía en row 103 para ML, lo que provocaba `$ 0,00`), y no existían hojas para Marzo ni Abril 2027 en la planilla. En cambio, en la Base de Datos PostgreSQL (`items_mensuales`), el usuario tiene cargados los datos reales completos de 2027 hasta Abril.
+- **Solución Técnica Aplicada**:
+  - **Carga Híbrida Real Columna por Columna en `Resumen` (`resumen.ts`)**:
+    - Cada mes y año candidato `{ mes, anio }` consulta dinámicamente su origen configurado mediante `this.appConfig.isSheetsActivo(col.anio)`.
+    - Si `col.anio === 2026`, se consulta Google Sheets.
+    - Si `col.anio === 2027`, se consulta PostgreSQL mediante `MensualItemsService.getItems(2027)`.
+    - En modo BD, se mapean las entidades oficiales (`ml`, `visa`, `mastercard`, `naranja`, `bancor`) y los conceptos de `otros` excluyendo fórmulas técnicas contables (ej. `=Noviembre!A80`).
+    - Para Mercado Libre en Enero 2027, ahora toma el valor exacto de la base de datos: **$ 37.603,42** (y el total de Enero 2027 es exactamente **$ 3.079.738,33**, idéntico a la vista directa de 2027).
+    - Para Diciembre 2026, al detectar que la BD cuenta con datos hasta Abril 2027, la proyección muestra limpiamente: `Noviembre | Diciembre | Enero | Febrero | Marzo | Abril` (los 6 meses continuos completos).
+- **Validación de Compilación**:
+  - Frontend: `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+  - Backend: `npm run build`: **Código 0**.
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/resumen/resumen.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-03 13:00] - Tabla Resumen por Entidad: Proyección Multianual Continua de 6 Meses (Cruce de Años 2026/2027)
+- **Problema / Solicitud**:
+  - En la vista Mensual (`/mensual`), la tabla "Resumen por Entidad" (`app-resumen`) solo mostraba columnas hasta Diciembre cuando se seleccionaban meses de fin de año (ej. Octubre, Noviembre, Diciembre mostraba únicamente 3 columnas).
+  - El usuario solicitó que la tabla muestre de forma genérica una proyección continua de hasta 6 meses (cruzando al año siguiente, ej. Enero y Febrero 2027, tal como lo hace el gráfico superior `app-grafico-proyeccion-totales`), siempre y cuando los meses del próximo año se encuentren cargados/disponibles.
+- **Causa Raíz**:
+  1. **Límite Rígido al Año Seleccionado**: En `resumen.ts`, el bucle de columnas posteriores estaba acotado por `index + i < mesesDelAnio.length` (máximo 12 meses del mismo año). Al estar en Noviembre (`index = 10`), solo agregaba Diciembre (`index = 11`) y se detenía con apenas 3 columnas.
+  2. **Bloqueo de Carga de 2027 en el Store**: En `movimiento.google.ts`, `asegurarMensualPorAnio` y `asegurarMensualPorAnioRange` verificaban `!this.appConfig.isSheetsActivo(anio)` y asignaban `{ values: [] }` para 2027 debido a que su origen está configurado como BD, a pesar de que el spreadsheet de 2026 contiene físicamente las pestañas `Enero_2027` y `Febrero_2027`.
+  3. **Rango de Entidades Desactualizado para 2027**: `ValidarRangoEntidades(anioValidar)` solo evaluaba estrictamente `anioValidar === 2026`, cayendo en un fallback erróneo a los rangos de 2022 para años `>= 2027`.
+  4. **Proyección del Modal Acotada**: En `ProyeccionEntidadService.obtenerColumnasMeses`, el bucle de meses posteriores también se truncaba al final del año calendario.
+- **Solución Técnica Aplicada**:
+  - **1. Ventana Deslizante Multianual de hasta 6 Meses en `Resumen` (`resumen.ts`)**:
+    - Se implementó la generación de candidatos `{ mes, anio }`: 1 mes anterior (si existe), mes seleccionado actual y meses posteriores cruzando automáticamente a `anioSeleccionado + 1` si `nextIdx >= 12`.
+    - Tanto en modo Google Sheets como en modo BD, se valida secuencialmente la existencia real de cada mes del año posterior; la ventana incorpora los meses disponibles (ej. `Enero_2027` y `Febrero_2027`) y se detiene limpiamente si los meses subsecuentes (ej. Marzo) aún no existen.
+    - Se unificó la detección de sub-entidades de `otros` y el cálculo de importes para todas las columnas de la ventana utilizando los rangos correspondientes a cada año (`col.anio`).
+  - **2. Habilitación de Carga Híbrida en `MovimientosStoreGoogle` (`movimiento.google.ts`)**:
+    - Se permitió a `asegurarMensualPorAnio` y `asegurarMensualPorAnioRange` consultar Google Sheets para `anio === 2027`, aprovechando las pestañas `Enero_2027` y `Febrero_2027` presentes en la planilla de 2026.
+    - Se ajustó `ValidarRangoEntidades` con `anioValidar >= 2026` para garantizar compatibilidad total con 2027 y futuros años.
+  - **3. Cruce de Año en `ProyeccionEntidadService`**:
+    - Se extendió `obtenerColumnasMeses` para que las columnas de proyección continua de entidades (hover/modal detallado) también incluyan los meses del año siguiente hasta completar 6 meses.
+- **Validación de Compilación**:
+  - Frontend: `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+  - Backend: `npm run build` en `control-de-gastos-api`: **Código 0, 100% exitoso**.
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/resumen/resumen.ts`
+  - `src/app/stores/movimiento.google.ts`
+  - `src/app/services/proyeccion-entidad.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-03 12:10] - Mensual y Estimativos: Eliminación Definitiva de Refrescos y Parpadeos Molestos
+- **Problema / Solicitud**:
+  - En la vista Mensual (`/mensual`), los componentes se seguían refrescando y redibujando de manera molesta y reiterada, generando parpadeos y disparando masivamente descargas completas de 3 años de datos (2026, 2025 y 2024).
+- **Causa Raíz**:
+  1. **Listeners de Foco y Visibilidad Activos**: `MensualComponent` y `HomeEstimativo` mantenían escuchadores activos de `window:focus` y `document:visibilitychange`. Cada vez que el usuario cambiaba de pestaña, abría las DevTools (consola) o hacía clic fuera y volvía al navegador, se disparaba `comprobarYRefrescarEnFoco()`.
+  2. **Descarga Masiva Multianual en Cada Foco**: `refrescarAutomaticamente()` en `MensualComponent` ejecutaba `cargarTotalesTotales(false, true)`, lo que forzaba la descarga en cascada de los 12 meses de 2026, 12 meses de 2025 y 12 meses de 2024 para el histórico de cuotas, provocando el bloqueo y parpadeo de la UI visible en la captura de pantalla del usuario.
+  3. **Dispersión de Eventos SSE (`DATA_UPDATED`)**: La suscripción SSE en `MensualComponent` escuchaba indiscriminadamente cualquier evento genérico `DATA_UPDATED`, reaccionando incluso ante micro-cambios o sincronizaciones de otros módulos ajenos al mes en pantalla.
+- **Solución Técnica Aplicada**:
+  - **1. Supresión Total de Listeners de Ventana en Frontend (`MensualComponent` y `HomeEstimativo`)**:
+    - Se eliminaron por completo `window.addEventListener('focus', ...)`, `document.addEventListener('visibilitychange', ...)` y el método `comprobarYRefrescarEnFoco()`.
+    - Se removieron los métodos sobrantes `iniciarAutoRefresh()`, `detenerAutoRefresh()` y `refrescarAutomaticamente()`.
+    - La vista ya no se refresca nunca por cambios de foco ni por interacción de ventana.
+  - **2. Filtrado Estricto de SSE en `MensualComponent`**:
+    - `MensualComponent` ahora escucha exclusivamente el evento específico `MONTHLY_UPDATED`.
+    - Solo recarga si el evento corresponde exactamente al año y mes actualmente seleccionados (`msg.data?.sheet === this.mesSeleccionado()`).
+    - Al recargar, ejecuta únicamente `seleccionarMes(mes, true, false)` con `mostrarCarga = false`, actualizando solo las entidades del mes activo sin parpadeos, sin spinners y sin re-descargar el histórico multianual `cargarTotalesTotales`.
+  - **3. Filtrado Estricto de SSE en `HomeEstimativo`**:
+    - Escucha exclusivamente `ESTIMATE_UPDATED` verificado contra su hoja activa (`'Estimativo ' + this.mesSeleccionado()`).
+  - **4. Emisión Quirúrgica en Backend (`SheetsSyncService`)**:
+    - En `verificarCambiosHojaActiva()`, la API emite exclusivamente `ESTIMATE_UPDATED` (para estimativos) o `MONTHLY_UPDATED` (para mensual), eliminando el broadcast genérico `DATA_UPDATED` que despertaba innecesariamente a otros componentes.
+- **Validación de Compilación**:
+  - Backend: `npm run build` en `control-de-gastos-api`: **Código 0, 100% exitoso**.
+  - Frontend: `npx ng build --configuration development` en `control-de-gastos-front`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/pages/mensual/mensual.ts`
+  - `src/app/pages/estimativos/home.ts`
+  - `control-de-gastos-api/src/services/sheets-sync.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-11-02 08:30] - Arquitectura Híbrida: Suscripción de Contexto Activo (Context-Aware Focused Polling) en API & Frontend
 - **Problema / Solicitud**:
   - Al editar valores directamente en Google Sheets en flujos de doble pantalla, los cambios no se reflejaban en la Web App sin forzar un refresco manual (`F5`) o mediante listeners de foco locales en el Frontend.

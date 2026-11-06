@@ -83,14 +83,6 @@
         <div class="col-derecha-scroll" [class.is-collapsed-horiz]="colDerechaContraida()">
           @if (!colDerechaContraida()) {
             <div class="contenido-derecho" *ngIf="!isCargando()">
-              <app-grafico-estimativo
-                [mesSeleccionado]="mesSeleccionado()"
-                [anioSeleccionado]="anioSeleccionado()"
-                [estimativoFilas]="estimativoFilas()"
-                [isColDerechaContraida]="colDerechaContraida()"
-                (toggleHorizontalCollapse)="toggleColDerechaHorizontal()"
-              ></app-grafico-estimativo>
-
               <!-- Parámetros clave del estimativo (Fila 1 Google Sheets / Config BD: I, J, L) -->
               <mat-card class="tabla-resumen-card parametros-estimativo-card" [class.is-collapsed]="parametrosCollapsed()">
                 <mat-card-header class="card-header-wrapper">
@@ -147,6 +139,14 @@
                   </div>
                 </mat-card-content>
               </mat-card>
+
+              <app-grafico-estimativo
+                [mesSeleccionado]="mesSeleccionado()"
+                [anioSeleccionado]="anioSeleccionado()"
+                [estimativoFilas]="estimativoFilas()"
+                [isColDerechaContraida]="colDerechaContraida()"
+                (toggleHorizontalCollapse)="toggleColDerechaHorizontal()"
+              ></app-grafico-estimativo>
             </div>
           } @else {
             <div class="franja-colapsada" (click)="toggleColDerechaHorizontal()" title="Expandir columna derecha">

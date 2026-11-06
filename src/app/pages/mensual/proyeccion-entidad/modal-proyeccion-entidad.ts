@@ -8,6 +8,8 @@ import {
   OnChanges,
   SimpleChanges,
   ChangeDetectorRef,
+  HostListener,
+  ElementRef,
 } from '@angular/core';
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
@@ -48,6 +50,7 @@ export class ModalProyeccionEntidad implements OnChanges {
   public appConfig = inject(AppConfigService);
   private currencyPipe = inject(CurrencyPipe);
   private cdr = inject(ChangeDetectorRef);
+  private el = inject(ElementRef);
 
   @Input() anio: number = 2026;
   @Input() mes: string = 'Octubre';
@@ -133,6 +136,21 @@ export class ModalProyeccionEntidad implements OnChanges {
     } finally {
       this.cargando.set(false);
       this.cdr.detectChanges();
+      if (this.vistaAnioCompleto()) {
+        setTimeout(() => {
+          const elActual = this.el.nativeElement.querySelector('.col-actual');
+          if (elActual) {
+            elActual.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
+        }, 60);
+      }
+    }
+  }
+
+  @HostListener('window:keydown.escape')
+  onEscape(): void {
+    if (this.visible) {
+      this.cerrarVista();
     }
   }
 

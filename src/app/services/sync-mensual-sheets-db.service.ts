@@ -59,6 +59,11 @@ export class SyncMensualSheetsDbService {
    * respetando su fórmula original (=x+y) y disparando la propagación de cuotas si aplica.
    */
   async sincronizarMesDesdeSheets(anio: number, mesNombre: string, force = false): Promise<SyncMensualResult> {
+    // 0. Si el año no tiene activa la sincronización con Google Sheets (ej: 2027 modo BD), no sincronizar
+    if (!this.appConfig.isSheetsActivo(anio)) {
+      return { sincronizados: 0 };
+    }
+
     // 1. Verificación inmediata: si está desconectada de la API en vivo, no procesar
     if (!this.sseService.isConnected()) {
       return { sincronizados: 0 };

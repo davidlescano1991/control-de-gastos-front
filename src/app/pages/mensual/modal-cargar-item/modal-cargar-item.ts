@@ -85,7 +85,16 @@ export class ModalCargarItemComponent {
     if (val) this.entidad.set(val);
   }
 
-  @Input() modoEliminarDirecto: boolean = false;
+  private _modoEliminarDirecto = false;
+  @Input() set modoEliminarDirecto(val: boolean) {
+    this._modoEliminarDirecto = val;
+    if (val) {
+      this.confirmandoEliminar.set(true);
+    }
+  }
+  get modoEliminarDirecto(): boolean {
+    return this._modoEliminarDirecto;
+  }
 
   @Input() set itemAEditar(val: any) {
     if (val && val.id) {
