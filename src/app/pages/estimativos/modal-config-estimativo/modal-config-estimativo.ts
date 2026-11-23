@@ -144,6 +144,7 @@ export class ModalConfigEstimativo implements OnChanges {
 
   async inicializarFormulario(): Promise<void> {
     this.cargando.set(true);
+    this.usarCalculoAutomatico = true;
     try {
       // 1. Obtener preview de gastos del mes, desglose y remanentes base del último registro
       const preview = await firstValueFrom(
@@ -195,7 +196,7 @@ export class ModalConfigEstimativo implements OnChanges {
             this.deudaInicial = cfg.deudaInicial;
           }
           this.saldoInicialManual = cfg.saldoInicial;
-          this.usarCalculoAutomatico = false;
+          this.usarCalculoAutomatico = true;
         } else {
           this.existeConfigPrevia.set(false);
           this.establecerFechasPorDefecto();

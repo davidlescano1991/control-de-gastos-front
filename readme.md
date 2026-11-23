@@ -115,6 +115,13 @@ sequenceDiagram
     View->>View: Redibuja Gráficos y Tablas sin parpadeos
 ```
 
+### 🛰️ Sincronización Inteligente de Contexto Activo (Doble Pantalla sin F5)
+Para flujos donde el usuario edita simultáneamente en Google Sheets en un monitor y observa el Dashboard en otro:
+1. **Notificación de Contexto Activo**: Al cambiar de año o mes en `Estimativos` o `Mensual`, el Frontend notifica a la API (`POST /api/sync/context`) qué hoja exacta está en pantalla (ej. `Estimativo Noviembre`).
+2. **Vigía Enfocado en la API**: El poller en segundo plano de la API (`SheetsSyncService`) monitorea periódicamente **únicamente esa hoja activa** mediante comparación de hash MD5, consumiendo apenas ~7 peticiones por minuto (lejos del límite de 60 req/min de Google).
+3. **Push en Tiempo Real vía SSE**: Cuando el usuario modifica una celda en Google Sheets, la API lo detecta, invalida la caché e inmediatamente emite los eventos `ESTIMATE_UPDATED` y `DATA_UPDATED` a través del canal persistente Server-Sent Events (`/api/events/sub`).
+4. **Actualización Automática sin Parpadeos**: El Frontend recibe el evento, invalida la caché de `MovimientosStoreGoogle` y actualiza la tabla y gráficos al instante, preservando los eventos y notas en memoria sin recargas forzadas ni deshidrataciones visuales.
+
 ---
 
 ## 💵 Ecosistema Bimonetario y Módulo Dólar (USD)

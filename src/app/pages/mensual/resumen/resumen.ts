@@ -16,6 +16,7 @@ import { MatCardModule } from '@angular/material/card';
 
 import { AppConfigService } from '../../../services/app-config.service';
 import { MensualItemsService } from '../../../services/mensual-items.service';
+import { EntityPaymentService, EntityPayment } from '../../../services/entity-payment.service';
 import { firstValueFrom } from 'rxjs';
 import { ProyeccionOverlayService } from '../../../services/proyeccion-overlay.service';
 
@@ -50,11 +51,13 @@ export class Resumen implements OnInit, OnChanges {
   mesesResumen: string[] = [];
   totales: { mes: string; total: number }[] = [];
   subOtrosNombres = new Map<string, string>();
+  columnasValidasInfo: { mes: string; anio: number }[] = [];
 
   isCargando = signal(false);
   isBrowser = false;
   private appConfig = inject(AppConfigService);
   private mensualItemsService = inject(MensualItemsService);
+  private paymentService = inject(EntityPaymentService);
   private store = inject(MovimientosStoreGoogle);
   private cdr = inject(ChangeDetectorRef);
   private platformId = inject(PLATFORM_ID);
@@ -85,7 +88,12 @@ export class Resumen implements OnInit, OnChanges {
 
   private parseMoneda(valor: string | undefined): number {
     if (!valor) return 0;
-    return Number(valor.replace(/\./g, '').replace(',', '.').replace('$', '')) || 0;
+    const limpio = String(valor)
+      .replace(/\$/g, '')
+      .replace(/\./g, '')
+      .replace(',', '.')
+      .replace(/\s+/g, '');
+    return Number(limpio) || 0;
   }
 
   private async asegurarMesesParaResumen(meses: string[], anio: number) {
@@ -103,154 +111,193 @@ export class Resumen implements OnInit, OnChanges {
   async cargarTotales() {
     if (!this.isBrowser || !this.mesSeleccionado) return;
 
-    if (!this.appConfig.isSheetsActivo(this.anioSeleccionado)) {
-      try {
-        const res = await firstValueFrom(this.mensualItemsService.getItems(this.anioSeleccionado));
-        const allItems = res?.items || [];
-        const mesesNombres = [
-          'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-        ];
+    this.isCargando.set(true);
 
-        const index = mesesNombres.indexOf(this.mesSeleccionado);
-        const anterioresYPosteriores: string[] = [];
-        if (index > 0) anterioresYPosteriores.push(mesesNombres[index - 1]);
-        anterioresYPosteriores.push(mesesNombres[index >= 0 ? index : 0]);
-        for (let i = 1; anterioresYPosteriores.length < 6 && (index >= 0 ? index + i : i) < mesesNombres.length; i++) {
-          anterioresYPosteriores.push(mesesNombres[index >= 0 ? index + i : i]);
+    const mesesNombres = [
+      "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+      "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ];
+
+    const index = mesesNombres.indexOf(this.mesSeleccionado);
+    if (index === -1) {
+      this.isCargando.set(false);
+      return;
+    }
+
+    // 1. Armar candidatos para la ventana de hasta 6 meses (1 previo si existe, actual, y posteriores cruzando al año siguiente)
+    const candidatos: { mes: string; anio: number }[] = [];
+    if (index > 0) {
+      candidatos.push({ mes: mesesNombres[index - 1], anio: this.anioSeleccionado });
+    }
+    candidatos.push({ mes: mesesNombres[index], anio: this.anioSeleccionado });
+
+    for (let offset = 1; candidatos.length < 6; offset++) {
+      const nextIdx = index + offset;
+      if (nextIdx < 12) {
+        candidatos.push({ mes: mesesNombres[nextIdx], anio: this.anioSeleccionado });
+      } else {
+        const nextAnioIdx = nextIdx - 12;
+        if (nextAnioIdx < 12) {
+          candidatos.push({ mes: mesesNombres[nextAnioIdx], anio: this.anioSeleccionado + 1 });
+        } else {
+          break;
         }
+      }
+    }
 
-        const entidadMap: Record<string, string> = {
-          'visa galicia': 'visa',
-          'visa': 'visa',
-          'master card galicia': 'mastercard',
-          'master card': 'mastercard',
-          'mastercard': 'mastercard',
-          'naranja': 'naranja',
-          'naranja x': 'naranja',
-          'bancor': 'bancor',
-          'mercado libre': 'ml',
-          'mercado libre / pago': 'ml',
-          'mercado pago': 'ml',
-          'mercadopago': 'ml'
-        };
+    // 2. Pre-cargar datos de BD para los años involucrados que estén en modo BD
+    const aniosConsultar = Array.from(new Set(candidatos.map((c) => c.anio)));
+    const itemsBDMap = new Map<number, any[]>();
+    for (const anio of aniosConsultar) {
+      if (!this.appConfig.isSheetsActivo(anio)) {
+        try {
+          const res = await firstValueFrom(this.mensualItemsService.getItems(anio));
+          itemsBDMap.set(anio, res?.items || []);
+        } catch {
+          itemsBDMap.set(anio, []);
+        }
+      }
+    }
 
-        const subOtrosKeys: string[] = [];
-        this.subOtrosNombres.clear();
+    // 3. Determinar columnas válidas verificando disponibilidad real en su respectivo origen
+    const columnasValidas: { mes: string; anio: number }[] = [];
+    for (const c of candidatos) {
+      if (c.anio === this.anioSeleccionado) {
+        if (this.appConfig.isSheetsActivo(c.anio)) {
+          await this.store.asegurarMensualPorAnio(c.anio, c.mes, "Resumen");
+        }
+        columnasValidas.push(c);
+      } else {
+        // Meses de año posterior: verificar según su origen configurado
+        if (this.appConfig.isSheetsActivo(c.anio)) {
+          try {
+            await this.store.asegurarMensualPorAnio(c.anio, c.mes, "Resumen");
+            const hoja = this.store.getMensualPorMes(c.anio, c.mes);
+            if (hoja?.values && hoja.values.length > 0) {
+              columnasValidas.push(c);
+            } else {
+              break;
+            }
+          } catch {
+            break;
+          }
+        } else {
+          // Año configurado en modo BD (ej: 2027)
+          const mesNum = mesesNombres.indexOf(c.mes) + 1;
+          const itemsDelAnio = itemsBDMap.get(c.anio) || [];
+          const tieneItems = itemsDelAnio.some((it) => it.mes === mesNum);
+          if (tieneItems) {
+            columnasValidas.push(c);
+          } else {
+            break;
+          }
+        }
+      }
+    }
 
-        const mesesNumeros = anterioresYPosteriores.map(m => mesesNombres.indexOf(m) + 1);
-        const itemsVentana = allItems.filter(it => mesesNumeros.includes(it.mes));
+    this.columnasValidasInfo = [...columnasValidas];
 
-        // Detectar sub-conceptos de Otros
-        for (const it of itemsVentana) {
-          if (it.entidad.toLowerCase() === 'otros') {
-            const baseConcepto = (it.concepto || 'Otros').replace(/\s*\d+\/\d+.*$/, '').trim();
-            const key = 'otros_' + baseConcepto.toLowerCase();
+    // Pre-cargar intenciones de pago / pagos para columnas en modo BD
+    const pagosBDMap = new Map<string, EntityPayment[]>();
+    for (const c of columnasValidas) {
+      if (!this.appConfig.isSheetsActivo(c.anio)) {
+        const mesNum = mesesNombres.indexOf(c.mes) + 1;
+        const key = `${c.anio}::${mesNum}`;
+        try {
+          const pRes = await firstValueFrom(this.paymentService.getPayments(c.anio, mesNum));
+          pagosBDMap.set(key, pRes?.data || []);
+        } catch {
+          pagosBDMap.set(key, []);
+        }
+      }
+    }
+
+    // 4. Mapeo de entidades para BD
+    const entidadMap: Record<string, string[]> = {
+      visa: ["visa", "visa galicia"],
+      mastercard: ["mastercard", "master card", "master card galicia"],
+      naranja: ["naranja", "naranja x"],
+      bancor: ["bancor"],
+      ml: ["ml", "mercado libre", "mercado libre / pago", "mercado pago", "mercadopago"]
+    };
+
+    // 5. Detectar sub-conceptos de "otros" en todas las columnas válidas (Sheets y BD)
+    this.subOtrosNombres.clear();
+    const subOtrosKeys: string[] = [];
+
+    for (const col of columnasValidas) {
+      if (this.appConfig.isSheetsActivo(col.anio)) {
+        const rangosCol = this.store.ValidarRangoEntidades(col.anio);
+        if (rangosCol["otros"]) {
+          const { inicio, fin } = rangosCol["otros"];
+          const hoja = this.store.getMensualPorMes(col.anio, col.mes);
+          if (hoja?.values) {
+            for (let i = inicio; i <= fin && i < hoja.values.length; i++) {
+              const fila = hoja.values[i];
+              const desc = fila?.[0]?.trim();
+              if (
+                desc &&
+                !desc.toLowerCase().startsWith("total")
+              ) {
+                const key = "otros_" + desc.toLowerCase();
+                if (!subOtrosKeys.includes(key)) {
+                  subOtrosKeys.push(key);
+                  this.subOtrosNombres.set(key, desc);
+                }
+              }
+            }
+          }
+        }
+      } else {
+        const mesNum = mesesNombres.indexOf(col.mes) + 1;
+        const items = itemsBDMap.get(col.anio) || [];
+        for (const it of items) {
+          if (
+            it.mes === mesNum &&
+            it.entidad?.toLowerCase() === "otros" &&
+            it.concepto &&
+            !it.concepto.startsWith("=")
+          ) {
+            const baseConcepto = it.concepto.replace(/\s*\d+\/\d+.*$/, "").trim();
+            const key = "otros_" + baseConcepto.toLowerCase();
             if (!subOtrosKeys.includes(key)) {
               subOtrosKeys.push(key);
               this.subOtrosNombres.set(key, baseConcepto);
             }
           }
         }
-
-        // Armar lista de entidades presentes
-        const listaEntidades: string[] = [];
-        for (const [nombreDb, key] of Object.entries(entidadMap)) {
-          if (itemsVentana.some(it => it.entidad.toLowerCase() === nombreDb)) {
-            if (!listaEntidades.includes(key)) {
-              listaEntidades.push(key);
-            }
-          }
-        }
-        listaEntidades.push(...subOtrosKeys);
-        this.entidades = listaEntidades;
-
-        // Inicializar matriz de resumen
-        this.resumen = {};
-        for (const ent of this.entidades) {
-          this.resumen[ent] = {};
-          for (const m of anterioresYPosteriores) {
-            this.resumen[ent][m] = 0;
-          }
-        }
-
-        // Llenar valores
-        for (const it of itemsVentana) {
-          const mesNombre = mesesNombres[it.mes - 1];
-          const entLower = it.entidad.toLowerCase();
-          let entKey = entidadMap[entLower];
-          if (entLower === 'otros') {
-            const baseConcepto = (it.concepto || 'Otros').replace(/\s*\d+\/\d+.*$/, '').trim();
-            entKey = 'otros_' + baseConcepto.toLowerCase();
-          }
-          if (entKey && this.resumen[entKey] && this.resumen[entKey][mesNombre] !== undefined) {
-            this.resumen[entKey][mesNombre] += Number(it.monto);
-          }
-        }
-
-        this.meses = anterioresYPosteriores;
-        this.isCargando.set(false);
-        this.cdr.detectChanges();
-        return;
-      } catch (err) {
-        console.warn('⚠️ [Resumen] Error al cargar resumen desde BD:', err);
       }
     }
 
-    console.log(
-      `✅ Incia método cargarTotales() mes = ${this.mesSeleccionado} año = ${this.anioSeleccionado}`,
+    // Asegurar que Compensaciones quede al final de los sub-conceptos de Otros si está presente
+    const compIdx = subOtrosKeys.findIndex(
+      (k) => k === 'otros_compensaciones' || k.toLowerCase().includes('compensa')
     );
-    const cacheKey = this.keyMesAnio(this.mesSeleccionado, this.anioSeleccionado);
-    //if (this.cacheResumenPorMesAnio.get(cacheKey)) return;
-    if (this.cacheResumenPorMesAnio.get(cacheKey)) {
-      console.warn(`⚠️ Cache activa para ${cacheKey}, pero se fuerza recalculo `);
-      this.resumen = {};
-    }
-    this.isCargando.set(true);
-
-    const mesesDelAnio = this.store.getMesesParaResumen(this.anioSeleccionado);
-    const index = mesesDelAnio.indexOf(this.mesSeleccionado);
-    //const index = todosLosMeses.indexOf(this.mesSeleccionado);
-    //console.log(`index ${index} --> todosLosMeses ${JSON.stringify(todosLosMeses)}`)
-    const anterioresYPosteriores: string[] = [];
-
-    if (index > 0) anterioresYPosteriores.push(mesesDelAnio[index - 1]);
-    anterioresYPosteriores.push(mesesDelAnio[index]);
-
-    for (let i = 1; anterioresYPosteriores.length < 6 && index + i < mesesDelAnio.length; i++) {
-      anterioresYPosteriores.push(mesesDelAnio[index + i]);
-    }
-    //console.log(`anterioresYPosteriores ${JSON.stringify(anterioresYPosteriores)} --> anio ${JSON.stringify(this.anioSeleccionado)}`)
-    await this.asegurarMesesParaResumen(anterioresYPosteriores, this.anioSeleccionado);
-    this.subOtrosNombres.clear();
-    const rangos = this.store.ValidarRangoEntidades(this.anioSeleccionado);
-
-    // Obtener las sub-entidades de 'otros' de los meses cargados
-    const subOtrosKeys: string[] = [];
-    if (rangos['otros']) {
-      const { inicio, fin } = rangos['otros'];
-      for (const mes of anterioresYPosteriores) {
-        const hoja = this.store.getMensualPorMes(this.anioSeleccionado, mes);
-        if (hoja?.values) {
-          for (let i = inicio; i <= fin; i++) {
-            const fila = hoja.values[i];
-            const desc = fila?.[0]?.trim();
-            if (desc) {
-              const key = 'otros_' + desc.toLowerCase();
-              if (!subOtrosKeys.includes(key)) {
-                subOtrosKeys.push(key);
-                this.subOtrosNombres.set(key, desc);
-              }
-            }
-          }
-        }
-      }
+    if (compIdx !== -1 && compIdx !== subOtrosKeys.length - 1) {
+      const compKey = subOtrosKeys.splice(compIdx, 1)[0];
+      subOtrosKeys.push(compKey);
     }
 
-    const entidadesConfig = Object.keys(rangos);
+    // 6. Configurar lista de entidades según orden canónico idéntico a las tarjetas de la izquierda:
+    // 1. Visa, 2. Mastercard, 3. Naranja, 4. Bancor, 5. Mercado Libre, 6. Otros (subconceptos)
+    const ORDEN_CANONICO_ENTIDADES = ['visa', 'mastercard', 'naranja', 'bancor', 'ml', 'otros'];
+    const rangosBase = this.store.ValidarRangoEntidades(this.anioSeleccionado) || {};
+    const entidadesBaseKeys = Object.keys(rangosBase);
+
+    const entidadesConfig = (entidadesBaseKeys.length > 0 ? entidadesBaseKeys : ORDEN_CANONICO_ENTIDADES)
+      .slice()
+      .sort((a, b) => {
+        const idxA = ORDEN_CANONICO_ENTIDADES.indexOf(a.toLowerCase());
+        const idxB = ORDEN_CANONICO_ENTIDADES.indexOf(b.toLowerCase());
+        const posA = idxA === -1 ? 999 : idxA;
+        const posB = idxB === -1 ? 999 : idxB;
+        if (posA !== posB) return posA - posB;
+        return a.localeCompare(b);
+      });
+
     const listaEntidades: string[] = [];
     for (const ent of entidadesConfig) {
-      if (ent === 'otros') {
+      if (ent.toLowerCase() === 'otros') {
         listaEntidades.push(...subOtrosKeys);
       } else {
         listaEntidades.push(ent);
@@ -258,56 +305,146 @@ export class Resumen implements OnInit, OnChanges {
     }
     this.entidades = listaEntidades;
 
+    // 7. Inicializar matriz de resumen
     this.resumen = {};
     for (const ent of this.entidades) {
       this.resumen[ent] = {};
-      for (const mes of anterioresYPosteriores) {
-        this.resumen[ent][mes] = 0;
+      for (const col of columnasValidas) {
+        this.resumen[ent][col.mes] = 0;
       }
     }
 
-    for (const entidad of entidadesConfig) {
-      const { inicio, fin, headerIndex } = rangos[entidad];
-
-      for (const mes of anterioresYPosteriores) {
-        const hoja = this.store.getMensualPorMes(this.anioSeleccionado, mes);
+    // 8. Cargar importes para cada columna y entidad
+    for (const col of columnasValidas) {
+      if (this.appConfig.isSheetsActivo(col.anio)) {
+        const rangosCol = this.store.ValidarRangoEntidades(col.anio);
+        const hoja = this.store.getMensualPorMes(col.anio, col.mes);
         if (!hoja?.values) continue;
 
-        if (entidad === 'otros') {
-          for (let i = inicio; i <= fin; i++) {
-            const fila = hoja.values[i];
-            const desc = fila?.[0]?.trim();
-            if (desc) {
-              const key = 'otros_' + desc.toLowerCase();
-              const monto = fila?.[1];
-              const valor = monto ? this.parseMoneda(monto) : 0;
-              this.resumen[key][mes] = (this.resumen[key][mes] ?? 0) + valor;
+        for (const entidad of entidadesConfig) {
+          if (!rangosCol[entidad]) continue;
+          const { inicio, fin, headerIndex } = rangosCol[entidad];
+
+          if (entidad === "otros") {
+            for (let i = inicio; i <= fin && i < hoja.values.length; i++) {
+              const fila = hoja.values[i];
+              const desc = fila?.[0]?.trim();
+              if (desc) {
+                const key = "otros_" + desc.toLowerCase();
+                const monto = fila?.[1];
+                const valor = monto ? this.parseMoneda(monto) : 0;
+                if (this.resumen[key]) {
+                  this.resumen[key][col.mes] = (this.resumen[key][col.mes] ?? 0) + valor;
+                }
+              }
+            }
+          } else {
+            const headers = hoja.values[headerIndex] ?? [];
+            let colIndex = headers.findIndex((h) =>
+              this.normalizar(col.mes).includes(this.normalizar(h)),
+            );
+            if (colIndex === -1 && headers.length > 1 && headers[1]) {
+              colIndex = 1;
+            }
+            if (colIndex === -1) continue;
+
+            let total = 0;
+            for (let i = inicio; i <= fin && i < hoja.values.length; i++) {
+              const fila = hoja.values[i];
+              const monto = fila?.[colIndex];
+              if (monto) total += this.parseMoneda(monto);
+            }
+            if (this.resumen[entidad]) {
+              this.resumen[entidad][col.mes] = total;
             }
           }
-        } else {
-          const headers = hoja.values[headerIndex] ?? [];
-          const colIndex = headers.findIndex((h) =>
-            this.normalizar(mes).includes(this.normalizar(h)),
-          );
-          if (colIndex === -1) continue;
+        }
+      } else {
+        // Origen BD (PostgreSQL)
+        const mesNum = mesesNombres.indexOf(col.mes) + 1;
+        const keyPago = `${col.anio}::${mesNum}`;
+        const pagos = pagosBDMap.get(keyPago) || [];
+        const items = (itemsBDMap.get(col.anio) || []).filter((it) => it.mes === mesNum);
 
-          let total = 0;
-          for (let i = inicio; i <= fin; i++) {
-            const fila = hoja.values[i];
-            const monto = fila?.[colIndex];
-            if (monto) total += this.parseMoneda(monto);
+        let totalFaltaPagarEntidades = 0;
+
+        // 1. Entidades financieras oficiales
+        for (const [keyOficial, aliases] of Object.entries(entidadMap)) {
+          let totalItemsEntidad = 0;
+          for (const it of items) {
+            const entLower = it.entidad?.toLowerCase().trim() || "";
+            if (entLower === "otros" || entLower === "reembolsables") continue;
+            if (aliases.includes(entLower) || aliases.some((a) => entLower.includes(a))) {
+              totalItemsEntidad += Number(it.monto) || 0;
+            }
           }
-          this.resumen[entidad][mes] = total;
+
+          // Buscar si existe intención de pago o pago registrado
+          const pago = pagos.find((p) => {
+            const pEnt = (p.entidad || "").toLowerCase().trim();
+            return (
+              (!p.itemId || p.itemId === "") &&
+              aliases.some((a) => pEnt.includes(a) || a.includes(pEnt))
+            );
+          });
+
+          let montoFinalEntidad = totalItemsEntidad;
+          if (pago && pago.montoPagado !== undefined && pago.montoPagado !== null && Number(pago.montoPagado) >= 0 && (pago.estado === 'PARCIAL' || pago.montoRestante !== undefined)) {
+            montoFinalEntidad = Number(pago.montoPagado);
+            totalFaltaPagarEntidades += Math.max(0, totalItemsEntidad - montoFinalEntidad);
+          } else {
+            // Si no está cargada esa intención de pago se asume que se paga la entidad en su totalidad
+            montoFinalEntidad = totalItemsEntidad;
+          }
+
+          if (this.resumen[keyOficial] && this.resumen[keyOficial][col.mes] !== undefined) {
+            this.resumen[keyOficial][col.mes] = montoFinalEntidad;
+          }
+        }
+
+        // 2. Sub-conceptos de Otros
+        let compItemsMonto = 0;
+
+        for (const it of items) {
+          const entLower = it.entidad?.toLowerCase().trim() || "";
+          if (entLower !== "otros") continue;
+          if (!it.concepto || it.concepto.startsWith("=")) continue;
+
+          const baseConcepto = it.concepto.replace(/\s*\d+\/\d+.*$/, "").trim();
+          const keyOtros = "otros_" + baseConcepto.toLowerCase();
+          const montoNum = Number(it.monto) || 0;
+
+          if (keyOtros === "otros_compensaciones" || baseConcepto.toLowerCase().includes("compensa")) {
+            compItemsMonto += montoNum;
+          } else {
+            const pagoItem = pagos.find((p) => p.itemId === it.id);
+            let montoFinalItem = montoNum;
+            if (pagoItem && pagoItem.montoPagado !== undefined && pagoItem.montoPagado !== null) {
+              montoFinalItem = Number(pagoItem.montoPagado);
+              totalFaltaPagarEntidades += Math.max(0, montoNum - montoFinalItem);
+            }
+
+            if (this.resumen[keyOtros] && this.resumen[keyOtros][col.mes] !== undefined) {
+              this.resumen[keyOtros][col.mes] += montoFinalItem;
+            }
+          }
+        }
+
+        // 3. Compensaciones (refleja lo que faltará o faltó para llegar al total)
+        if (this.resumen["otros_compensaciones"] && this.resumen["otros_compensaciones"][col.mes] !== undefined) {
+          let compensacionFinal = compItemsMonto;
+          if (totalFaltaPagarEntidades > 0) {
+            compensacionFinal -= totalFaltaPagarEntidades;
+          }
+          this.resumen["otros_compensaciones"][col.mes] = compensacionFinal;
         }
       }
     }
 
-    this.meses = anterioresYPosteriores;
-    this.cacheResumenPorMesAnio.set(cacheKey, true);
+    this.meses = columnasValidas.map((c) => c.mes);
     this.isCargando.set(false);
     this.cdr.detectChanges();
   }
-
   getNombreEntidad(entidad: string): string {
     if (entidad.startsWith('otros_')) {
       return this.subOtrosNombres.get(entidad) ?? entidad.replace('otros_', '');
@@ -327,8 +464,21 @@ export class Resumen implements OnInit, OnChanges {
     return this.resumen[entidad]?.[mes] ?? 0;
   }
 
+  isColumnaBD(mes: string): boolean {
+    const col = this.columnasValidasInfo.find((c) => c.mes === mes);
+    if (!col) return false;
+    return !this.appConfig.isSheetsActivo(col.anio);
+  }
+
   getTotalPorMes(mes: string): number {
-    return this.entidades.reduce((acc, entidad) => acc + (this.resumen[entidad]?.[mes] ?? 0), 0);
+    const esBD = this.isColumnaBD(mes);
+    return this.entidades.reduce((acc, entidad) => {
+      // Para datos desde BD, compensaciones se muestra en la tabla pero no computa en el total a pagar
+      if (esBD && (entidad === 'otros_compensaciones' || entidad.toLowerCase().includes('compensa'))) {
+        return acc;
+      }
+      return acc + (this.resumen[entidad]?.[mes] ?? 0);
+    }, 0);
   }
 
   getLogoEntidad(entidad: string): string {

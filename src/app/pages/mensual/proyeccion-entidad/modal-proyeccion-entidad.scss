@@ -197,12 +197,12 @@
   inset: 0;
   background: var(--proy-backdrop);
   backdrop-filter: blur(4px);
-  z-index: 1;
+  z-index: 1 !important;
 }
 
 .proyeccion-panel {
   position: relative;
-  z-index: 2;
+  z-index: 2 !important;
   background: var(--proy-bg);
   border: 1px solid var(--proy-border);
   border-radius: 12px;

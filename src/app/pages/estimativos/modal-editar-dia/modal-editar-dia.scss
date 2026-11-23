@@ -294,6 +294,113 @@
         }
       }
 
+      
+      .eventos-agregados-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 6px 0;
+        padding: 6px 8px;
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        border-radius: 8px;
+
+        .badge-evento-item {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 3px 6px 3px 8px;
+          border-radius: 999px;
+          background: #ffffff;
+          border: 1.5px solid var(--badge-color, #706cd6);
+          color: #1e293b;
+          font-size: 0.76rem;
+          font-weight: 600;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+
+          .icon-badge-ev {
+            font-size: 13px;
+            width: 13px;
+            height: 13px;
+            color: var(--badge-color, #706cd6);
+          }
+
+          .texto-badge-ev {
+            max-width: 140px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .btn-quitar-badge {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            width: 15px;
+            height: 15px;
+            transition: all 0.15s ease;
+
+            mat-icon {
+              font-size: 12px;
+              width: 12px;
+              height: 12px;
+            }
+
+            &:hover {
+              background: #fee2e2;
+              color: #ef4444;
+            }
+          }
+        }
+      }
+
+      .input-agregar-evento-wrap {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+
+        .input-evento {
+          flex: 1;
+        }
+
+        .btn-sumar-evento {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          background: #706cd6;
+          color: #ffffff;
+          border: none;
+          padding: 7px 12px;
+          border-radius: 6px;
+          font-size: 0.78rem;
+          font-weight: 600;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: background 0.15s ease;
+
+          mat-icon {
+            font-size: 14px;
+            width: 14px;
+            height: 14px;
+          }
+
+          &:hover:not(:disabled) {
+            background: #4b5896;
+          }
+
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+        }
+      }
+
       .presets-chips {
         display: flex;
         flex-wrap: wrap;
@@ -673,6 +780,22 @@
       .btn-limpiar-evento:hover {
         background: rgba(239, 68, 68, 0.2);
       }
+
+      
+  .eventos-agregados-container {
+    background: #1e1f2f !important;
+    border-color: #3f4058 !important;
+
+    .badge-evento-item {
+      background: #25273c !important;
+      color: #f1f5f9 !important;
+
+      .btn-quitar-badge:hover {
+        background: rgba(239, 68, 68, 0.2) !important;
+        color: #f87171 !important;
+      }
+    }
+  }
 
       .presets-chips .chip-evento {
         background: #0f172a;

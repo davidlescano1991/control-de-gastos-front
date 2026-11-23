@@ -114,31 +114,32 @@
         </div>
       </div>
 
-      <!-- Etiqueta / Evento del Día -->
+      <!-- Etiqueta / Eventos del Día -->
       <div class="form-dia-group seccion-evento">
         <div class="label-con-accion">
-          <label for="editEvento">
-            <mat-icon class="icon-inline">label</mat-icon> Etiqueta / Evento <small>(opcional)</small>
+          <label>
+            <mat-icon class="icon-inline">label</mat-icon> Etiquetas / Eventos del Día
+            <small>(puedes agregar múltiples)</small>
           </label>
           <button
             type="button"
             class="btn-limpiar-evento"
-            *ngIf="editEvento() || editColor()"
-            (click)="limpiarEvento()"
-            title="Quitar evento y color"
+            *ngIf="eventosLista().length > 0 || editColor()"
+            (click)="limpiarTodosEventos()"
+            title="Quitar todos los eventos"
           >
-            <mat-icon>clear</mat-icon> Quitar
+            <mat-icon>clear</mat-icon> Quitar todos
           </button>
         </div>
 
-        <!-- Presets rápidos de eventos -->
+        <!-- Presets rápidos de eventos (multi-selección interactiva) -->
         <div class="presets-chips">
           <button
             type="button"
             *ngFor="let p of eventosPreset"
             class="chip-evento"
-            [class.active]="editEvento() === p.label"
-            (click)="seleccionarPresetEvento(p.label, p.color)"
+            [class.active]="estaEnEventos(p.label)"
+            (click)="togglePresetEvento(p)"
             [style.--chip-accent]="p.color"
           >
             <mat-icon>{{ p.icon }}</mat-icon>
@@ -146,22 +147,54 @@
           </button>
         </div>
 
-        <input
-          type="text"
-          id="editEvento"
-          [ngModel]="editEvento()"
-          (ngModelChange)="editEvento.set($event)"
-          placeholder="O escribe una etiqueta personalizada (ej: Cobro Aguinaldo, Cumpleaños)"
-          class="input-dia-control input-evento"
-          maxlength="60"
-        />
+        <!-- Eventos agregados actualmente (chips con botón para quitar) -->
+        <div class="eventos-agregados-container" *ngIf="eventosLista().length > 0">
+          <div
+            *ngFor="let ev of eventosLista(); let i = index"
+            class="badge-evento-item"
+            [style.--badge-color]="obtenerColorPreset(ev) || editColor() || '#706cd6'"
+          >
+            <mat-icon class="icon-badge-ev">{{ obtenerIconoPreset(ev) }}</mat-icon>
+            <span class="texto-badge-ev">{{ ev }}</span>
+            <button
+              type="button"
+              class="btn-quitar-badge"
+              (click)="quitarEvento(i)"
+              [title]="'Quitar ' + ev"
+            >
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Input para agregar evento personalizado -->
+        <div class="input-agregar-evento-wrap">
+          <input
+            type="text"
+            [ngModel]="nuevoEventoTexto()"
+            (ngModelChange)="nuevoEventoTexto.set($event)"
+            (keydown.enter)="$event.preventDefault(); agregarNuevoEvento()"
+            placeholder="Escribe otro evento personalizado y presiona Enter o Agregar"
+            class="input-dia-control input-evento"
+            maxlength="50"
+          />
+          <button
+            type="button"
+            class="btn-sumar-evento"
+            (click)="agregarNuevoEvento()"
+            [disabled]="!nuevoEventoTexto().trim()"
+            title="Agregar evento"
+          >
+            <mat-icon>add</mat-icon> Agregar
+          </button>
+        </div>
 
         <!-- Checkbox para repetir anualmente -->
-        <div class="check-anual-box" *ngIf="editEvento()">
+        <div class="check-anual-box" *ngIf="eventosLista().length > 0">
           <label class="checkbox-label checkbox-anual">
             <input type="checkbox" [(ngModel)]="editEsAnual" />
             <mat-icon class="icon-inline icon-anual">event_repeat</mat-icon>
-            <span>Repetir anualmente este evento (ej: Cumpleaños, Aniversario)</span>
+            <span>Repetir anualmente estos eventos (ej: Cumpleaños, Aniversario)</span>
           </label>
           <small class="anual-hint" *ngIf="editEsAnual">
             Se mostrará automáticamente todos los años en esta misma fecha ({{ obtenerDiaYMesTexto() }}).

@@ -26,7 +26,7 @@
               <thead>
                 <tr>
                   <th class="col-sticky">Entidad</th>
-                  @for (mes of meses; track mes) {
+                  @for (mes of meses; track $index) {
                     <th>{{ mes }}</th>
                   }
                 </tr>
@@ -52,7 +52,7 @@
                         />
                       </div>
                     </td>
-                    @for (mes of meses; track mes) {
+                    @for (mes of meses; track $index) {
                       <td>
                         {{ getTotal(entidad, mes) | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
                       </td>
@@ -61,7 +61,7 @@
                 }
                 <tr class="fila-total">
                   <td class="col-sticky"><strong>Total</strong></td>
-                  @for (mes of meses; track mes) {
+                  @for (mes of meses; track $index) {
                     <td>
                       <strong>{{
                         getTotalPorMes(mes) | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR'

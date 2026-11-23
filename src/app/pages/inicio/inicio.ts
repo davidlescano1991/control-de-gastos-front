@@ -59,8 +59,23 @@ import { SelectorAnioDelorean } from '../../common/selector-anio-delorean/select
 export class Inicio implements OnInit, OnDestroy {
   private _formBuilder = inject(FormBuilder);
   private appConfig = inject(AppConfigService);
-  // Polling en Frontend desactivado: delegado 100% a la API con notificaciones SSE en tiempo real
-  readonly refreshIntervalMs = 0;
+  // Refresco periódico inteligente (12s) condicionado a pestaña visible + eventos de foco
+  readonly refreshIntervalMs = 12000;
+  private ultimoRefrescoFocoMs = 0;
+  private handleFocus = () => {
+    this.comprobarYRefrescarEnFoco();
+  };
+  private handleVisibilityChange = () => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      this.comprobarYRefrescarEnFoco();
+    }
+  };
+  private comprobarYRefrescarEnFoco() {
+    const ahora = Date.now();
+    if (ahora - this.ultimoRefrescoFocoMs < 3500) return;
+    this.ultimoRefrescoFocoMs = ahora;
+    void this.refrescarAutomaticamente();
+  };
   isMobile = false;
   firstFormGroup = this._formBuilder.group({ firstCtrl: ['', Validators.required] });
   secondFormGroup = this._formBuilder.group({ secondCtrl: ['', Validators.required] });
@@ -125,6 +140,11 @@ export class Inicio implements OnInit, OnDestroy {
     await this.cargarHistoricoCompleto();
     this.iniciarAutoRefresh();
 
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', this.handleFocus);
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    }
+
     // 📡 Suscripción reactiva en tiempo real al canal SSE con debounce de protección
     this.sseSub = this.sseService.getEvents$().subscribe((msg) => {
       if (msg.event === 'DATA_UPDATED') {
@@ -140,6 +160,10 @@ export class Inicio implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('focus', this.handleFocus);
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    }
     if (this.sseDebounceTimer) {
       clearTimeout(this.sseDebounceTimer);
       this.sseDebounceTimer = null;

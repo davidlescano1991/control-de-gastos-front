@@ -115,7 +115,20 @@
             <thead>
               <tr>
                 <th class="col-sticky-prestamo col-header-prestamo">Prestamos / Mes</th>
-                <th *ngFor="let cat of categorias" class="col-header-categoria">{{ cat }}</th>
+                <th *ngFor="let cat of categorias" class="col-header-categoria">
+                  <div class="header-cat-flex">
+                    <span>{{ cat }}</span>
+                    <button
+                      *ngIf="obtenerPrestamoPorCategoria(cat)"
+                      type="button"
+                      class="btn-editar-prestamo-col"
+                      (click)="abrirModalEditar(cat)"
+                      [title]="'Editar o eliminar préstamo ' + cat"
+                    >
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                  </div>
+                </th>
                 <th class="col-sticky-cant col-header-cant">Cant.</th>
                 <th class="col-sticky-total col-header-total">Total</th>
               </tr>
@@ -282,8 +295,11 @@
 <app-modal-cargar-prestamo
   *ngIf="mostrarModalCargar()"
   [anioInicial]="anioSeleccionado"
+  [prestamoEditar]="prestamoAEditar()"
   (cerrar)="cerrarModalCargar()"
   (prestamoCreado)="onPrestamoCreado($event)"
+  (prestamoActualizado)="onPrestamoActualizado($event)"
+  (prestamoEliminado)="onPrestamoEliminado($event)"
 ></app-modal-cargar-prestamo>
 
 <app-modal-pagar-cuota-prestamo

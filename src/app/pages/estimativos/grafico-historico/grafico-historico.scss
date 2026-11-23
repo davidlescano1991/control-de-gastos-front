@@ -20,18 +20,39 @@
   position: relative;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   width: 100%;
   margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 1px solid #f1f5f9;
 
-  h3 {
-    margin: 0;
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: #1e293b;
-    letter-spacing: -0.3px;
+  .header-title-box {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1 1 auto;
+    padding-right: 32px;
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      h3 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #1e293b;
+        letter-spacing: -0.3px;
+      }
+    }
+
+    .header-controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
   }
 
   .btn-collapse-card {
@@ -56,6 +77,57 @@
 
     &.collapsed {
       transform: rotate(180deg);
+    }
+  }
+}
+
+/* Selector de Series y Moneda tipo Píldora */
+.tabs-serie-selector {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  background-color: #f1f5f9;
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  width: fit-content;
+
+  .btn-serie-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      line-height: 16px;
+    }
+
+    &:hover:not(.active) {
+      color: #334155;
+      background-color: rgba(255, 255, 255, 0.7);
+    }
+
+    &.active {
+      background: linear-gradient(135deg, #706cd6 0%, #4b5896 100%);
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(75, 88, 150, 0.28);
+
+      mat-icon {
+        color: #ffffff;
+      }
     }
   }
 }
@@ -88,12 +160,23 @@
     padding: 14px;
   }
 
+  .tabs-serie-selector {
+    width: 100%;
+
+    .btn-serie-tab {
+      flex: 1 1 auto;
+      justify-content: center;
+      padding: 6px 8px;
+      font-size: 11px;
+    }
+  }
+
   .grafico-wrapper {
     height: 280px;
   }
 }
 
-/* 🌙 Modo Oscuro */
+/* Modo Oscuro */
 :host-context(body.dark-mode) {
   .movimientos-wrapper {
     background-color: #1e293b;
@@ -105,7 +188,7 @@
   .card-header-wrapper {
     border-bottom-color: #334155;
 
-    h3 {
+    .header-title-box .title-row h3 {
       color: #f8fafc;
     }
 
@@ -118,5 +201,28 @@
       }
     }
   }
+
+  .tabs-serie-selector {
+    background-color: #0f172a;
+    border-color: #334155;
+
+    .btn-serie-tab {
+      color: #94a3b8;
+
+      &:hover:not(.active) {
+        color: #f8fafc;
+        background-color: rgba(255, 255, 255, 0.05);
+      }
+
+      &.active {
+        background: linear-gradient(135deg, #7e79d6 0%, #4b5896 100%);
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+
+        mat-icon {
+          color: #ffffff;
+        }
+      }
+    }
+  }
 }
-

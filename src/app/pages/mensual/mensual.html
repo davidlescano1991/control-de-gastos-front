@@ -55,7 +55,7 @@
               </div>
               <mat-card-content *ngIf="!gastosMensualesCollapsed()">
                 <!-- Tarjetas de Entidades Financieras Renderizadas Dinámicamente -->
-                <div class="contenedor-entidad" *ngFor="let tarjeta of listaTarjetasEntidades()">
+                <div class="contenedor-entidad" *ngFor="let tarjeta of listaTarjetasEntidades(); trackBy: trackPorKey">
                   <app-tarjeta-entidad
                     [anio]="anioSeleccionado()"
                     [mes]="mesSeleccionado()"

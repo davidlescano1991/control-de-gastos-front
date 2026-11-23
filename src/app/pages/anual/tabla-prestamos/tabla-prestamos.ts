@@ -37,6 +37,7 @@ export class TablaPrestamos implements OnInit, OnChanges {
   isCollapsed = signal(false);
   isSincronizando = signal(false);
   mostrarModalCargar = signal(false);
+  prestamoAEditar = signal<Loan | null>(null);
   mostrarModalPago = signal(false);
   cuotaSeleccionada = signal<CuotaAPagarInfo | null>(null);
   loansList = signal<Loan[]>([]);
@@ -74,11 +75,34 @@ export class TablaPrestamos implements OnInit, OnChanges {
   }
 
   abrirModalCargar() {
+    this.prestamoAEditar.set(null);
+    this.mostrarModalCargar.set(true);
+  }
+
+  obtenerPrestamoPorCategoria(cat: string): Loan | null {
+    const catNorm = (cat || '').toLowerCase().trim();
+    if (!catNorm) return null;
+    const loans = this.loansList();
+    return (
+      loans.find(
+        (l) =>
+          l.nombre.toLowerCase().trim() === catNorm ||
+          catNorm.includes(l.nombre.toLowerCase().trim()) ||
+          l.nombre.toLowerCase().trim().includes(catNorm)
+      ) || null
+    );
+  }
+
+  abrirModalEditar(cat: string): void {
+    const loan = this.obtenerPrestamoPorCategoria(cat);
+    if (!loan) return;
+    this.prestamoAEditar.set(loan);
     this.mostrarModalCargar.set(true);
   }
 
   cerrarModalCargar() {
     this.mostrarModalCargar.set(false);
+    this.prestamoAEditar.set(null);
   }
 
   sincronizarPrestamosSheets(): void {
@@ -101,6 +125,16 @@ export class TablaPrestamos implements OnInit, OnChanges {
   onPrestamoCreado(loan: Loan) {
     this.cargarPrestamosBD();
     this.prestamoAgregado.emit(loan);
+  }
+
+  onPrestamoActualizado(loan: Loan) {
+    this.cargarPrestamosBD();
+    this.prestamoAgregado.emit(loan);
+  }
+
+  onPrestamoEliminado(_id: string) {
+    this.cargarPrestamosBD();
+    this.prestamoAgregado.emit();
   }
 
   /**

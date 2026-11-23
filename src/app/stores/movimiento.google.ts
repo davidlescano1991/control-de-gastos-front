@@ -242,9 +242,9 @@ export class MovimientosStoreGoogle {
    */
   private suscribirEventosSSE(): void {
     this.sseService.getEvents$().subscribe((msg) => {
-      if (msg.event === 'DATA_UPDATED') {
+      if (msg.event === 'DATA_UPDATED' || msg.event === 'ESTIMATE_UPDATED') {
         const year = msg.data?.year || new Date().getFullYear();
-        console.log(`⚡ [MovimientosStoreGoogle] Evento DATA_UPDATED recibido vía SSE para año ${year}. Invalidando caché...`);
+        console.log(`⚡ [MovimientosStoreGoogle] Evento ${msg.event} recibido vía SSE para año ${year}. Invalidando caché...`, msg.data);
 
         // Invalidar cachés en memoria del año afectado
         this.movimientosPorAnio.delete(year);
@@ -257,7 +257,19 @@ export class MovimientosStoreGoogle {
           if (nombreMes) {
             this.mensualPorMes.delete(`${year}::${nombreMes}`);
             this.estimativoPorMes.delete(`${year}::${nombreMes}`);
+            this.estimativoConfigPorMes.delete(`${year}::${nombreMes}`);
           }
+        }
+
+        if (msg.data?.sheet) {
+          const sheetName = String(msg.data.sheet);
+          // Si es "Estimativo Noviembre", invalidar tanto con el nombre de hoja como con el mes limpio
+          const mesLimpio = sheetName.replace(/^Estimativo\s+/i, '').trim();
+          this.mensualPorMes.delete(`${year}::${mesLimpio}`);
+          this.estimativoPorMes.delete(`${year}::${mesLimpio}`);
+          this.estimativoPorMes.delete(`${year}::${sheetName}`);
+          this.estimativoConfigPorMes.delete(`${year}::${mesLimpio}`);
+          this.estimativoConfigPorMes.delete(`${year}::${sheetName}`);
         }
       }
     });
@@ -567,7 +579,7 @@ export class MovimientosStoreGoogle {
       // Fallback a constantes locales
     }
 
-    if (anioValidar === 2026) return RANGOS_ENTIDADES_2026;
+    if (anioValidar >= 2026) return RANGOS_ENTIDADES_2026;
     if (anioValidar === 2025) return RANGOS_ENTIDADES_2025;
     if (anioValidar === 2024) return RANGOS_ENTIDADES_2024;
     if (anioValidar === 2023) return RANGOS_ENTIDADES_2023;
@@ -679,7 +691,7 @@ export class MovimientosStoreGoogle {
     const hojaReal = this.resolverNombreHoja(anio, hoja);
     const clave = `${anio}::${hoja}`;
 
-    if (!this.appConfig.isSheetsActivo(anio)) {
+    if (!this.appConfig.isSheetsActivo(anio) && anio !== 2027) {
       this.mensualPorMes.set(clave, signal({ values: [] }));
       return;
     }
@@ -717,9 +729,11 @@ export class MovimientosStoreGoogle {
     force = false,
   ): Promise<void> {
     if (!this.appConfig.isSheetsActivo(anio)) {
-      console.log(`ℹ️ [MovimientosStoreGoogle] Año ${anio} en modo BD: mensual aún no migrado a la BD, sin información.`);
+      console.log(`ℹ️ [MovimientosStoreGoogle] Año ${anio} en modo BD: mensual no consulta Sheets.`);
       for (const mes of meses) {
-        this.mensualPorMes.set(`${anio}::${mes}`, signal({ values: [] }));
+        if (!this.mensualPorMes.has(`${anio}::${mes}`)) {
+          this.mensualPorMes.set(`${anio}::${mes}`, signal({ values: [] }));
+        }
       }
       return;
     }

@@ -82,6 +82,31 @@
                 [attr.title]="obtenerTooltipFecha(fila) || null"
               >
                 <td class="col-fecha">
+                  <ng-container *ngIf="esHoy(fila.fecha)">
+                    <svg class="svg-haz-luz-dia-actual" aria-hidden="true">
+                      <defs>
+                        <filter id="haz-difuminado-suave" x="-20%" y="-20%" width="140%" height="140%">
+                          <feGaussianBlur stdDeviation="1.5" result="blur" />
+                          <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                          </feMerge>
+                        </filter>
+                      </defs>
+                      <!-- Pista sutil perimetral verde -->
+                      <rect class="svg-haz-base" x="1" y="1" width="calc(100% - 2px)" height="calc(100% - 2px)" rx="6" />
+
+                      <!-- Haz perimetral continuo único en sentido antihorario: degradado suave de cola a cabeza -->
+                      <rect class="svg-haz-tramo svg-haz-cola-3" pathLength="1000" stroke-dasharray="210 790" x="1" y="1" width="calc(100% - 2px)" height="calc(100% - 2px)" rx="6" />
+                      <rect class="svg-haz-tramo svg-haz-cola-2" pathLength="1000" stroke-dasharray="170 830" x="1" y="1" width="calc(100% - 2px)" height="calc(100% - 2px)" rx="6" />
+                      <rect class="svg-haz-tramo svg-haz-cola-1" pathLength="1000" stroke-dasharray="135 865" x="1" y="1" width="calc(100% - 2px)" height="calc(100% - 2px)" rx="6" />
+                      <rect class="svg-haz-tramo svg-haz-cuerpo-2" pathLength="1000" stroke-dasharray="105 895" x="1" y="1" width="calc(100% - 2px)" height="calc(100% - 2px)" rx="6" />
+                      <rect class="svg-haz-tramo svg-haz-cuerpo-1" pathLength="1000" stroke-dasharray="80 920" x="1" y="1" width="calc(100% - 2px)" height="calc(100% - 2px)" rx="6" />
+                      <rect class="svg-haz-tramo svg-haz-nucleo-2" pathLength="1000" stroke-dasharray="55 945" x="1" y="1" width="calc(100% - 2px)" height="calc(100% - 2px)" rx="6" />
+                      <rect class="svg-haz-tramo svg-haz-nucleo-1" pathLength="1000" stroke-dasharray="35 965" x="1" y="1" width="calc(100% - 2px)" height="calc(100% - 2px)" rx="6" />
+                      <rect class="svg-haz-tramo svg-haz-punta" pathLength="1000" stroke-dasharray="16 984" x="1" y="1" width="calc(100% - 2px)" height="calc(100% - 2px)" rx="6" />
+                    </svg>
+                  </ng-container>
                   <div class="fecha-flex">
                     <button
                       *ngIf="authService.isAdmin()"
@@ -120,6 +145,14 @@
                         <line x1="9" y1="5.5" x2="11.5" y2="3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
                         <circle cx="12" cy="2.5" r="2" fill="currentColor" />
                       </svg>
+                      <!-- Contador sutil cuando hay más de 1 evento -->
+                      <span
+                        *ngIf="obtenerEventosFila(fila).length > 1"
+                        class="badge-contador-eventos"
+                        [title]="obtenerEventosFila(fila).length + ' eventos registrados'"
+                      >
+                        {{ obtenerEventosFila(fila).length }}
+                      </span>
                     </span>
                     <mat-icon
                       *ngIf="fila.esAnual"

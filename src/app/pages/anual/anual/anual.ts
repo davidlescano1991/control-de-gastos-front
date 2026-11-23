@@ -101,8 +101,23 @@ export class Anual implements OnInit, OnDestroy {
     });
   }
 
-  // Polling desactivado: delegado a la API con notificaciones SSE en tiempo real
-  readonly refreshIntervalMs = 0;
+  // Refresco periódico inteligente (12s) condicionado a pestaña visible + eventos de foco
+  readonly refreshIntervalMs = 12000;
+  private ultimoRefrescoFocoMs = 0;
+  private handleFocus = () => {
+    this.comprobarYRefrescarEnFoco();
+  };
+  private handleVisibilityChange = () => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      this.comprobarYRefrescarEnFoco();
+    }
+  };
+  private comprobarYRefrescarEnFoco() {
+    const ahora = Date.now();
+    if (ahora - this.ultimoRefrescoFocoMs < 3500) return;
+    this.ultimoRefrescoFocoMs = ahora;
+    void this.refrescarAutomaticamente();
+  };
   isCargando = signal(false);
   filas = signal<Prestamo[]>([]);
   filasSecundarias = signal<Prestamo[]>([]);
@@ -247,6 +262,11 @@ export class Anual implements OnInit, OnDestroy {
     await this.Inicio();
     this.iniciarAutoRefresh();
 
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', this.handleFocus);
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    }
+
     // 📡 Suscripción reactiva en tiempo real al canal SSE
     this.sseSub = this.sseService.getEvents$().subscribe((msg) => {
       if (msg.event === 'DATA_UPDATED') {
@@ -267,6 +287,10 @@ export class Anual implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('focus', this.handleFocus);
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    }
     this.sseSub?.unsubscribe();
     this.detenerAutoRefresh();
     void this.wakeLockService.releaseWakeLock();
@@ -351,12 +375,13 @@ export class Anual implements OnInit, OnDestroy {
   }
 
   async calcularDeudaTotalParaAnio(anio: number, force = false): Promise<DeudaTotalMes[]> {
-    const cacheKey = `deuda_total_meses_v4_${anio}`;
+    const cacheKey = `deuda_total_meses_v5_${anio}`;
 
     if (force) {
       this.cacheDeudaAnualPorAnio.delete(anio);
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem(cacheKey);
+        localStorage.removeItem(`deuda_total_meses_v4_${anio}`);
         localStorage.removeItem(`deuda_total_meses_v3_${anio}`);
         localStorage.removeItem(`deuda_total_meses_v2_${anio}`);
         localStorage.removeItem(`deuda_total_meses_${anio}`);
@@ -373,6 +398,7 @@ export class Anual implements OnInit, OnDestroy {
         localStorage.removeItem(`deuda_total_meses_${anio}`);
         localStorage.removeItem(`deuda_total_meses_v2_${anio}`);
         localStorage.removeItem(`deuda_total_meses_v3_${anio}`);
+        localStorage.removeItem(`deuda_total_meses_v4_${anio}`);
 
         const cached = localStorage.getItem(cacheKey);
         if (cached) {
@@ -437,7 +463,17 @@ export class Anual implements OnInit, OnDestroy {
         }
       }
 
-      const proyeccionFuturaRaw = await this.storeGoogle.obtenerProyeccionTotalesFuturosAnio(anio, force);
+      const [proyeccionFuturaRaw, resLoansAll] = await Promise.all([
+        this.storeGoogle.obtenerProyeccionTotalesFuturosAnio(anio, force),
+        firstValueFrom(this.loansService.getLoans()).catch(() => ({ data: [] as Loan[] })),
+      ]);
+
+      const loansPorNombre = new Map<string, Loan>();
+      for (const loan of resLoansAll?.data ?? []) {
+        if (loan?.nombre) {
+          loansPorNombre.set(this.storeGoogle.normalizar(loan.nombre), loan);
+        }
+      }
       const MESES_BASE = [
         'enero',
         'febrero',
@@ -486,6 +522,18 @@ export class Anual implements OnInit, OnDestroy {
                 cantCuotasRestantes++;
               }
             }
+
+            // Sumar también las cuotas de años posteriores (year > anio) para mostrar la deuda real completa
+            const loanMatch = loansPorNombre.get(this.storeGoogle.normalizar(cat));
+            if (loanMatch?.installments?.length) {
+              for (const inst of loanMatch.installments) {
+                if (inst.year > anio && Number(inst.monto) > 0) {
+                  sumaCat += Number(inst.monto);
+                  cantCuotasRestantes++;
+                }
+              }
+            }
+
             if (sumaCat > 0) {
               totalPrestamosRestante += sumaCat;
               desglosePrestamos.push({

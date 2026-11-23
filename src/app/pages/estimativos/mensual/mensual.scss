@@ -394,6 +394,73 @@ app-bancor {
         }
       }
 
+      &.fila-dia-actual {
+        position: relative;
+
+        td {
+          position: static;
+          background-color: color-mix(in srgb, #22c55e 10%, #ffffff);
+        }
+
+        td.columna-resaltada {
+          background-color: color-mix(in srgb, #22c55e 12%, #dedede);
+        }
+
+        &.fila-no-laborable,
+        &.fila-fin-de-semana,
+        &.fila-feriado {
+          background-color: color-mix(in srgb, #22c55e 12%, #ede9f5);
+
+          td {
+            background-color: color-mix(in srgb, #22c55e 12%, #ede9f5);
+          }
+
+          td.columna-resaltada {
+            background-color: color-mix(in srgb, #22c55e 16%, #dbd3e6);
+          }
+        }
+
+        &.fila-personalizada {
+          background-color: color-mix(in srgb, #22c55e 14%, var(--fila-custom-color, #4b5896));
+
+          td {
+            background-color: color-mix(in srgb, #22c55e 14%, var(--fila-custom-color, #4b5896));
+          }
+
+          td.columna-resaltada {
+            background-color: color-mix(in srgb, #22c55e 18%, var(--fila-custom-color, #4b5896));
+          }
+        }
+
+        &:hover {
+          td {
+            background-color: color-mix(in srgb, #22c55e 16%, #ffffff);
+          }
+
+          td.columna-resaltada {
+            background-color: color-mix(in srgb, #22c55e 18%, #dedede);
+          }
+
+          &.fila-no-laborable td,
+          &.fila-fin-de-semana td,
+          &.fila-feriado td {
+            background-color: color-mix(in srgb, #22c55e 18%, #e4ddf0);
+          }
+
+          &.fila-no-laborable td.columna-resaltada,
+          &.fila-fin-de-semana td.columna-resaltada,
+          &.fila-feriado td.columna-resaltada {
+            background-color: color-mix(in srgb, #22c55e 20%, #cfc5dc);
+          }
+        }
+
+        .fecha-dia-texto {
+          font-weight: 800 !important;
+          color: #15803d !important;
+          letter-spacing: 0.2px;
+        }
+      }
+
       td {
         padding: 5px 6px;
         border-bottom: 1px solid #f1f1f1;
@@ -441,7 +508,101 @@ app-bancor {
   white-space: nowrap;
 }
 
+/* Haz de luz perimetral continuo en degradado suave animado para el día actual */
+.svg-haz-luz-dia-actual {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+  overflow: visible;
+
+  .svg-haz-base {
+    fill: none;
+    stroke: rgba(34, 197, 94, 0.4);
+    stroke-width: 1.5;
+  }
+
+  .svg-haz-tramo {
+    fill: none;
+    stroke-linecap: round;
+    animation: haz-corriendo-counter-clockwise 3.6s linear infinite;
+  }
+
+  /* Capa de Cola Lejana: verde esmeralda muy tenue desvaneciéndose */
+  .svg-haz-cola-3 {
+    stroke: #22c55e;
+    stroke-width: 1.6;
+    opacity: 0.18;
+  }
+
+  /* Capa de Cola Media: verde esmeralda suave */
+  .svg-haz-cola-2 {
+    stroke: #22c55e;
+    stroke-width: 1.9;
+    opacity: 0.35;
+  }
+
+  /* Capa de Cola Cercana: verde esmeralda intenso */
+  .svg-haz-cola-1 {
+    stroke: #22c55e;
+    stroke-width: 2.2;
+    opacity: 0.55;
+    filter: drop-shadow(0 0 3px rgba(34, 197, 94, 0.5));
+  }
+
+  /* Capa de Cuerpo Exterior: verde lima neón */
+  .svg-haz-cuerpo-2 {
+    stroke: #4ade80;
+    stroke-width: 2.5;
+    opacity: 0.72;
+    filter: drop-shadow(0 0 4px #22c55e);
+  }
+
+  /* Capa de Cuerpo Interior: verde lima luminoso */
+  .svg-haz-cuerpo-1 {
+    stroke: #4ade80;
+    stroke-width: 2.8;
+    opacity: 0.88;
+  }
+
+  /* Capa de Transición luminosa menta clara */
+  .svg-haz-nucleo-2 {
+    stroke: #86efac;
+    stroke-width: 3.0;
+    opacity: 0.95;
+  }
+
+  /* Capa de Núcleo casi blanco menta */
+  .svg-haz-nucleo-1 {
+    stroke: #dcfce7;
+    stroke-width: 3.2;
+    opacity: 1;
+  }
+
+  /* Punta frontal: blanco puro nuclear con destello */
+  .svg-haz-punta {
+    stroke: #ffffff;
+    stroke-width: 3.4;
+    opacity: 1;
+    filter: drop-shadow(0 0 3px #ffffff) drop-shadow(0 0 6px #86efac);
+  }
+}
+
+@keyframes haz-corriendo-counter-clockwise {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 1000;
+  }
+}
+
 .fecha-flex {
+  position: relative;
+  z-index: 7;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -451,7 +612,8 @@ app-bancor {
     font-weight: 500;
   }
 
-  .icono-evento-dia {
+    .icono-evento-dia {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -467,6 +629,25 @@ app-bancor {
       width: 22px;
       height: 22px;
       filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.12));
+    }
+
+    .badge-contador-eventos {
+      position: absolute;
+      top: -3px;
+      right: -4px;
+      background: #706cd6;
+      color: #ffffff;
+      font-size: 9px;
+      font-weight: 800;
+      min-width: 14px;
+      height: 14px;
+      line-height: 14px;
+      text-align: center;
+      border-radius: 999px;
+      padding: 0 2px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+      border: 1px solid #ffffff;
+      pointer-events: none;
     }
 
     &:hover {
@@ -621,6 +802,58 @@ app-bancor {
 }
 
 :host-context(body.dark-mode) {
+  .tabla-fechas tbody tr.fila-dia-actual {
+    background-color: rgba(34, 197, 94, 0.12);
+
+    td {
+      background-color: rgba(34, 197, 94, 0.12) !important;
+      border-bottom-color: rgba(34, 197, 94, 0.25) !important;
+    }
+
+    td.columna-resaltada {
+      background-color: rgba(34, 197, 94, 0.2) !important;
+    }
+
+    .fecha-dia-texto {
+      color: #4ade80 !important;
+    }
+
+    .svg-haz-luz-dia-actual {
+      .svg-haz-base {
+        stroke: rgba(74, 222, 128, 0.45);
+      }
+      .svg-haz-cola-3 {
+        stroke: #22c55e;
+        opacity: 0.22;
+      }
+      .svg-haz-cola-2 {
+        stroke: #4ade80;
+        opacity: 0.4;
+      }
+      .svg-haz-cola-1 {
+        stroke: #4ade80;
+        opacity: 0.65;
+        filter: drop-shadow(0 0 4px rgba(74, 222, 128, 0.6));
+      }
+      .svg-haz-cuerpo-2 {
+        stroke: #86efac;
+        filter: drop-shadow(0 0 6px #4ade80) drop-shadow(0 0 10px rgba(74, 222, 128, 0.9));
+      }
+      .svg-haz-cuerpo-1 {
+        stroke: #bbf7d0;
+      }
+      .svg-haz-nucleo-2 {
+        stroke: #dcfce7;
+      }
+      .svg-haz-nucleo-1 {
+        stroke: #f0fdf4;
+      }
+      .svg-haz-punta {
+        stroke: #ffffff;
+        filter: drop-shadow(0 0 4px #ffffff) drop-shadow(0 0 8px #86efac);
+      }
+    }
+  }
   .tabla-fechas tbody tr.fila-personalizada {
     background-color: color-mix(in srgb, var(--fila-custom-color, #706cd6) 15%, #181926);
 

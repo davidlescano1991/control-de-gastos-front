@@ -85,12 +85,39 @@ export class ProyeccionEntidadService {
     return isNegative ? -Math.abs(num) : num;
   }
 
+  private coincideConcepto(a: string | undefined, b: string | undefined): boolean {
+    const na = this.normalizar(a);
+    const nb = this.normalizar(b);
+    if (!na || !nb) return false;
+    if (na === nb || na.startsWith(nb) || nb.startsWith(na)) return true;
+    if (na.includes('un_pago') && nb.includes('un_pago')) return true;
+    if (na.includes('intereses') && nb.includes('intereses')) return true;
+    if (na.includes('sello') && nb.includes('sello')) return true;
+    if (na.includes('saldo_anterior') && nb.includes('saldo_anterior')) return true;
+    if (na.includes('iva') && nb.includes('iva')) return true;
+    return false;
+  }
+
+  private matchEntidad(itEntidad: string, key: string): boolean {
+    const norm = this.normalizar(itEntidad);
+    if (key === 'visa') return norm.includes('visa');
+    if (key === 'mastercard') return norm.includes('master');
+    if (key === 'naranja') return norm.includes('naranja');
+    if (key === 'bancor') return norm.includes('bancor');
+    if (key === 'ml') return norm.includes('mercado');
+    if (key.startsWith('otros')) return norm.includes('otros');
+    return norm.includes(this.normalizar(key));
+  }
+
   /**
    * Carga en lote todas las hojas mensuales involucradas en la proyección
    */
   private async asegurarHojasColumnas(columnas: ColumnaMesProyeccion[]): Promise<void> {
     const mesesPorAnio = new Map<number, string[]>();
     for (const col of columnas) {
+      if (!this.appConfig.isSheetsActivo(col.anio)) {
+        continue;
+      }
       const lista = mesesPorAnio.get(col.anio) || [];
       if (!lista.includes(col.mes)) {
         lista.push(col.mes);
@@ -166,17 +193,35 @@ export class ProyeccionEntidadService {
       esFuturo: false,
     });
 
-    // 4 meses posteriores
-    for (let i = 1; columnas.length < 6 && index + i < mesesDelAnio.length; i++) {
-      const mesFut = mesesDelAnio[index + i];
-      columnas.push({
-        mes: mesFut,
-        mesCorto: mesFut.substring(0, 3),
-        anio,
-        esPasado: false,
-        esActual: false,
-        esFuturo: true,
-      });
+    // Meses posteriores hasta completar 6
+    for (let i = 1; columnas.length < 6; i++) {
+      const nextIdx = index + i;
+      if (nextIdx < mesesDelAnio.length) {
+        const mesFut = mesesDelAnio[nextIdx];
+        columnas.push({
+          mes: mesFut,
+          mesCorto: mesFut.substring(0, 3),
+          anio,
+          esPasado: false,
+          esActual: false,
+          esFuturo: true,
+        });
+      } else {
+        const nextAnioIdx = nextIdx - mesesDelAnio.length;
+        if (nextAnioIdx < mesesDelAnio.length) {
+          const mesFut = mesesDelAnio[nextAnioIdx];
+          columnas.push({
+            mes: mesFut,
+            mesCorto: mesFut.substring(0, 3),
+            anio: anio + 1,
+            esPasado: false,
+            esActual: false,
+            esFuturo: true,
+          });
+        } else {
+          break;
+        }
+      }
     }
 
     return columnas;
@@ -210,6 +255,21 @@ export class ProyeccionEntidadService {
     const totalesPorMes: Record<string, number> = {};
     columnas.forEach((c) => (totalesPorMes[c.mes] = 0));
 
+    // Pre-cargar ítems de BD para cualquier columna que pertenezca a un año en modo BD (ej: 2027)
+    const aniosBD = Array.from(
+      new Set(columnas.filter((c) => !this.appConfig.isSheetsActivo(c.anio)).map((c) => c.anio)),
+    );
+    for (const anioBD of aniosBD) {
+      if (!this.cacheItemsBD.has(anioBD)) {
+        try {
+          const res = await firstValueFrom(this.mensualItemsService.getItems(anioBD));
+          this.cacheItemsBD.set(anioBD, res?.items || []);
+        } catch {
+          this.cacheItemsBD.set(anioBD, []);
+        }
+      }
+    }
+
     // =========================================================================
     // 1. MANEJO ESPECÍFICO PARA "OTROS"
     // En Google Sheets, "Otros" no tiene columnas multi-mes en una sola pestaña,
@@ -223,6 +283,28 @@ export class ProyeccionEntidadService {
       const conceptosList: string[] = [];
 
       const agregarConceptosDeHoja = (anioHoja: number, mesHoja: string) => {
+        if (!this.appConfig.isSheetsActivo(anioHoja)) {
+          const itemsBD = this.cacheItemsBD.get(anioHoja) || [];
+          const mesesNombres = this.storeGoogle.getMesesParaResumen(anioHoja);
+          const mesNum = mesesNombres.indexOf(mesHoja) + 1;
+          for (const it of itemsBD) {
+            if (
+              it.mes === mesNum &&
+              it.entidad?.toLowerCase() === 'otros' &&
+              it.concepto &&
+              !it.concepto.startsWith('=')
+            ) {
+              const baseDesc = it.concepto.replace(/\s*\d+\/\d+.*$/, '').trim();
+              const norm = this.normalizar(baseDesc);
+              if (!conceptosSet.has(norm)) {
+                conceptosSet.add(norm);
+                conceptosList.push(baseDesc);
+              }
+            }
+          }
+          return;
+        }
+
         const hoja = this.storeGoogle.getMensualPorMes(anioHoja, mesHoja);
         const rangos = this.storeGoogle.ValidarRangoEntidades(anioHoja);
         const config = rangos?.['otros'];
@@ -269,21 +351,38 @@ export class ProyeccionEntidadService {
         const normConcepto = this.normalizar(concepto);
 
         for (const col of columnas) {
-          const hoja = this.storeGoogle.getMensualPorMes(col.anio, col.mes);
-          const rangos = this.storeGoogle.ValidarRangoEntidades(col.anio);
-          const config = rangos?.['otros'];
           let montoMes = 0;
 
-          if (hoja?.values && config) {
-            for (let r = config.inicio; r <= config.fin; r++) {
-              const fila = hoja.values[r];
-              if (!fila || fila.length === 0) continue;
-              const desc = fila[0]?.trim();
-              if (desc) {
-                const normF = this.normalizar(desc);
-                if (normF === normConcepto || normF.startsWith(normConcepto) || normConcepto.startsWith(normF)) {
-                  montoMes = this.parseMonto(fila[1]);
+          if (!this.appConfig.isSheetsActivo(col.anio)) {
+            const itemsBD = this.cacheItemsBD.get(col.anio) || [];
+            const mesesNombres = this.storeGoogle.getMesesParaResumen(col.anio);
+            const mesNum = mesesNombres.indexOf(col.mes) + 1;
+            for (const it of itemsBD) {
+              if (it.mes === mesNum && it.entidad?.toLowerCase() === 'otros' && it.concepto) {
+                const baseConcepto = it.concepto.replace(/\s*\d+\/\d+.*$/, '').trim();
+                const normIt = this.normalizar(baseConcepto);
+                if (normIt === normConcepto || normIt.startsWith(normConcepto) || normConcepto.startsWith(normIt)) {
+                  montoMes = Number(it.monto) || 0;
                   break;
+                }
+              }
+            }
+          } else {
+            const hoja = this.storeGoogle.getMensualPorMes(col.anio, col.mes);
+            const rangos = this.storeGoogle.ValidarRangoEntidades(col.anio);
+            const config = rangos?.['otros'];
+
+            if (hoja?.values && config) {
+              for (let r = config.inicio; r <= config.fin; r++) {
+                const fila = hoja.values[r];
+                if (!fila || fila.length === 0) continue;
+                const desc = fila[0]?.trim();
+                if (desc) {
+                  const normF = this.normalizar(desc);
+                  if (normF === normConcepto || normF.startsWith(normConcepto) || normConcepto.startsWith(normF)) {
+                    montoMes = this.parseMonto(fila[1]);
+                    break;
+                  }
                 }
               }
             }
@@ -338,10 +437,10 @@ export class ProyeccionEntidadService {
       nombreEntidad = headerRowActual[0].trim();
     }
 
-    // Mapear los índices de columnas en la hoja actual con nuestras columnas
+    // Mapear los índices de columnas en la hoja actual con nuestras columnas que usen Google Sheets
     const mapaColIndexActual: Record<string, number> = {};
     columnas.forEach((col) => {
-      if (!col.esPasado) {
+      if (!col.esPasado && this.appConfig.isSheetsActivo(col.anio)) {
         const idx = headerRowActual.findIndex((h) =>
           this.normalizar(h).includes(this.normalizar(col.mes)),
         );
@@ -356,30 +455,30 @@ export class ProyeccionEntidadService {
     // Mapear los índices de columnas en cada hoja de mes pasado
     const mapaColIndexPast: Record<string, number> = {};
     for (const colP of columnas.filter((c) => c.esPasado)) {
-      const hojaP = this.storeGoogle.getMensualPorMes(colP.anio, colP.mes);
-      const rangosP = this.storeGoogle.ValidarRangoEntidades(colP.anio);
-      const configP = rangosP?.[entidadKey];
-      if (hojaP?.values && configP) {
-        const headerRowP = hojaP.values[configP.headerIndex] ?? [];
-        const colIdxP = headerRowP.findIndex((h) =>
-          this.normalizar(h).includes(this.normalizar(colP.mes)),
-        );
-        mapaColIndexPast[colP.mes] = colIdxP !== -1 ? colIdxP : 1;
+      if (this.appConfig.isSheetsActivo(colP.anio)) {
+        const hojaP = this.storeGoogle.getMensualPorMes(colP.anio, colP.mes);
+        const rangosP = this.storeGoogle.ValidarRangoEntidades(colP.anio);
+        const configP = rangosP?.[entidadKey];
+        if (hojaP?.values && configP) {
+          const headerRowP = hojaP.values[configP.headerIndex] ?? [];
+          const colIdxP = headerRowP.findIndex((h) =>
+            this.normalizar(h).includes(this.normalizar(colP.mes)),
+          );
+          mapaColIndexPast[colP.mes] = colIdxP !== -1 ? colIdxP : 1;
+        } else {
+          mapaColIndexPast[colP.mes] = 1;
+        }
       } else {
         mapaColIndexPast[colP.mes] = 1;
       }
     }
 
     // Helper para verificar coincidencia entre conceptos no cuota
-    const coincideConcepto = (a: string, b: string): boolean => {
-      if (a === b || a.startsWith(b) || b.startsWith(a)) return true;
-      if (a.includes('un pago') && b.includes('un pago')) return true;
-      if (a.includes('intereses') && b.includes('intereses')) return true;
-      if (a.includes('sello') && b.includes('sello')) return true;
-      if (a.includes('saldo anterior') && b.includes('saldo anterior')) return true;
-      if (a.includes('iva') && b.includes('iva')) return true;
-      return false;
+    const coincideConcepto = (a: string | undefined, b: string | undefined): boolean => {
+      return this.coincideConcepto(a, b);
     };
+
+    const itemsBDUsados = new Set<string>();
 
     // 1. Procesar todas las filas activas de la hoja del mes actual
     for (let r = configEntidad.inicio; r <= configEntidad.fin; r++) {
@@ -413,25 +512,90 @@ export class ProyeccionEntidadService {
       columnas.forEach((col, idxCol) => {
         if (col.esFuturo) {
           const distFut = idxCol - indexActual;
-          if (esCuota) {
-            const cuotaFut = actualCuota + distFut;
-            if (cuotaFut <= totalCuotas) {
-              cuotasPorMes[col.mes] = `${cuotaFut}/${totalCuotas}`;
-              const idxFut = mapaColIndexActual[col.mes];
-              let montoFut = idxFut !== undefined ? this.parseMonto(fila[idxFut]) : 0;
-              if (montoFut === 0 && montoActual !== 0) {
-                montoFut = montoActual;
+          if (this.appConfig.isSheetsActivo(col.anio)) {
+            // Mes futuro en Google Sheets (ej: Diciembre 2026)
+            if (esCuota) {
+              const cuotaFut = actualCuota + distFut;
+              if (cuotaFut <= totalCuotas) {
+                cuotasPorMes[col.mes] = `${cuotaFut}/${totalCuotas}`;
+                const idxFut = mapaColIndexActual[col.mes];
+                const montoFut = idxFut !== undefined ? this.parseMonto(fila[idxFut]) : 0;
+                valoresPorMes[col.mes] = montoFut;
+                if (montoFut !== 0) tieneValores = true;
+              } else {
+                valoresPorMes[col.mes] = 0;
               }
+            } else {
+              const idxFut = mapaColIndexActual[col.mes];
+              const montoFut = idxFut !== undefined ? this.parseMonto(fila[idxFut]) : 0;
               valoresPorMes[col.mes] = montoFut;
               if (montoFut !== 0) tieneValores = true;
-            } else {
-              valoresPorMes[col.mes] = 0;
             }
           } else {
-            const idxFut = mapaColIndexActual[col.mes];
-            const montoFut = idxFut !== undefined ? this.parseMonto(fila[idxFut]) : 0;
-            valoresPorMes[col.mes] = montoFut;
-            if (montoFut !== 0) tieneValores = true;
+            // Mes futuro en modo Base de Datos (ej: Enero 2027)
+            const itemsAnioBD = this.cacheItemsBD.get(col.anio) || [];
+            const mesesDelAnio = this.storeGoogle.getMesesParaResumen(col.anio);
+            const mesNumCol = mesesDelAnio.indexOf(col.mes) + 1;
+            const itemsMesBD = itemsAnioBD.filter(
+              (it) => it.mes === mesNumCol && this.matchEntidad(it.entidad, entidadKey),
+            );
+
+            if (esCuota) {
+              const cuotaFut = actualCuota + distFut;
+              if (cuotaFut <= totalCuotas) {
+                cuotasPorMes[col.mes] = `${cuotaFut}/${totalCuotas}`;
+                const baseDesc = desc.replace(/\s+\d+\/\d+.*$/, '').trim();
+
+                let itMes = itemsMesBD.find(
+                  (x) =>
+                    !itemsBDUsados.has(x.id) &&
+                    x.esCuota &&
+                    x.totalCuotas === totalCuotas &&
+                    x.cuotaActual === cuotaFut &&
+                    this.normalizar(x.concepto.replace(/\s+\d+\/\d+.*$/, '')) === this.normalizar(baseDesc),
+                );
+
+                if (!itMes) {
+                  const candidatos = itemsMesBD.filter(
+                    (x) =>
+                      !itemsBDUsados.has(x.id) &&
+                      x.esCuota &&
+                      x.totalCuotas === totalCuotas &&
+                      x.cuotaActual === cuotaFut,
+                  );
+                  if (candidatos.length > 0) {
+                    candidatos.sort(
+                      (a, b) => Math.abs(Number(a.monto) - montoActual) - Math.abs(Number(b.monto) - montoActual),
+                    );
+                    itMes = candidatos[0];
+                  }
+                }
+
+                if (itMes) {
+                  itemsBDUsados.add(itMes.id);
+                  const m = Number(itMes.monto);
+                  valoresPorMes[col.mes] = m;
+                  tieneValores = true;
+                } else {
+                  valoresPorMes[col.mes] = 0;
+                }
+              } else {
+                valoresPorMes[col.mes] = 0;
+              }
+            } else {
+              // Concepto no cuota (Impuesto al sello, DB IVA, etc.)
+              const itMes = itemsMesBD.find(
+                (x) => !itemsBDUsados.has(x.id) && coincideConcepto(desc, x.concepto),
+              );
+              if (itMes) {
+                itemsBDUsados.add(itMes.id);
+                const m = Number(itMes.monto);
+                valoresPorMes[col.mes] = m;
+                tieneValores = true;
+              } else {
+                valoresPorMes[col.mes] = 0;
+              }
+            }
           }
         }
       });
@@ -531,434 +695,28 @@ export class ProyeccionEntidadService {
       }
     }
 
-    // 2. Incorporar compras finalizadas en meses anteriores del año
-    for (let idxP = indexActual - 1; idxP >= 0; idxP--) {
-      const colP = columnas[idxP];
-      const hojaP = this.storeGoogle.getMensualPorMes(colP.anio, colP.mes);
-      const rangosP = this.storeGoogle.ValidarRangoEntidades(colP.anio);
-      const configP = rangosP?.[entidadKey];
-      const colIdxP = mapaColIndexPast[colP.mes] ?? 1;
+    // Incorporar cualquier ítem de BD no emparejado para los meses futuros en modo BD (ej: 2027)
+    const columnasBDFuturas = columnas.filter((c) => !this.appConfig.isSheetsActivo(c.anio) && c.esFuturo);
+    for (const colBD of columnasBDFuturas) {
+      const itemsAnioBD = this.cacheItemsBD.get(colBD.anio) || [];
+      const mesesDelAnio = this.storeGoogle.getMesesParaResumen(colBD.anio);
+      const mesNumCol = mesesDelAnio.indexOf(colBD.mes) + 1;
+      const itemsMesBD = itemsAnioBD.filter(
+        (it) => it.mes === mesNumCol && this.matchEntidad(it.entidad, entidadKey) && !itemsBDUsados.has(it.id),
+      );
 
-      if (!hojaP?.values || !configP) continue;
+      for (const it of itemsMesBD) {
+        itemsBDUsados.add(it.id);
+        const valoresPorMes: Record<string, number> = {};
+        const cuotasPorMes: Record<string, string> = {};
+        columnas.forEach((c) => (valoresPorMes[c.mes] = 0));
 
-      for (let rP = configP.inicio; rP <= configP.fin; rP++) {
-        const rowP = hojaP.values[rP];
-        if (!rowP || rowP.length === 0) continue;
-        const descP = rowP[0]?.trim();
-        if (!descP || descP.toLowerCase() === 'total') continue;
-
-        const montoP = this.parseMonto(rowP[colIdxP]);
-        if (montoP === 0) continue;
-
-        const matchCuotaP = descP.match(/(\d+)\/(\d+)/);
-        const esUnPagoP = this.normalizar(descP).includes('un pago');
-        if (!matchCuotaP || esUnPagoP || parseInt(matchCuotaP[2], 10) <= 1) continue;
-
-        const cuotaP = parseInt(matchCuotaP[1], 10);
-        const totalP = parseInt(matchCuotaP[2], 10);
-
-        // Verificar si este plan de cuotas ya está cubierto en alguna fila activa o previa
-        const yaCubierto = filas.some((f) => {
-          return (
-            f.cuotasPorMes?.[colP.mes] === `${cuotaP}/${totalP}` &&
-            Math.abs((f.valoresPorMes[colP.mes] || 0) - montoP) < 1
-          );
-        });
-
-        if (!yaCubierto) {
-          const valoresPorMes: Record<string, number> = {};
-          const cuotasPorMes: Record<string, string> = {};
-          columnas.forEach((c) => (valoresPorMes[c.mes] = 0));
-          let tieneValoresFin = false;
-
-          for (let idxM = 0; idxM < indexActual; idxM++) {
-            const colM = columnas[idxM];
-            const dist = idxM - idxP;
-            const cM = cuotaP + dist;
-            if (cM >= 1 && cM <= totalP) {
-              cuotasPorMes[colM.mes] = `${cM}/${totalP}`;
-              valoresPorMes[colM.mes] = montoP;
-              tieneValoresFin = true;
-            }
-          }
-
-          if (tieneValoresFin) {
-            filas.push({
-              descripcion: `${descP} (Finalizada)`,
-              valoresPorMes,
-              cuotasPorMes,
-              esNuevo: false,
-              esUltima: true,
-              esFinalizada: true,
-            });
-
-            columnas.forEach((c) => {
-              totalesPorMes[c.mes] += valoresPorMes[c.mes] || 0;
-            });
-          }
+        valoresPorMes[colBD.mes] = Number(it.monto);
+        if (it.esCuota && it.cuotaActual && it.totalCuotas) {
+          cuotasPorMes[colBD.mes] = `${it.cuotaActual}/${it.totalCuotas}`;
         }
-      }
-    }
+        totalesPorMes[colBD.mes] += Number(it.monto);
 
-    return {
-      entidadKey,
-      nombreEntidad,
-      columnas,
-      filas,
-      totalesPorMes,
-    };
-  }
-
-  /**
-   * Obtiene la proyección detallada para una fila individual de cuota o movimiento
-   * al pasar el cursor sobre ella dentro de la tarjeta de la entidad.
-   */
-  async obtenerProyeccionFila(
-    anio: number,
-    mesSeleccionado: string,
-    entidadKey: string,
-    filaData: { descripcion: string; monto: unknown },
-    nombreEntidadPersonalizado?: string,
-    vistaAnioCompleto = false,
-  ): Promise<ProyeccionFilaIndividual> {
-    const columnas = this.obtenerColumnasMeses(anio, mesSeleccionado, vistaAnioCompleto);
-    const colMesPasado = columnas.find((c) => c.esPasado);
-    const colMesActual = columnas.find((c) => c.esActual);
-    const indexActual = columnas.findIndex((c) => c.esActual);
-
-    const desc = filaData.descripcion || '';
-    const montoActual = this.parseMonto(filaData.monto);
-
-    const valoresPorMes: Record<string, number> = {};
-    const cuotasPorMes: Record<string, string> = {};
-    columnas.forEach((c) => (valoresPorMes[c.mes] = 0));
-
-    valoresPorMes[mesSeleccionado] = montoActual;
-
-    // =========================================================================
-    // 1. MANEJO ESPECÍFICO PARA FILAS DE "OTROS"
-    // =========================================================================
-    if (entidadKey === 'otros' || entidadKey.startsWith('otros_')) {
-      if (!this.appConfig.isSheetsActivo(anio)) {
-        return this.obtenerProyeccionFilaOtrosDesdeBD(
-          anio,
-          mesSeleccionado,
-          entidadKey,
-          filaData,
-          nombreEntidadPersonalizado,
-          vistaAnioCompleto,
-        );
-      }
-      await this.asegurarHojasColumnas(columnas);
-
-      const normDesc = this.normalizar(desc);
-      let montoActualDetectado = montoActual;
-
-      for (const col of columnas) {
-        const hoja = this.storeGoogle.getMensualPorMes(col.anio, col.mes);
-        const rangos = this.storeGoogle.ValidarRangoEntidades(col.anio);
-        const config = rangos?.['otros'];
-        let montoMes = 0;
-
-        if (hoja?.values && config) {
-          for (let r = config.inicio; r <= config.fin; r++) {
-            const fila = hoja.values[r];
-            if (!fila || fila.length === 0) continue;
-            const filaDesc = fila[0]?.trim();
-            if (filaDesc) {
-              const normF = this.normalizar(filaDesc);
-              if (normF === normDesc || normF.startsWith(normDesc) || normDesc.startsWith(normF)) {
-                montoMes = this.parseMonto(fila[1]);
-                break;
-              }
-            }
-          }
-        }
-
-        if (col.esActual) {
-          if (montoMes !== 0) {
-            montoActualDetectado = montoMes;
-          } else if (montoActual !== 0) {
-            montoMes = montoActual;
-          }
-        }
-
-        valoresPorMes[col.mes] = montoMes;
-      }
-
-      const matchCuota = desc.match(/(\d+)\/(\d+)/);
-      let totalRestante = montoActualDetectado;
-
-      if (matchCuota) {
-        const actual = parseInt(matchCuota[1], 10);
-        const total = parseInt(matchCuota[2], 10);
-
-        columnas.forEach((col, idx) => {
-          if (col.esActual) {
-            cuotasPorMes[col.mes] = `${actual}/${total}`;
-          } else if (col.esPasado) {
-            const dist = indexActual - idx;
-            const cuotaPas = actual - dist;
-            if (cuotaPas >= 1) {
-              cuotasPorMes[col.mes] = `${cuotaPas}/${total}`;
-            }
-          } else if (col.esFuturo) {
-            const diff = idx - indexActual;
-            const cuotaFut = actual + diff;
-            if (cuotaFut <= total) {
-              cuotasPorMes[col.mes] = `${cuotaFut}/${total}`;
-            }
-          }
-        });
-
-        const cuotasPendientes = Math.max(1, total - actual + 1);
-        totalRestante = montoActualDetectado * cuotasPendientes;
-      }
-
-      return {
-        descripcion: desc,
-        entidadKey: 'otros',
-        nombreEntidad: nombreEntidadPersonalizado || 'Otros',
-        columnas,
-        valoresPorMes,
-        cuotasPorMes,
-        totalRestante,
-        esNuevo: this.esCuotaNueva(desc),
-        esUltima: this.esCuotaUltima(desc),
-      };
-    }
-
-    // =========================================================================
-    // 2. MANEJO PARA FILAS DE TARJETAS DE CRÉDITO Y RESTO DE ENTIDADES
-    // =========================================================================
-    await this.asegurarHojasColumnas(columnas);
-
-    const matchCuota = desc.match(/(\d+)\/(\d+)/);
-    const esUnPago = this.normalizar(desc).includes('un pago');
-    const esCuota = !!matchCuota && parseInt(matchCuota[2], 10) > 1 && !esUnPago;
-    let totalRestante = montoActual;
-    const esNuevo = this.esCuotaNueva(desc);
-    const esUltima = this.esCuotaUltima(desc);
-
-    if (esCuota && matchCuota) {
-      const actual = parseInt(matchCuota[1], 10);
-      const total = parseInt(matchCuota[2], 10);
-
-      // Meses pasados
-      columnas.forEach((col, idx) => {
-        if (col.esPasado) {
-          const dist = indexActual - idx;
-          const cuotaPas = actual - dist;
-          if (cuotaPas >= 1) {
-            valoresPorMes[col.mes] = montoActual;
-            cuotasPorMes[col.mes] = `${cuotaPas}/${total}`;
-          } else {
-            valoresPorMes[col.mes] = 0;
-          }
-        }
-      });
-
-      // Mes actual
-      cuotasPorMes[mesSeleccionado] = `${actual}/${total}`;
-
-      // Meses futuros
-      columnas.forEach((col, idx) => {
-        if (col.esFuturo) {
-          const diff = idx - indexActual;
-          const cuotaFut = actual + diff;
-          if (cuotaFut <= total) {
-            valoresPorMes[col.mes] = montoActual;
-            cuotasPorMes[col.mes] = `${cuotaFut}/${total}`;
-          } else {
-            valoresPorMes[col.mes] = 0;
-          }
-        }
-      });
-
-      // Total pendiente por pagar (mes actual + restantes)
-      const cuotasPendientes = Math.max(1, total - actual + 1);
-      totalRestante = montoActual * cuotasPendientes;
-    } else {
-      // Concepto regular sin cuotas
-      columnas.forEach((col) => {
-        if (col.esPasado) {
-          const hojaPasado = this.storeGoogle.getMensualPorMes(col.anio, col.mes);
-          const rangosPasado = this.storeGoogle.ValidarRangoEntidades(col.anio);
-          const configPasado = rangosPasado?.[entidadKey];
-          if (hojaPasado?.values && configPasado) {
-            for (let r = configPasado.inicio; r <= configPasado.fin; r++) {
-              const f = hojaPasado.values[r];
-              if (f && this.normalizar(f[0]).includes(this.normalizar(desc))) {
-                valoresPorMes[col.mes] = this.parseMonto(f[1]);
-                break;
-              }
-            }
-          }
-        }
-      });
-    }
-
-    return {
-      descripcion: desc,
-      entidadKey,
-      nombreEntidad:
-        nombreEntidadPersonalizado || entidadKey.charAt(0).toUpperCase() + entidadKey.slice(1),
-      columnas,
-      valoresPorMes,
-      cuotasPorMes,
-      totalRestante,
-      esNuevo,
-      esUltima,
-    };
-  }
-
-  private esCuotaNueva(valor: string | undefined): boolean {
-    if (typeof valor !== 'string') return false;
-    const limpio = valor.trim().toLowerCase();
-    if (limpio.includes('un pago')) return false;
-    const match = limpio.match(/\b1\/(\d+)\b/);
-    return !!match && match[1] !== '1';
-  }
-
-  private esCuotaUltima(valor: string | undefined): boolean {
-    if (typeof valor !== 'string') return false;
-    const limpio = valor.trim().toLowerCase();
-    if (limpio.includes('un pago')) return false;
-    const match = limpio.match(/\b(\d+|x)\/\1\b/);
-    return !!match && match[1] !== '1';
-  }
-
-  /**
-   * Obtiene la proyección completa de una entidad leyendo directamente desde PostgreSQL (Modo BD).
-   * Compatible con vista compacta de 6 meses o año completo (Enero a Diciembre + proyecciones).
-   */
-  private async obtenerProyeccionCompletaDesdeBD(
-    anio: number,
-    mesSeleccionado: string,
-    entidadKey: string,
-    nombreEntidadPersonalizado?: string,
-    vistaAnioCompleto = false,
-  ): Promise<ProyeccionEntidadData> {
-    const columnas = this.obtenerColumnasMeses(anio, mesSeleccionado, vistaAnioCompleto);
-    const mesesDelAnio = this.storeGoogle.getMesesParaResumen(anio);
-    const mesNumActual = mesesDelAnio.indexOf(mesSeleccionado) + 1;
-
-    let itemsAnio = this.cacheItemsBD.get(anio);
-    if (!itemsAnio) {
-      try {
-        const res = await firstValueFrom(this.mensualItemsService.getItems(anio));
-        itemsAnio = res.items || [];
-        this.cacheItemsBD.set(anio, itemsAnio);
-      } catch (e) {
-        console.error('Error al obtener ítems desde BD para proyección:', e);
-        itemsAnio = [];
-      }
-    }
-
-    const matchEntidad = (itEntidad: string, key: string) => {
-      const norm = this.normalizar(itEntidad);
-      if (key === 'visa') return norm.includes('visa');
-      if (key === 'mastercard') return norm.includes('master');
-      if (key === 'naranja') return norm.includes('naranja');
-      if (key === 'bancor') return norm.includes('bancor');
-      if (key === 'ml') return norm.includes('mercado');
-      if (key.startsWith('otros')) return norm.includes('otros');
-      return norm.includes(this.normalizar(key));
-    };
-
-    const itemsEntidad = (itemsAnio || []).filter((it) => matchEntidad(it.entidad, entidadKey));
-
-    let nombreEntidad = nombreEntidadPersonalizado;
-    if (!nombreEntidad) {
-      if (entidadKey === 'naranja') nombreEntidad = anio <= 2023 ? 'Naranja' : 'Naranja X';
-      else if (entidadKey === 'visa') nombreEntidad = 'Visa Galicia';
-      else if (entidadKey === 'mastercard') nombreEntidad = 'Master Card Galicia';
-      else if (entidadKey === 'bancor') nombreEntidad = 'Bancor';
-      else if (entidadKey === 'ml') nombreEntidad = 'Mercado Libre';
-      else nombreEntidad = 'Otros';
-    }
-
-    const getColMesNum = (colMes: string, colAnio: number) => {
-      const idx = mesesDelAnio.indexOf(colMes);
-      if (idx !== -1) {
-        return (colAnio - anio) * 12 + (idx + 1);
-      }
-      return 0;
-    };
-
-    const totalesPorMes: Record<string, number> = {};
-    columnas.forEach((c) => (totalesPorMes[c.mes] = 0));
-
-    const filasAgregadas = new Set<string>();
-    const filas: FilaProyeccionEntidad[] = [];
-
-    // Priorizamos ítems del mes actual para preservar el orden idéntico a la tarjeta
-    const itemsMesActual = itemsEntidad.filter((it) => it.mes === mesNumActual);
-    const poolItems = vistaAnioCompleto
-      ? [...itemsMesActual, ...itemsEntidad.filter((it) => it.mes !== mesNumActual)]
-      : itemsMesActual;
-
-    for (const it of poolItems) {
-      const baseDesc = it.esCuota
-        ? it.concepto.replace(/\s+\d+\/\d+.*$/, '').trim()
-        : it.concepto.trim();
-
-      const serieKey = it.esCuota
-        ? `cuota::${this.normalizar(baseDesc)}::${it.totalCuotas}`
-        : `fijo::${this.normalizar(baseDesc)}`;
-
-      if (filasAgregadas.has(serieKey)) continue;
-      filasAgregadas.add(serieKey);
-
-      const valoresPorMes: Record<string, number> = {};
-      const cuotasPorMes: Record<string, string> = {};
-      columnas.forEach((c) => (valoresPorMes[c.mes] = 0));
-      let tieneValores = false;
-
-      if (it.esCuota && it.cuotaActual && it.totalCuotas) {
-        columnas.forEach((c) => {
-          const cNum = getColMesNum(c.mes, c.anio);
-          const diff = cNum - it.mes;
-          const cuotaEsperada = it.cuotaActual! + diff;
-
-          if (cuotaEsperada >= 1 && cuotaEsperada <= it.totalCuotas!) {
-            const itMes = itemsEntidad.find(
-              (x) =>
-                x.mes === cNum &&
-                x.esCuota &&
-                x.totalCuotas === it.totalCuotas &&
-                this.normalizar(x.concepto.replace(/\s+\d+\/\d+.*$/, '')) === this.normalizar(baseDesc),
-            );
-
-            const m = itMes ? Number(itMes.monto) : Number(it.monto);
-            valoresPorMes[c.mes] = m;
-            cuotasPorMes[c.mes] = `${cuotaEsperada}/${it.totalCuotas}`;
-            const esCompensacion = this.normalizar(baseDesc).includes('compensacion');
-            if (!esCompensacion) {
-              totalesPorMes[c.mes] += m;
-            }
-            tieneValores = true;
-          }
-        });
-      } else {
-        columnas.forEach((c) => {
-          const cNum = getColMesNum(c.mes, c.anio);
-          const itMes = itemsEntidad.find(
-            (x) => x.mes === cNum && this.normalizar(x.concepto) === this.normalizar(it.concepto),
-          );
-          if (itMes) {
-            const m = Number(itMes.monto);
-            valoresPorMes[c.mes] = m;
-            const esCompensacion = this.normalizar(baseDesc).includes('compensacion');
-            if (!esCompensacion) {
-              totalesPorMes[c.mes] += m;
-            }
-            tieneValores = true;
-          }
-        });
-      }
-
-      if (tieneValores) {
         filas.push({
           descripcion: it.concepto,
           valoresPorMes,
@@ -970,107 +728,676 @@ export class ProyeccionEntidadService {
       }
     }
 
-    return {
+  // 2. Incorporar compras finalizadas en meses anteriores del año
+  for(let idxP = indexActual - 1; idxP >= 0; idxP--) {
+  const colP = columnas[idxP];
+  const hojaP = this.storeGoogle.getMensualPorMes(colP.anio, colP.mes);
+  const rangosP = this.storeGoogle.ValidarRangoEntidades(colP.anio);
+  const configP = rangosP?.[entidadKey];
+  const colIdxP = mapaColIndexPast[colP.mes] ?? 1;
+
+  if (!hojaP?.values || !configP) continue;
+
+  for (let rP = configP.inicio; rP <= configP.fin; rP++) {
+    const rowP = hojaP.values[rP];
+    if (!rowP || rowP.length === 0) continue;
+    const descP = rowP[0]?.trim();
+    if (!descP || descP.toLowerCase() === 'total') continue;
+
+    const montoP = this.parseMonto(rowP[colIdxP]);
+    if (montoP === 0) continue;
+
+    const matchCuotaP = descP.match(/(\d+)\/(\d+)/);
+    const esUnPagoP = this.normalizar(descP).includes('un pago');
+    if (!matchCuotaP || esUnPagoP || parseInt(matchCuotaP[2], 10) <= 1) continue;
+
+    const cuotaP = parseInt(matchCuotaP[1], 10);
+    const totalP = parseInt(matchCuotaP[2], 10);
+
+    // Verificar si este plan de cuotas ya está cubierto en alguna fila activa o previa
+    const yaCubierto = filas.some((f) => {
+      return (
+        f.cuotasPorMes?.[colP.mes] === `${cuotaP}/${totalP}` &&
+        Math.abs((f.valoresPorMes[colP.mes] || 0) - montoP) < 1
+      );
+    });
+
+    if (!yaCubierto) {
+      const valoresPorMes: Record<string, number> = {};
+      const cuotasPorMes: Record<string, string> = {};
+      columnas.forEach((c) => (valoresPorMes[c.mes] = 0));
+      let tieneValoresFin = false;
+
+      for (let idxM = 0; idxM < indexActual; idxM++) {
+        const colM = columnas[idxM];
+        const dist = idxM - idxP;
+        const cM = cuotaP + dist;
+        if (cM >= 1 && cM <= totalP) {
+          cuotasPorMes[colM.mes] = `${cM}/${totalP}`;
+          valoresPorMes[colM.mes] = montoP;
+          tieneValoresFin = true;
+        }
+      }
+
+      if (tieneValoresFin) {
+        filas.push({
+          descripcion: `${descP} (Finalizada)`,
+          valoresPorMes,
+          cuotasPorMes,
+          esNuevo: false,
+          esUltima: true,
+          esFinalizada: true,
+        });
+
+        columnas.forEach((c) => {
+          totalesPorMes[c.mes] += valoresPorMes[c.mes] || 0;
+        });
+      }
+    }
+  }
+}
+
+return {
+  entidadKey,
+  nombreEntidad,
+  columnas,
+  filas,
+  totalesPorMes,
+};
+  }
+
+  /**
+   * Obtiene la proyección detallada para una fila individual de cuota o movimiento
+   * al pasar el cursor sobre ella dentro de la tarjeta de la entidad.
+   */
+  async obtenerProyeccionFila(
+  anio: number,
+  mesSeleccionado: string,
+  entidadKey: string,
+  filaData: { descripcion: string; monto: unknown },
+  nombreEntidadPersonalizado ?: string,
+  vistaAnioCompleto = false,
+): Promise < ProyeccionFilaIndividual > {
+  const columnas = this.obtenerColumnasMeses(anio, mesSeleccionado, vistaAnioCompleto);
+  const colMesPasado = columnas.find((c) => c.esPasado);
+  const colMesActual = columnas.find((c) => c.esActual);
+  const indexActual = columnas.findIndex((c) => c.esActual);
+
+  const desc = filaData.descripcion || '';
+  const montoActual = this.parseMonto(filaData.monto);
+
+  const valoresPorMes: Record<string, number> = { };
+const cuotasPorMes: Record<string, string> = {};
+columnas.forEach((c) => (valoresPorMes[c.mes] = 0));
+
+valoresPorMes[mesSeleccionado] = montoActual;
+
+// =========================================================================
+// 1. MANEJO ESPECÍFICO PARA FILAS DE "OTROS"
+// =========================================================================
+if (entidadKey === 'otros' || entidadKey.startsWith('otros_')) {
+  if (!this.appConfig.isSheetsActivo(anio)) {
+    return this.obtenerProyeccionFilaOtrosDesdeBD(
+      anio,
+      mesSeleccionado,
       entidadKey,
-      nombreEntidad,
-      columnas,
-      filas,
-      totalesPorMes,
-    };
+      filaData,
+      nombreEntidadPersonalizado,
+      vistaAnioCompleto,
+    );
+  }
+  await this.asegurarHojasColumnas(columnas);
+
+  const normDesc = this.normalizar(desc);
+  let montoActualDetectado = montoActual;
+
+  for (const col of columnas) {
+    const hoja = this.storeGoogle.getMensualPorMes(col.anio, col.mes);
+    const rangos = this.storeGoogle.ValidarRangoEntidades(col.anio);
+    const config = rangos?.['otros'];
+    let montoMes = 0;
+
+    if (hoja?.values && config) {
+      for (let r = config.inicio; r <= config.fin; r++) {
+        const fila = hoja.values[r];
+        if (!fila || fila.length === 0) continue;
+        const filaDesc = fila[0]?.trim();
+        if (filaDesc) {
+          const normF = this.normalizar(filaDesc);
+          if (normF === normDesc || normF.startsWith(normDesc) || normDesc.startsWith(normF)) {
+            montoMes = this.parseMonto(fila[1]);
+            break;
+          }
+        }
+      }
+    }
+
+    if (col.esActual) {
+      if (montoMes !== 0) {
+        montoActualDetectado = montoMes;
+      } else if (montoActual !== 0) {
+        montoMes = montoActual;
+      }
+    }
+
+    valoresPorMes[col.mes] = montoMes;
+  }
+
+  const matchCuota = desc.match(/(\d+)\/(\d+)/);
+  let totalRestante = montoActualDetectado;
+
+  if (matchCuota) {
+    const actual = parseInt(matchCuota[1], 10);
+    const total = parseInt(matchCuota[2], 10);
+
+    columnas.forEach((col, idx) => {
+      if (col.esActual) {
+        cuotasPorMes[col.mes] = `${actual}/${total}`;
+      } else if (col.esPasado) {
+        const dist = indexActual - idx;
+        const cuotaPas = actual - dist;
+        if (cuotaPas >= 1) {
+          cuotasPorMes[col.mes] = `${cuotaPas}/${total}`;
+        }
+      } else if (col.esFuturo) {
+        const diff = idx - indexActual;
+        const cuotaFut = actual + diff;
+        if (cuotaFut <= total) {
+          cuotasPorMes[col.mes] = `${cuotaFut}/${total}`;
+        }
+      }
+    });
+
+    const cuotasPendientes = Math.max(1, total - actual + 1);
+    totalRestante = montoActualDetectado * cuotasPendientes;
+  }
+
+  return {
+    descripcion: desc,
+    entidadKey: 'otros',
+    nombreEntidad: nombreEntidadPersonalizado || 'Otros',
+    columnas,
+    valoresPorMes,
+    cuotasPorMes,
+    totalRestante,
+    esNuevo: this.esCuotaNueva(desc),
+    esUltima: this.esCuotaUltima(desc),
+  };
+}
+
+// =========================================================================
+// 2. MANEJO PARA FILAS DE TARJETAS DE CRÉDITO Y RESTO DE ENTIDADES
+// =========================================================================
+await this.asegurarHojasColumnas(columnas);
+
+const matchCuota = desc.match(/(\d+)\/(\d+)/);
+const esUnPago = this.normalizar(desc).includes('un pago');
+const esCuota = !!matchCuota && parseInt(matchCuota[2], 10) > 1 && !esUnPago;
+let totalRestante = montoActual;
+const esNuevo = this.esCuotaNueva(desc);
+const esUltima = this.esCuotaUltima(desc);
+
+if (esCuota && matchCuota) {
+  const actual = parseInt(matchCuota[1], 10);
+  const total = parseInt(matchCuota[2], 10);
+
+  // Meses pasados
+  columnas.forEach((col, idx) => {
+    if (col.esPasado) {
+      const dist = indexActual - idx;
+      const cuotaPas = actual - dist;
+      if (cuotaPas >= 1) {
+        valoresPorMes[col.mes] = montoActual;
+        cuotasPorMes[col.mes] = `${cuotaPas}/${total}`;
+      } else {
+        valoresPorMes[col.mes] = 0;
+      }
+    }
+  });
+
+  // Mes actual
+  cuotasPorMes[mesSeleccionado] = `${actual}/${total}`;
+
+  // Meses futuros
+  columnas.forEach((col, idx) => {
+    if (col.esFuturo) {
+      const diff = idx - indexActual;
+      const cuotaFut = actual + diff;
+      if (cuotaFut <= total) {
+        valoresPorMes[col.mes] = montoActual;
+        cuotasPorMes[col.mes] = `${cuotaFut}/${total}`;
+      } else {
+        valoresPorMes[col.mes] = 0;
+      }
+    }
+  });
+
+  // Total pendiente por pagar (mes actual + restantes)
+  const cuotasPendientes = Math.max(1, total - actual + 1);
+  totalRestante = montoActual * cuotasPendientes;
+} else {
+  // Concepto regular sin cuotas
+  columnas.forEach((col) => {
+    if (col.esPasado) {
+      const hojaPasado = this.storeGoogle.getMensualPorMes(col.anio, col.mes);
+      const rangosPasado = this.storeGoogle.ValidarRangoEntidades(col.anio);
+      const configPasado = rangosPasado?.[entidadKey];
+      if (hojaPasado?.values && configPasado) {
+        for (let r = configPasado.inicio; r <= configPasado.fin; r++) {
+          const f = hojaPasado.values[r];
+          if (f && this.coincideConcepto(desc, f[0])) {
+            valoresPorMes[col.mes] = this.parseMonto(f[1]);
+            break;
+          }
+        }
+      }
+    }
+  });
+}
+
+return {
+  descripcion: desc,
+  entidadKey,
+  nombreEntidad:
+    nombreEntidadPersonalizado || entidadKey.charAt(0).toUpperCase() + entidadKey.slice(1),
+  columnas,
+  valoresPorMes,
+  cuotasPorMes,
+  totalRestante,
+  esNuevo,
+  esUltima,
+};
+  }
+
+  private esCuotaNueva(valor: string | undefined): boolean {
+  if (typeof valor !== 'string') return false;
+  const limpio = valor.trim().toLowerCase();
+  if (limpio.includes('un pago')) return false;
+  const match = limpio.match(/\b1\/(\d+)\b/);
+  return !!match && match[1] !== '1';
+}
+
+  private esCuotaUltima(valor: string | undefined): boolean {
+  if (typeof valor !== 'string') return false;
+  const limpio = valor.trim().toLowerCase();
+  if (limpio.includes('un pago')) return false;
+  const match = limpio.match(/\b(\d+|x)\/\1\b/);
+  return !!match && match[1] !== '1';
+}
+
+  /**
+   * Obtiene la proyección completa de una entidad leyendo directamente desde PostgreSQL (Modo BD).
+   * Compatible con vista compacta de 6 meses o año completo (Enero a Diciembre + proyecciones).
+   */
+  private async obtenerProyeccionCompletaDesdeBD(
+  anio: number,
+  mesSeleccionado: string,
+  entidadKey: string,
+  nombreEntidadPersonalizado ?: string,
+  vistaAnioCompleto = false,
+): Promise < ProyeccionEntidadData > {
+  const columnas = this.obtenerColumnasMeses(anio, mesSeleccionado, vistaAnioCompleto);
+  await this.asegurarHojasColumnas(columnas);
+  const mesesDelAnio = this.storeGoogle.getMesesParaResumen(anio);
+  const mesNumActual = mesesDelAnio.indexOf(mesSeleccionado) + 1;
+
+  let itemsAnio = this.cacheItemsBD.get(anio);
+  if(!itemsAnio) {
+    try {
+      const res = await firstValueFrom(this.mensualItemsService.getItems(anio));
+      itemsAnio = res.items || [];
+      this.cacheItemsBD.set(anio, itemsAnio);
+    } catch (e) {
+      console.error('Error al obtener ítems desde BD para proyección:', e);
+      itemsAnio = [];
+    }
+  }
+
+    const itemsEntidad = (itemsAnio || []).filter((it) => this.matchEntidad(it.entidad, entidadKey));
+
+  let nombreEntidad = nombreEntidadPersonalizado;
+  if(!nombreEntidad) {
+    if (entidadKey === 'naranja') nombreEntidad = anio <= 2023 ? 'Naranja' : 'Naranja X';
+    else if (entidadKey === 'visa') nombreEntidad = 'Visa Galicia';
+    else if (entidadKey === 'mastercard') nombreEntidad = 'Master Card Galicia';
+    else if (entidadKey === 'bancor') nombreEntidad = 'Bancor';
+    else if (entidadKey === 'ml') nombreEntidad = 'Mercado Libre';
+    else nombreEntidad = 'Otros';
+  }
+
+    const getColMesNum = (colMes: string, colAnio: number) => {
+    const idx = mesesDelAnio.indexOf(colMes);
+    if (idx !== -1) {
+      return (colAnio - anio) * 12 + (idx + 1);
+    }
+    return 0;
+  };
+
+  const totalesPorMes: Record<string, number> = { };
+columnas.forEach((c) => (totalesPorMes[c.mes] = 0));
+
+const itemsUsadosIds = new Set<string>();
+const filas: FilaProyeccionEntidad[] = [];
+
+// Función auxiliar para procesar un ítem base y proyectarlo a lo largo de las columnas
+const procesarItemProyeccion = (it: MonthlyItemBackend, esDeOtroMes = false) => {
+  itemsUsadosIds.add(it.id);
+
+  const baseDesc = it.esCuota
+    ? it.concepto.replace(/\s+\d+\/\d+.*$/, '').trim()
+    : it.concepto.trim();
+
+  const valoresPorMes: Record<string, number> = {};
+  const cuotasPorMes: Record<string, string> = {};
+  columnas.forEach((c) => (valoresPorMes[c.mes] = 0));
+  let tieneValores = false;
+
+  if (it.esCuota && it.cuotaActual && it.totalCuotas) {
+    columnas.forEach((c) => {
+      const cNum = getColMesNum(c.mes, c.anio);
+      const diff = cNum - it.mes;
+      const cuotaEsperada = it.cuotaActual! + diff;
+
+      if (cuotaEsperada >= 1 && cuotaEsperada <= it.totalCuotas!) {
+        if (cNum === it.mes) {
+          const m = Number(it.monto);
+          valoresPorMes[c.mes] = m;
+          cuotasPorMes[c.mes] = `${it.cuotaActual}/${it.totalCuotas}`;
+          const esCompensacion = this.normalizar(baseDesc).includes('compensacion');
+          if (!esCompensacion) {
+            totalesPorMes[c.mes] += m;
+          }
+          tieneValores = true;
+        } else if (this.appConfig.isSheetsActivo(c.anio)) {
+          // Mes en Google Sheets (ej: Diciembre 2026 cuando anio es 2027)
+          const hojaP = this.storeGoogle.getMensualPorMes(c.anio, c.mes);
+          const rangosP = this.storeGoogle.ValidarRangoEntidades(c.anio);
+          const configP = rangosP?.[entidadKey];
+          let mPas = 0;
+          if (hojaP?.values && configP) {
+            const colIdxP = 1;
+            const cuotaPasStr = `${cuotaEsperada}/${it.totalCuotas}`;
+            for (let rP = configP.inicio; rP <= configP.fin; rP++) {
+              const rowP = hojaP.values[rP];
+              if (!rowP) continue;
+              const dP = rowP[0]?.trim() || '';
+              if (dP.includes(cuotaPasStr) || this.coincideConcepto(baseDesc, dP)) {
+                mPas = this.parseMonto(rowP[colIdxP]);
+                break;
+              }
+            }
+          }
+          if (mPas === 0) {
+            mPas = Number(it.monto);
+          }
+          valoresPorMes[c.mes] = mPas;
+          cuotasPorMes[c.mes] = `${cuotaEsperada}/${it.totalCuotas}`;
+          const esCompensacion = this.normalizar(baseDesc).includes('compensacion');
+          if (!esCompensacion) {
+            totalesPorMes[c.mes] += mPas;
+          }
+          tieneValores = true;
+        } else {
+          // Buscar el ítem correspondiente en el mes cNum dentro de BD
+          let itMes: MonthlyItemBackend | undefined;
+          if (it.grupoCuotaId) {
+            itMes = itemsEntidad.find(
+              (x) => x.mes === cNum && x.grupoCuotaId === it.grupoCuotaId && !itemsUsadosIds.has(x.id),
+            );
+          }
+          if (!itMes) {
+            const candidatos = itemsEntidad.filter(
+              (x) =>
+                x.mes === cNum &&
+                x.esCuota &&
+                x.totalCuotas === it.totalCuotas &&
+                x.cuotaActual === cuotaEsperada &&
+                this.normalizar(x.concepto.replace(/\s+\d+\/\d+.*$/, '')) === this.normalizar(baseDesc) &&
+                !itemsUsadosIds.has(x.id),
+            );
+            if (candidatos.length > 0) {
+              candidatos.sort(
+                (a, b) => Math.abs(Number(a.monto) - Number(it.monto)) - Math.abs(Number(b.monto) - Number(it.monto)),
+              );
+              itMes = candidatos[0];
+            }
+          }
+
+          if (itMes) {
+            itemsUsadosIds.add(itMes.id);
+          }
+
+          const m = itMes ? Number(itMes.monto) : Number(it.monto);
+          valoresPorMes[c.mes] = m;
+          cuotasPorMes[c.mes] = `${cuotaEsperada}/${it.totalCuotas}`;
+          const esCompensacion = this.normalizar(baseDesc).includes('compensacion');
+          if (!esCompensacion) {
+            totalesPorMes[c.mes] += m;
+          }
+          tieneValores = true;
+        }
+      }
+    });
+  } else {
+    columnas.forEach((c) => {
+      const cNum = getColMesNum(c.mes, c.anio);
+      if (cNum === it.mes) {
+        const m = Number(it.monto);
+        valoresPorMes[c.mes] = m;
+        const esCompensacion = this.normalizar(baseDesc).includes('compensacion');
+        if (!esCompensacion) {
+          totalesPorMes[c.mes] += m;
+        }
+        tieneValores = true;
+      } else if (this.appConfig.isSheetsActivo(c.anio)) {
+        // Mes en Google Sheets (ej: Diciembre 2026 cuando anio es 2027)
+        const hojaP = this.storeGoogle.getMensualPorMes(c.anio, c.mes);
+        const rangosP = this.storeGoogle.ValidarRangoEntidades(c.anio);
+        const configP = rangosP?.[entidadKey];
+        let montoPasado = 0;
+        if (hojaP?.values && configP) {
+          const colIdxP = 1;
+          for (let rP = configP.inicio; rP <= configP.fin; rP++) {
+            const rowP = hojaP.values[rP];
+            if (!rowP) continue;
+            if (this.coincideConcepto(it.concepto, rowP[0])) {
+              montoPasado = this.parseMonto(rowP[colIdxP]);
+              break;
+            }
+          }
+        }
+        if (montoPasado !== 0) {
+          valoresPorMes[c.mes] = montoPasado;
+          const esCompensacion = this.normalizar(baseDesc).includes('compensacion');
+          if (!esCompensacion) {
+            totalesPorMes[c.mes] += montoPasado;
+          }
+          tieneValores = true;
+        }
+      } else {
+        const itMes = itemsEntidad.find(
+          (x) => x.mes === cNum && this.normalizar(x.concepto) === this.normalizar(it.concepto) && !itemsUsadosIds.has(x.id),
+        );
+        if (itMes) {
+          itemsUsadosIds.add(itMes.id);
+          const m = Number(itMes.monto);
+          valoresPorMes[c.mes] = m;
+          const esCompensacion = this.normalizar(baseDesc).includes('compensacion');
+          if (!esCompensacion) {
+            totalesPorMes[c.mes] += m;
+          }
+          tieneValores = true;
+        }
+      }
+    });
+  }
+
+  if (tieneValores) {
+    filas.push({
+      descripcion: esDeOtroMes && it.esCuota && it.mes < mesNumActual ? `${it.concepto} (Finalizada)` : it.concepto,
+      valoresPorMes,
+      cuotasPorMes,
+      esNuevo: it.esCuota ? it.cuotaActual === 1 : false,
+      esUltima: it.esCuota ? it.cuotaActual === it.totalCuotas : false,
+      esFinalizada: esDeOtroMes && it.mes < mesNumActual,
+    });
+  }
+};
+
+// 1. Procesar todos los ítems del mes actual (preserva el orden y totalidad de la tarjeta)
+const itemsMesActual = itemsEntidad.filter((it) => it.mes === mesNumActual);
+for (const it of itemsMesActual) {
+  procesarItemProyeccion(it, false);
+}
+
+// 2. Incorporar ítems de otros meses no cubiertos (si se requiere vista de año completo o compras finalizadas)
+if (vistaAnioCompleto) {
+  const itemsOtrosMeses = itemsEntidad.filter((it) => it.mes !== mesNumActual);
+  for (const it of itemsOtrosMeses) {
+    if (!itemsUsadosIds.has(it.id)) {
+      procesarItemProyeccion(it, true);
+    }
+  }
+}
+
+// 3. Incorporar conceptos de meses pasados en Google Sheets no cubiertos (ej: SALDO ANTERIOR en Diciembre 2026)
+for (const colP of columnas.filter((c) => c.esPasado && this.appConfig.isSheetsActivo(c.anio))) {
+  const hojaP = this.storeGoogle.getMensualPorMes(colP.anio, colP.mes);
+  const rangosP = this.storeGoogle.ValidarRangoEntidades(colP.anio);
+  const configP = rangosP?.[entidadKey];
+  if (hojaP?.values && configP) {
+    for (let rP = configP.inicio; rP <= configP.fin; rP++) {
+      const rowP = hojaP.values[rP];
+      if (!rowP) continue;
+      const descP = rowP[0]?.trim();
+      if (!descP || descP.toLowerCase() === 'total') continue;
+      const mP = this.parseMonto(rowP[1]);
+      if (mP === 0) continue;
+
+      const filaExistente = filas.find((f) => this.coincideConcepto(f.descripcion, descP));
+      if (filaExistente) {
+        if ((filaExistente.valoresPorMes[colP.mes] || 0) === 0) {
+          filaExistente.valoresPorMes[colP.mes] = mP;
+          totalesPorMes[colP.mes] += mP;
+        }
+      } else {
+        const valoresPorMes: Record<string, number> = {};
+        columnas.forEach((c) => (valoresPorMes[c.mes] = 0));
+        valoresPorMes[colP.mes] = mP;
+        totalesPorMes[colP.mes] += mP;
+        filas.push({
+          descripcion: descP,
+          valoresPorMes,
+          esNuevo: false,
+          esUltima: false,
+          esFinalizada: true,
+        });
+      }
+    }
+  }
+}
+
+return {
+  entidadKey,
+  nombreEntidad,
+  columnas,
+  filas,
+  totalesPorMes,
+};
   }
 
   /**
    * Obtiene la proyección de una fila individual de 'Otros' leyendo desde PostgreSQL.
    */
   private async obtenerProyeccionFilaOtrosDesdeBD(
-    anio: number,
-    mesSeleccionado: string,
-    entidadKey: string,
-    filaData: { descripcion: string; monto: unknown },
-    nombreEntidadPersonalizado?: string,
-    vistaAnioCompleto = false,
-  ): Promise<ProyeccionFilaIndividual> {
-    const columnas = this.obtenerColumnasMeses(anio, mesSeleccionado, vistaAnioCompleto);
-    const indexActual = columnas.findIndex((c) => c.esActual);
-    const desc = filaData.descripcion || '';
-    const montoActual = this.parseMonto(filaData.monto);
-    const normDesc = this.normalizar(desc);
+  anio: number,
+  mesSeleccionado: string,
+  entidadKey: string,
+  filaData: { descripcion: string; monto: unknown },
+  nombreEntidadPersonalizado ?: string,
+  vistaAnioCompleto = false,
+): Promise < ProyeccionFilaIndividual > {
+  const columnas = this.obtenerColumnasMeses(anio, mesSeleccionado, vistaAnioCompleto);
+  const indexActual = columnas.findIndex((c) => c.esActual);
+  const desc = filaData.descripcion || '';
+  const montoActual = this.parseMonto(filaData.monto);
+  const normDesc = this.normalizar(desc);
 
-    let itemsAnio = this.cacheItemsBD.get(anio);
-    if (!itemsAnio) {
-      try {
-        const res = await firstValueFrom(this.mensualItemsService.getItems(anio));
-        itemsAnio = res.items || [];
-        this.cacheItemsBD.set(anio, itemsAnio);
-      } catch {
-        itemsAnio = [];
-      }
+  let itemsAnio = this.cacheItemsBD.get(anio);
+  if(!itemsAnio) {
+    try {
+      const res = await firstValueFrom(this.mensualItemsService.getItems(anio));
+      itemsAnio = res.items || [];
+      this.cacheItemsBD.set(anio, itemsAnio);
+    } catch {
+      itemsAnio = [];
     }
+  }
 
     const itemsOtros = (itemsAnio || []).filter((it) => this.normalizar(it.entidad).includes('otros'));
 
-    const valoresPorMes: Record<string, number> = {};
-    const cuotasPorMes: Record<string, string> = {};
-    columnas.forEach((c) => (valoresPorMes[c.mes] = 0));
-    valoresPorMes[mesSeleccionado] = montoActual;
+  const valoresPorMes: Record<string, number> = { };
+const cuotasPorMes: Record<string, string> = {};
+columnas.forEach((c) => (valoresPorMes[c.mes] = 0));
+valoresPorMes[mesSeleccionado] = montoActual;
 
-    const mesesDelAnio = this.storeGoogle.getMesesParaResumen(anio);
-    const getColMesNum = (colMes: string, colAnio: number) => {
-      const idx = mesesDelAnio.indexOf(colMes);
-      return idx !== -1 ? (colAnio - anio) * 12 + (idx + 1) : 0;
-    };
+const mesesDelAnio = this.storeGoogle.getMesesParaResumen(anio);
+const getColMesNum = (colMes: string, colAnio: number) => {
+  const idx = mesesDelAnio.indexOf(colMes);
+  return idx !== -1 ? (colAnio - anio) * 12 + (idx + 1) : 0;
+};
 
-    for (const col of columnas) {
-      if (col.esActual) continue;
-      const cNum = getColMesNum(col.mes, col.anio);
-      const itMes = itemsOtros.find(
-        (x) =>
-          x.mes === cNum &&
-          (this.normalizar(x.concepto) === normDesc ||
-            this.normalizar(x.concepto).includes(normDesc) ||
-            normDesc.includes(this.normalizar(x.concepto))),
-      );
-      if (itMes) {
-        valoresPorMes[col.mes] = Number(itMes.monto);
-      }
+for (const col of columnas) {
+  if (col.esActual) continue;
+  const cNum = getColMesNum(col.mes, col.anio);
+  const itMes = itemsOtros.find(
+    (x) =>
+      x.mes === cNum &&
+      (this.normalizar(x.concepto) === normDesc ||
+        this.normalizar(x.concepto).includes(normDesc) ||
+        normDesc.includes(this.normalizar(x.concepto))),
+  );
+  if (itMes) {
+    valoresPorMes[col.mes] = Number(itMes.monto);
+  }
+}
+
+const matchCuota = desc.match(/(\d+)\/(\d+)/);
+let totalRestante = montoActual;
+
+if (matchCuota) {
+  const actual = parseInt(matchCuota[1], 10);
+  const total = parseInt(matchCuota[2], 10);
+
+  columnas.forEach((col, idx) => {
+    if (col.esActual) {
+      cuotasPorMes[col.mes] = `${actual}/${total}`;
+    } else if (col.esPasado) {
+      const dist = indexActual - idx;
+      const cuotaPas = actual - dist;
+      if (cuotaPas >= 1) cuotasPorMes[col.mes] = `${cuotaPas}/${total}`;
+    } else if (col.esFuturo) {
+      const diff = idx - indexActual;
+      const cuotaFut = actual + diff;
+      if (cuotaFut <= total) cuotasPorMes[col.mes] = `${cuotaFut}/${total}`;
     }
+  });
 
-    const matchCuota = desc.match(/(\d+)\/(\d+)/);
-    let totalRestante = montoActual;
+  const cuotasPendientes = Math.max(1, total - actual + 1);
+  totalRestante = montoActual * cuotasPendientes;
+}
 
-    if (matchCuota) {
-      const actual = parseInt(matchCuota[1], 10);
-      const total = parseInt(matchCuota[2], 10);
-
-      columnas.forEach((col, idx) => {
-        if (col.esActual) {
-          cuotasPorMes[col.mes] = `${actual}/${total}`;
-        } else if (col.esPasado) {
-          const dist = indexActual - idx;
-          const cuotaPas = actual - dist;
-          if (cuotaPas >= 1) cuotasPorMes[col.mes] = `${cuotaPas}/${total}`;
-        } else if (col.esFuturo) {
-          const diff = idx - indexActual;
-          const cuotaFut = actual + diff;
-          if (cuotaFut <= total) cuotasPorMes[col.mes] = `${cuotaFut}/${total}`;
-        }
-      });
-
-      const cuotasPendientes = Math.max(1, total - actual + 1);
-      totalRestante = montoActual * cuotasPendientes;
-    }
-
-    return {
-      descripcion: desc,
-      entidadKey: 'otros',
-      nombreEntidad: nombreEntidadPersonalizado || 'Otros',
-      columnas,
-      valoresPorMes,
-      cuotasPorMes,
-      totalRestante,
-      esNuevo: this.esCuotaNueva(desc),
-      esUltima: this.esCuotaUltima(desc),
-    };
+return {
+  descripcion: desc,
+  entidadKey: 'otros',
+  nombreEntidad: nombreEntidadPersonalizado || 'Otros',
+  columnas,
+  valoresPorMes,
+  cuotasPorMes,
+  totalRestante,
+  esNuevo: this.esCuotaNueva(desc),
+  esUltima: this.esCuotaUltima(desc),
+};
   }
 
 }

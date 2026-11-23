@@ -1870,6 +1870,22 @@
               <span class="tag">Fase 4.3</span>
             </div>
           </div>
+
+          <div class="node" onclick="showDetail('Vigía Enfocado de Contexto Activo', 'Fase 4 - Context-Aware Sync', 'El Frontend reporta a POST /api/sync/context qué hoja y año está viendo el usuario (ej: Estimativo Noviembre). El poller en segundo plano de la API enfoca su monitoreo únicamente en esa hoja activa, detecta cambios en celdas mediante hash MD5 sin saturar la cuota de Google y emite eventos ESTIMATE_UPDATED / DATA_UPDATED en tiempo real vía SSE.', 'src/services/sheets-sync.service.ts\nsrc/routes/sync.routes.ts')">
+            <div class="node-top">
+              <div class="node-icon icon-sse">👁️</div>
+              <div class="node-title-group">
+                <h4>Context-Aware Sync</h4>
+                <span>POST /api/sync/context</span>
+              </div>
+            </div>
+            <p class="node-desc">Monitoreo dinámico de la hoja activa en Sheets. Detecta cambios de celda en vivo y empuja SSE.</p>
+            <div class="node-tags">
+              <span class="tag live">Doble Monitor</span>
+              <span class="tag">Cero F5</span>
+              <span class="tag">ESTIMATE_UPDATED</span>
+            </div>
+          </div>
         </div>
       </section>
 

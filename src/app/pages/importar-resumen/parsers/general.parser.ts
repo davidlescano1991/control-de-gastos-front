@@ -74,41 +74,74 @@ export class GeneralParser implements EntityParserStrategy {
     let section: 'COMPRAS' | 'DETALLE' | 'CUOTAS' | 'CABECERA' | null = 'CABECERA';
 
     const dateRe = /^(\d{2}[./-][A-Za-z]{3}[./-]\d{2}|\d{2}[./-]\d{2}[./-]\d{4}|\d{2}[./-]\d{2}[./-]\d{2})\s+(.+)$/i;
+    let pendingTaxPrefix = '';
 
     for (const ln of lines) {
       if (/^COMPRAS DEL MES$/i.test(ln)) {
         section = 'COMPRAS';
+        pendingTaxPrefix = '';
         continue;
       }
       if (/^DETALLE DEL CONSUMO/i.test(ln)) {
         section = 'DETALLE';
+        pendingTaxPrefix = '';
         continue;
       }
       if (/^CUOTAS?\s+DEL\s+MES$/i.test(ln)) {
         section = 'CUOTAS';
+        pendingTaxPrefix = '';
         continue;
       }
 
-      if (/^(Resumen N°|Tarjeta Crédito|MASTERCARD|VISA|LESCANO|MANZANA|Página|TOTAL A PAGAR|SUBTOTAL|FECHA\s+REFERENCIA)/i.test(ln)) {
+      if (
+        /^(Resumen N°|Tarjeta Cr[eé]dito|MASTERCARD|VISA|LESCANO|MANZANA|P[aá]gina|Hoja\s+\d+|TOTAL\s+A\s+PAGAR|TOTAL\b|SUBTOTAL|FECHA\s+REFERENCIA|FECHA\s+TARJETA|Consumos\s+tarjeta|Otros\s*$|cargos:\s*$)/i.test(
+          ln
+        )
+      ) {
+        pendingTaxPrefix = '';
         continue;
       }
 
-      if (section === 'CABECERA' && /[0-9]/.test(ln) && !dateRe.test(ln)) {
-        const m = ln.match(/^(.+?)\s+([0-9\.\,]+)(?:\s+([0-9\.\,]+))?$/);
+      if (section === 'CABECERA' && !dateRe.test(ln)) {
+        if (/^IVA\s+Operaciones/i.test(ln) && !/[0-9]+,[0-9]{2}$/.test(ln)) {
+          pendingTaxPrefix = ln.trim();
+          continue;
+        }
+
+        const m = ln.match(
+          /^(.+?)\s+(-?[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}|-?[0-9]+,[0-9]{2})(?:\s+(-?[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}|-?[0-9]+,[0-9]{2}))?$/
+        );
         if (m) {
-          const referencia = m[1].trim();
-          if (/^\$+$/.test(referencia)) continue;
-          const pesos = moneyToNumber(m[2]);
-          const dolares = moneyToNumber(m[3] ?? '');
+          let referencia = m[1].trim();
+          if (/^(\$+|total\s*\$?|subtotal\s*\$?)$/i.test(referencia)) {
+            pendingTaxPrefix = '';
+            continue;
+          }
+          if (pendingTaxPrefix && /^\(Base\s+Imponible/i.test(referencia)) {
+            referencia = `${pendingTaxPrefix} ${referencia}`;
+          }
+          pendingTaxPrefix = '';
+          let pesos = moneyToNumber(m[2]);
+          let dolares = moneyToNumber(m[3] ?? '');
+
+          if (m[3] && /(?:DB\.?\s*)?IVA\b|PERCEP|RETENC|RG\s*\d+|%|\bBASE\b/i.test(referencia)) {
+            referencia = cleanCell(`${referencia} ${m[2]}`);
+            pesos = moneyToNumber(m[3]);
+            dolares = null;
+          }
+
           out.push({ fecha: '', referencia, cuotas: '01/01', pesos, dolares });
+        } else {
+          pendingTaxPrefix = '';
         }
         continue;
       }
 
+      pendingTaxPrefix = '';
       const dm = ln.match(dateRe);
       if (dm) {
         const fecha = dm[1];
-        let rest = dm[2];
+        let rest = dm[2].trim();
 
         if (section === 'COMPRAS') {
           const usd = /USD/i.test(rest);
@@ -133,26 +166,54 @@ export class GeneralParser implements EntityParserStrategy {
           continue;
         }
 
-        const textCuota = rest.match(/\b(Zeta|Deb\.?Aut\.?)\b/i)?.[1] ?? '';
-        const cuotaMatch =
-          textCuota ||
-          rest.match(/Cuota\s+(\d{1,2}\s*\/\s*\d{1,2})/i)?.[1] ||
-          rest.match(/\b(\d{1,2}\s*de\s*\d{1,2})\b/i)?.[1] ||
-          rest.match(/\b(\d{1,2}\s*\/\s*\d{1,2})\b/)?.[1];
+        const isNaranja = /^Naranja\s+X\b/i.test(rest);
+        rest = rest.replace(/^Naranja\s+X\s+\d{1,10}\s+/i, '').trim();
 
-        const cuotas = textCuota ? textCuota : normalizeCuotas(cuotaMatch ?? '');
-
-        const lastNum = extractLastNumber(rest);
+        const amountMatch = rest.match(/\s+(-?[0-9][0-9\.\,]*)$/);
+        const lastNum = amountMatch ? amountMatch[1] : extractLastNumber(rest);
         const pesos = moneyToNumber(lastNum);
-        let referencia = rest;
 
-        referencia = referencia.replace(/Cuota\s+\d{1,2}\s*\/\s*\d{1,2}/i, '');
-        referencia = referencia.replace(/\b\d{1,2}\s*de\s*\d{1,2}\b/i, '');
-        referencia = referencia.replace(/\b\d{1,2}\s*\/\s*\d{1,2}\b/g, '');
-        referencia = referencia.replace(/\b(Zeta|Deb\.?Aut\.?)\b/gi, '');
-        referencia = referencia.replace(/\s+[0-9\.\,]+$/, '');
-        referencia = referencia.replace(/^Naranja\s+X\s+\d{1,10}\s+/i, '');
-        referencia = referencia.replace(/\s+\d{3,6}\*?$/, '');
+        let referencia = amountMatch
+          ? rest.slice(0, amountMatch.index).trim()
+          : rest.replace(/\s+[0-9\.\,]+$/, '').trim();
+
+        if (!isNaranja) {
+          referencia = referencia.replace(/\s+\d{3,6}\*?$/, '').trim();
+        }
+
+        let cuotas = '01/01';
+
+        const tailTextCuota = referencia.match(/(?:^|\s)(Zeta|Deb\.?\s*Aut\.?)$/i);
+        const tailNumCuota = referencia.match(
+          /(?:^|\s)(?:Cuota\s+)?(\d{1,2}\s*\/\s*\d{1,2}|\d{1,2}\s*de\s*\d{1,2})$/i
+        );
+        const tailSingleNaranja = isNaranja ? referencia.match(/\s+(01)$/) : null;
+
+        if (tailTextCuota) {
+          const rawTextCuota = tailTextCuota[1];
+          cuotas = /^deb/i.test(rawTextCuota) ? 'Deb.Aut' : 'Zeta';
+          referencia = referencia.slice(0, tailTextCuota.index).trim();
+        } else if (tailNumCuota) {
+          cuotas = normalizeCuotas(tailNumCuota[1]);
+          referencia = referencia.slice(0, tailNumCuota.index).trim();
+        } else if (tailSingleNaranja) {
+          cuotas = '01/01';
+          referencia = referencia.slice(0, tailSingleNaranja.index).trim();
+        } else {
+          const inlineCuota =
+            referencia.match(/Cuota\s+(\d{1,2}\s*\/\s*\d{1,2})/i) ||
+            referencia.match(/\b(\d{1,2}\s*de\s*\d{1,2})\b/i) ||
+            referencia.match(/(?:^|\s)(\d{1,2}\s*\/\s*\d{1,2})(?=\s|$)/);
+
+          if (inlineCuota) {
+            cuotas = normalizeCuotas(inlineCuota[1]);
+            referencia =
+              referencia.slice(0, inlineCuota.index) +
+              ' ' +
+              referencia.slice((inlineCuota.index ?? 0) + inlineCuota[0].length);
+          }
+        }
+
         referencia = cleanCell(referencia);
 
         out.push({ fecha, referencia, cuotas, pesos, dolares: null });
@@ -296,7 +357,8 @@ export class GeneralParser implements EntityParserStrategy {
   }
 
   private parseNaranjaRow(line: string): Movement | null {
-    const pattern = /^(\d{2}\/\d{2}\/\d{2})\s+Naranja\s+X\s+(\d{3,6})\s+(.+?)\s{2,}(.+?)\s{2,}([0-9.\,]+)$/i;
+    const pattern =
+      /^(\d{2}\/\d{2}\/\d{2})\s+Naranja\s+X\s+(\d{1,10})\s+(.+?)\s+(Zeta|Deb\.?\s*Aut\.?|\d{1,2}\/\d{1,2}|01)\s+([0-9.\,]+)$/i;
     const match = line.match(pattern);
     if (!match) return null;
 
@@ -304,7 +366,14 @@ export class GeneralParser implements EntityParserStrategy {
     const descripcion = match[3].trim();
     const cuotasRaw = match[4].trim();
     const monto = match[5];
-    const cuotas = /^[a-z]/i.test(cuotasRaw) ? cuotasRaw : normalizeCuotas(cuotasRaw);
+    let cuotas = '01/01';
+    if (/^deb/i.test(cuotasRaw)) {
+      cuotas = 'Deb.Aut';
+    } else if (/^zeta$/i.test(cuotasRaw)) {
+      cuotas = 'Zeta';
+    } else if (cuotasRaw !== '01') {
+      cuotas = normalizeCuotas(cuotasRaw);
+    }
 
     return {
       fecha,

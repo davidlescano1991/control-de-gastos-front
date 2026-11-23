@@ -4,6 +4,7 @@ import { WakeLockService } from '../../services/wake-lock.service';
 import { AppConfigService } from '../../services/app-config.service';
 import { SseService } from '../../services/sse.service';
 import { EstimatesService } from '../../services/estimates.service';
+import { SheetConfigService } from '../../services/sheet-config.service';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { NgIf, NgFor, CurrencyPipe } from '@angular/common';
 import { MatCardContent, MatCardModule } from '@angular/material/card';
@@ -159,8 +160,6 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   meses = signal<string[]>([]);
   private appConfig = inject(AppConfigService);
   anios: number[] = [];
-  // Polling desactivado: delegado a la API con notificaciones SSE en tiempo real
-  readonly refreshIntervalMs = 0;
   estimativoFilas = signal<EstimativoRow[]>([]);
 
   anioSeleccionado = signal<number>(new Date().getFullYear());
@@ -169,13 +168,12 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   isCargandoHistorico = signal(true);
   mensajeEstado = signal<string>('');
   datosHistoricosEstimativos = signal<EstimativoRow[]>([]);
-  private refreshTimerId: number | null = null;
-  private autoRefreshInProgress = false;
 
   private storeGoogle = inject(MovimientosStoreGoogle);
   private wakeLockService = inject(WakeLockService);
   private sseService = inject(SseService);
   private estimatesService = inject(EstimatesService);
+  private sheetConfigService = inject(SheetConfigService);
   private sseSub: Subscription | null = null;
 
   async ngOnInit(): Promise<void> {
@@ -243,14 +241,18 @@ export class HomeEstimativo implements OnInit, OnDestroy {
     // 2. Cargar histórico en segundo plano sin bloquear la UI
     void this.cargaInicial(false);
 
-    // 3. Iniciar auto-refresco del mes activo
-    this.iniciarAutoRefresh();
-
-    // 📡 Suscripción reactiva en tiempo real al canal SSE
+    // 📡 Suscripción reactiva en tiempo real al canal SSE (solo recarga si la API notifica cambio en este mes)
     this.sseSub = this.sseService.getEvents$().subscribe((msg) => {
-      if (msg.event === 'DATA_UPDATED' || msg.event === 'ESTIMATE_UPDATED') {
-        console.log('⚡ [Estimativos] Actualización en tiempo real recibida vía SSE. Recargando...', msg.data);
-        void this.refrescarAutomaticamente();
+      if (msg.event === 'ESTIMATE_UPDATED') {
+        const anioEvento = msg.data?.year;
+        const hojaEvento = msg.data?.sheet;
+        const hojaActual = 'Estimativo ' + this.mesSeleccionado();
+        if (!anioEvento || anioEvento === this.anioSeleccionado()) {
+          if (!hojaEvento || hojaEvento === hojaActual || hojaEvento === this.mesSeleccionado()) {
+            console.log(`⚡ [Estimativos] Actualización en tiempo real recibida para "${hojaActual}". Recargando sin parpadeos...`, msg.data);
+            void this.seleccionarMesMensual(this.mesSeleccionado(), true);
+          }
+        }
       }
     });
   }
@@ -335,7 +337,6 @@ export class HomeEstimativo implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.sseSub?.unsubscribe();
-    this.detenerAutoRefresh();
     void this.wakeLockService.releaseWakeLock();
   }
 
@@ -364,6 +365,13 @@ export class HomeEstimativo implements OnInit, OnDestroy {
     const mesBase = mes.split('_')[0];
     let mesNumero = mesNombres.indexOf(mesBase) + 1;
     if (mesNumero <= 0) mesNumero = 1;
+
+    // 📡 Notificar a la API qué hoja está viendo el usuario para que el poller enfoque su monitoreo en segundo plano
+    if (this.appConfig.isSheetsActivo(anio)) {
+      this.sheetConfigService.notificarContextoActivo(anio, hoja, 'estimativo').subscribe({
+        error: () => {},
+      });
+    }
 
     if (!this.appConfig.isSheetsActivo(anio)) {
       this.porcentajeRendimientoExcel.set(null);
@@ -412,10 +420,14 @@ export class HomeEstimativo implements OnInit, OnDestroy {
       });
     }
 
+    // Iniciar de inmediato la sincronización con la BD de estimaciones en paralelo para no retrasar la hidratación de eventos
+    const promiseDb = firstValueFrom(this.estimatesService.getMonthly(anio, mesNumero)).catch(() => null);
+
     const filasCache = await this.storeGoogle.getEstimados(anio, hoja);
     if (filasCache && filasCache.length > 0) {
-      this.setSignalIfChanged(this.estimativoFilas, filasCache);
-      this.actualizarFilasEnHistorico(filasCache);
+      const filasCacheConEventos = this.mergeConEventosActuales(filasCache);
+      this.setSignalIfChanged(this.estimativoFilas, filasCacheConEventos);
+      this.actualizarFilasEnHistorico(filasCacheConEventos);
       this.isCargando.set(false); // Mostramos la tabla en 0ms
     }
     const cfgCache = this.storeGoogle.getEstimativoConfig(anio, hoja);
@@ -439,8 +451,9 @@ export class HomeEstimativo implements OnInit, OnDestroy {
     const clave = `${anio}::${hoja}`;
     console.warn(`Estimados clave en Home ${clave}`);
     const filas = await this.storeGoogle.getEstimados(anio, hoja);
-    this.setSignalIfChanged(this.estimativoFilas, filas);
-    this.actualizarFilasEnHistorico(filas);
+    const filasConEventos = this.mergeConEventosActuales(filas);
+    this.setSignalIfChanged(this.estimativoFilas, filasConEventos);
+    this.actualizarFilasEnHistorico(filasConEventos);
 
     const cfgLive = this.storeGoogle.getEstimativoConfig(anio, hoja);
     if (cfgLive && (cfgLive.gastoFijoDiario > 0 || cfgLive.gastoEstimadoMes > 0)) {
@@ -451,7 +464,7 @@ export class HomeEstimativo implements OnInit, OnDestroy {
 
     // Asegurar sincronización con la API de estimaciones (para presupuestoTotal y parámetros de BD/Sheets)
     try {
-      const res = await firstValueFrom(this.estimatesService.getMonthly(anio, mesNumero));
+      const res = await promiseDb;
       if (res?.config) {
         if (res.config.gastoFijoDiario !== undefined && res.config.gastoFijoDiario > 0) {
           this.gastoDiarioEstimado.set(Number(res.config.gastoFijoDiario));
@@ -496,6 +509,44 @@ export class HomeEstimativo implements OnInit, OnDestroy {
     } catch {
       // ignorar si no hay conexión o no está disponible
     }
+  }
+
+  /**
+   * Preserva atómicamente los eventos, colores e IDs ya cargados en memoria
+   * al hidratar datos desde Google Sheets para evitar parpadeos o vacíos temporales.
+   */
+  private mergeConEventosActuales(filasNuevas: EstimativoRow[]): EstimativoRow[] {
+    if (!filasNuevas || filasNuevas.length === 0) return [];
+    const actuales = this.estimativoFilas() || [];
+    if (actuales.length === 0) return filasNuevas;
+
+    const map = new Map<string, any>();
+    for (const a of actuales) {
+      if (a.fecha) {
+        map.set(a.fecha, a);
+        const partes = a.fecha.split('/');
+        if (partes.length === 3) {
+          const d = parseInt(partes[0], 10);
+          const m = parseInt(partes[1], 10);
+          const y = partes[2];
+          map.set(`${d}/${m}/${y}`, a);
+          map.set(`${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`, a);
+        }
+      }
+      if (a.id) {
+        map.set(a.id, a);
+      }
+    }
+
+    return filasNuevas.map((f: any) => {
+      const exist = map.get(f.fecha) || (f.id ? map.get(f.id) : null);
+      return {
+        ...f,
+        id: f.id || exist?.id,
+        evento: f.evento !== undefined && f.evento !== null ? f.evento : (exist?.evento || null),
+        color: f.color !== undefined && f.color !== null ? f.color : (exist?.color || null),
+      };
+    });
   }
 
   /**
@@ -554,35 +605,6 @@ export class HomeEstimativo implements OnInit, OnDestroy {
   }
   trackByAnio(index: number, anio: number): number {
     return anio;
-  }
-
-  private iniciarAutoRefresh() {
-    if (typeof window === 'undefined' || this.refreshIntervalMs <= 0) return;
-    this.detenerAutoRefresh();
-    this.refreshTimerId = window.setInterval(() => {
-      void this.refrescarAutomaticamente();
-    }, this.refreshIntervalMs);
-  }
-
-  private detenerAutoRefresh() {
-    if (this.refreshTimerId == null) return;
-    clearInterval(this.refreshTimerId);
-    this.refreshTimerId = null;
-  }
-
-  private async refrescarAutomaticamente() {
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-    if (this.autoRefreshInProgress || this.isCargando()) return;
-    this.autoRefreshInProgress = true;
-
-    try {
-      // Refrescar directamente la hoja del mes y año actualmente en pantalla sin re-descargar todo el histórico
-      await this.seleccionarMesMensual(this.mesSeleccionado(), true);
-    } catch (err) {
-      console.warn('⚠️ Error en refresco automático de estimativos:', err);
-    } finally {
-      this.autoRefreshInProgress = false;
-    }
   }
 
   private setSignalIfChanged<T>(target: WritableSignal<T>, nextValue: T) {

@@ -54,6 +54,15 @@ export class SheetConfigService {
   }
 
   /**
+   * Notifica a la API qué año y hoja está viendo activamente el usuario en el Frontend.
+   * Permite que el poller de la API enfoque su monitoreo exclusivamente en esa hoja,
+   * ahorrando cuota y emitiendo eventos SSE en tiempo real cuando detecta celdas modificadas.
+   */
+  notificarContextoActivo(year: number, sheet?: string, view?: string): Observable<any> {
+    return this.http.post<any>(`${environment.apiUrl}/sync/context`, { year, sheet, view });
+  }
+
+  /**
    * Extrae el ID limpio de una URL de Google Sheets o del texto ingresado
    */
   cleanSheetId(input: string): string {

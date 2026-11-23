@@ -521,20 +521,9 @@
           font-size: 0.75rem;
           font-weight: 600;
           color: #64748b;
-          display: inline-flex;
-          align-items: center;
-          gap: 3px;
-
-          .label-mini-icon {
-            font-size: 14px;
-            width: 14px;
-            height: 14px;
-            color: #706cd6;
-          }
         }
 
-        select,
-        input.input-vencimiento {
+        select {
           padding: 6px 10px;
           border: 1px solid #cbd5e1;
           border-radius: 6px;
@@ -542,7 +531,6 @@
           color: #1e293b;
           background: #ffffff;
           outline: none;
-          max-width: 140px;
 
           &:focus {
             border-color: #706cd6;
@@ -665,6 +653,19 @@
         background: #fef2f2;
         border: 1px solid #fecaca;
         color: #b91c1c;
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 2px 7px;
+        border-radius: 6px;
+        line-height: 1.2;
+      }
+
+      .badge-reintegro {
+        display: inline-flex;
+        align-items: center;
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        color: #15803d;
         font-size: 0.72rem;
         font-weight: 600;
         padding: 2px 7px;
@@ -857,16 +858,6 @@
           font-size: 0.84rem;
           font-weight: 600;
           color: #4b5896;
-
-          &.chip-vto {
-            background: #ecfdf5;
-            border-color: #a7f3d0;
-            color: #065f46;
-
-            mat-icon {
-              color: #10b981;
-            }
-          }
 
           mat-icon {
             font-size: 16px;

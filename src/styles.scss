@@ -2046,7 +2046,7 @@ body.dark-mode {
 /* ==========================================================================
    🗑️ MODAL DE BAJA DE ENTIDAD CON INTEGRIDAD HISTÓRICA
    ========================================================================== */
-.modal-backdrop {
+.modal-backdrop:has(> .modal-card) {
   position: fixed;
   inset: 0;
   width: 100vw;
