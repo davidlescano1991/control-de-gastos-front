@@ -375,12 +375,13 @@ export class Anual implements OnInit, OnDestroy {
   }
 
   async calcularDeudaTotalParaAnio(anio: number, force = false): Promise<DeudaTotalMes[]> {
-    const cacheKey = `deuda_total_meses_v4_${anio}`;
+    const cacheKey = `deuda_total_meses_v5_${anio}`;
 
     if (force) {
       this.cacheDeudaAnualPorAnio.delete(anio);
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem(cacheKey);
+        localStorage.removeItem(`deuda_total_meses_v4_${anio}`);
         localStorage.removeItem(`deuda_total_meses_v3_${anio}`);
         localStorage.removeItem(`deuda_total_meses_v2_${anio}`);
         localStorage.removeItem(`deuda_total_meses_${anio}`);
@@ -397,6 +398,7 @@ export class Anual implements OnInit, OnDestroy {
         localStorage.removeItem(`deuda_total_meses_${anio}`);
         localStorage.removeItem(`deuda_total_meses_v2_${anio}`);
         localStorage.removeItem(`deuda_total_meses_v3_${anio}`);
+        localStorage.removeItem(`deuda_total_meses_v4_${anio}`);
 
         const cached = localStorage.getItem(cacheKey);
         if (cached) {
@@ -461,7 +463,17 @@ export class Anual implements OnInit, OnDestroy {
         }
       }
 
-      const proyeccionFuturaRaw = await this.storeGoogle.obtenerProyeccionTotalesFuturosAnio(anio, force);
+      const [proyeccionFuturaRaw, resLoansAll] = await Promise.all([
+        this.storeGoogle.obtenerProyeccionTotalesFuturosAnio(anio, force),
+        firstValueFrom(this.loansService.getLoans()).catch(() => ({ data: [] as Loan[] })),
+      ]);
+
+      const loansPorNombre = new Map<string, Loan>();
+      for (const loan of resLoansAll?.data ?? []) {
+        if (loan?.nombre) {
+          loansPorNombre.set(this.storeGoogle.normalizar(loan.nombre), loan);
+        }
+      }
       const MESES_BASE = [
         'enero',
         'febrero',
@@ -510,6 +522,18 @@ export class Anual implements OnInit, OnDestroy {
                 cantCuotasRestantes++;
               }
             }
+
+            // Sumar también las cuotas de años posteriores (year > anio) para mostrar la deuda real completa
+            const loanMatch = loansPorNombre.get(this.storeGoogle.normalizar(cat));
+            if (loanMatch?.installments?.length) {
+              for (const inst of loanMatch.installments) {
+                if (inst.year > anio && Number(inst.monto) > 0) {
+                  sumaCat += Number(inst.monto);
+                  cantCuotasRestantes++;
+                }
+              }
+            }
+
             if (sumaCat > 0) {
               totalPrestamosRestante += sumaCat;
               desglosePrestamos.push({

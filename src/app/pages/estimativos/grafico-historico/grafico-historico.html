@@ -1,7 +1,70 @@
-
 <div class="movimientos-wrapper" [class.is-collapsed]="isCollapsed()">
   <div class="card-header-wrapper">
-    <h3>Gráfico Histórico Estimativo</h3>
+    <div class="header-title-box">
+      <div class="title-row">
+        <h3>Gráfico Histórico Estimativo</h3>
+      </div>
+
+      <div class="header-controls-row" *ngIf="!isCollapsed()">
+        <!-- Selector de Series tipo Píldora (igual a Gráfico Estimativo) -->
+        <div class="tabs-serie-selector">
+          <button
+            type="button"
+            class="btn-serie-tab"
+            [class.active]="serieActiva() === 'todas'"
+            (click)="cambiarSerie('todas')"
+            title="Ver todas las curvas: Saldos y Deudas"
+          >
+            <mat-icon>stacked_line_chart</mat-icon>
+            <span>General</span>
+          </button>
+          <button
+            type="button"
+            class="btn-serie-tab"
+            [class.active]="serieActiva() === 'saldos'"
+            (click)="cambiarSerie('saldos')"
+            title="Evolución histórica de Saldo Real vs Saldo Estimado"
+          >
+            <mat-icon>account_balance_wallet</mat-icon>
+            <span>Saldos</span>
+          </button>
+          <button
+            type="button"
+            class="btn-serie-tab"
+            [class.active]="serieActiva() === 'deudas'"
+            (click)="cambiarSerie('deudas')"
+            title="Evolución histórica de Deuda Real vs Deuda Estimada"
+          >
+            <mat-icon>trending_down</mat-icon>
+            <span>Deudas</span>
+          </button>
+        </div>
+
+        <!-- Selector de Moneda: Pesos vs Dólares -->
+        <div class="tabs-serie-selector">
+          <button
+            type="button"
+            class="btn-serie-tab"
+            [class.active]="monedaActiva() === 'ARS'"
+            (click)="cambiarMoneda('ARS')"
+            title="Visualizar valores históricos en Pesos (ARS)"
+          >
+            <mat-icon>attach_money</mat-icon>
+            <span>Pesos ($)</span>
+          </button>
+          <button
+            type="button"
+            class="btn-serie-tab"
+            [class.active]="monedaActiva() === 'USD'"
+            (click)="cambiarMoneda('USD')"
+            title="Visualizar valores históricos convertidos a Dólares (USD)"
+          >
+            <mat-icon>currency_exchange</mat-icon>
+            <span>Dólares (US$)</span>
+          </button>
+        </div>
+      </div>
+    </div>
 
     <button
       type="button"
@@ -27,6 +90,3 @@
     </ng-template>
   </ng-container>
 </div>
-
-
-

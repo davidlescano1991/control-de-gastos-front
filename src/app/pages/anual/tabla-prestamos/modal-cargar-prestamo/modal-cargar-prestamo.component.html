@@ -8,8 +8,14 @@
           <mat-icon>account_balance</mat-icon>
         </div>
         <div>
-          <h3>Registrar Nuevo Préstamo</h3>
-          <p class="subtitle">Registra el crédito tomado y su cronograma de cuotas mensual</p>
+          <h3>{{ prestamoEditar ? 'Editar Préstamo' : 'Registrar Nuevo Préstamo' }}</h3>
+          <p class="subtitle">
+            {{
+              prestamoEditar
+                ? 'Modificá los datos generales, cuotas individuales o eliminá el préstamo'
+                : 'Registra el crédito tomado y su cronograma de cuotas mensual'
+            }}
+          </p>
         </div>
       </div>
       <button class="btn-close" (click)="onCerrar()" [disabled]="isGuardando()" aria-label="Cerrar modal">
@@ -213,6 +219,35 @@
             </div>
           </div>
 
+          <!-- Reducción porcentual automática entre cuotas (opcional, modo personalizado) -->
+          <div *ngIf="tipoCuotas() === 'variables'" class="form-group reduccion-auto-box">
+            <div class="flex-between">
+              <label class="form-label" for="porcentajeReduccion">
+                <mat-icon class="label-icon">trending_down</mat-icon>
+                Reducción % entre cuotas (Opcional)
+              </label>
+              <span class="badge-base-cuota">Base: Cuota #2</span>
+            </div>
+            <div class="input-percent-wrapper">
+              <input
+                id="porcentajeReduccion"
+                type="number"
+                min="0"
+                max="99.99"
+                step="0.1"
+                class="form-control form-control-percent"
+                placeholder="Opcional (ej: 2.5)"
+                [ngModel]="porcentajeReduccion()"
+                (ngModelChange)="onPorcentajeReduccionChange($event)"
+                [disabled]="isGuardando()"
+              />
+              <span class="percent-symbol">%</span>
+            </div>
+            <small class="reduccion-hint">
+              Opcional: si ingresás un %, calcula automáticamente desde la Cuota #3 tomando la Cuota #2 como base. Si lo dejás vacío, cargás cada cuota manualmente.
+            </small>
+          </div>
+
           <!-- Notas opcionales -->
           <div class="form-group">
             <label class="form-label" for="notasPrestamo">
@@ -271,41 +306,44 @@
             </div>
 
             <div class="cuotas-list-scroll">
-              <div
-                *ngFor="let cuota of cuotasDetalle(); let idx = index"
-                class="cuota-item-row"
-                [class.cuota-otro-anio]="cuota.year !== anioInicial"
-              >
-                <div class="cuota-badge-num">#{{ cuota.numeroCuota }}</div>
-                <div class="cuota-mes-info">
-                  <span class="cuota-mes-nombre">{{ cuota.nombreMes }}</span>
-                  <span *ngIf="cuota.year !== anioInicial" class="badge-next-year">
-                    Año {{ cuota.year }}
-                  </span>
-                </div>
+              @for (cuota of cuotasDetalle(); track cuota.numeroCuota; let idx = $index) {
+                <div
+                  class="cuota-item-row"
+                  [class.cuota-otro-anio]="cuota.year !== anioInicial"
+                >
+                  <div class="cuota-badge-num">#{{ cuota.numeroCuota }}</div>
+                  <div class="cuota-mes-info">
+                    <span class="cuota-mes-nombre">{{ cuota.nombreMes }}</span>
+                    @if (cuota.year !== anioInicial) {
+                      <span class="badge-next-year">
+                        Año {{ cuota.year }}
+                      </span>
+                    }
+                  </div>
 
-                <div class="cuota-monto-container">
-                  <ng-container *ngIf="tipoCuotas() === 'fijas'">
-                    <span class="cuota-monto-fijo">
-                      {{ (cuota.monto || 0) | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
-                    </span>
-                  </ng-container>
-                  <ng-container *ngIf="tipoCuotas() === 'variables'">
-                    <div class="input-money-mini">
-                      <span class="mini-curr">$</span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="100"
-                        class="form-control-cuota"
-                        [ngModel]="cuota.monto"
-                        (ngModelChange)="actualizarMontoCuotaIndividual(idx, $event)"
-                        [disabled]="isGuardando()"
-                      />
-                    </div>
-                  </ng-container>
+                  <div class="cuota-monto-container">
+                    @if (tipoCuotas() === 'fijas') {
+                      <span class="cuota-monto-fijo">
+                        {{ (cuota.monto || 0) | currency: 'ARS' : 'symbol' : '1.2-2' : 'es-AR' }}
+                      </span>
+                    } @else {
+                      <div class="input-money-mini">
+                        <span class="mini-curr">$</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="100"
+                          placeholder="0"
+                          class="form-control-cuota"
+                          [ngModel]="cuota.monto"
+                          (ngModelChange)="actualizarMontoCuotaIndividual(idx, $event)"
+                          [disabled]="isGuardando()"
+                        />
+                      </div>
+                    }
+                  </div>
                 </div>
-              </div>
+              }
             </div>
           </div>
 
@@ -337,26 +375,72 @@
     </div>
 
     <!-- Footer con Botones -->
-    <div class="modal-footer">
-      <button
-        type="button"
-        class="btn-cancelar"
-        (click)="onCerrar()"
-        [disabled]="isGuardando()"
-      >
-        Cancelar
-      </button>
+    <div class="modal-footer modal-footer-between">
+      <div class="footer-left-actions">
+        @if (prestamoEditar) {
+          @if (!confirmandoEliminar()) {
+            <button
+              type="button"
+              class="btn-eliminar-prestamo"
+              (click)="confirmandoEliminar.set(true)"
+              [disabled]="isGuardando()"
+            >
+              <mat-icon>delete_outline</mat-icon>
+              <span>Eliminar Préstamo</span>
+            </button>
+          } @else {
+            <div class="confirm-delete-inline">
+              <span class="confirm-delete-text">¿Eliminar préstamo?</span>
+              <button
+                type="button"
+                class="btn-confirmar-eliminar"
+                (click)="eliminarPrestamo()"
+                [disabled]="isGuardando()"
+              >
+                Sí, eliminar
+              </button>
+              <button
+                type="button"
+                class="btn-cancelar-mini"
+                (click)="confirmandoEliminar.set(false)"
+                [disabled]="isGuardando()"
+              >
+                No
+              </button>
+            </div>
+          }
+        }
+      </div>
 
-      <button
-        type="button"
-        class="btn-guardar"
-        [disabled]="!esFormularioValido() || isGuardando()"
-        (click)="guardarPrestamo()"
-      >
-        <mat-spinner *ngIf="isGuardando()" diameter="18" strokeWidth="2.5" class="spinner-btn"></mat-spinner>
-        <mat-icon *ngIf="!isGuardando()">save</mat-icon>
-        <span>{{ isGuardando() ? 'Guardando préstamo...' : 'Guardar Préstamo' }}</span>
-      </button>
+      <div class="footer-right-actions">
+        <button
+          type="button"
+          class="btn-cancelar"
+          (click)="onCerrar()"
+          [disabled]="isGuardando()"
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          class="btn-guardar"
+          [disabled]="!esFormularioValido() || isGuardando()"
+          (click)="guardarPrestamo()"
+        >
+          <mat-spinner *ngIf="isGuardando()" diameter="18" strokeWidth="2.5" class="spinner-btn"></mat-spinner>
+          <mat-icon *ngIf="!isGuardando()">save</mat-icon>
+          <span>
+            {{
+              isGuardando()
+                ? 'Guardando...'
+                : prestamoEditar
+                  ? 'Guardar Cambios'
+                  : 'Guardar Préstamo'
+            }}
+          </span>
+        </button>
+      </div>
     </div>
 
   </div>

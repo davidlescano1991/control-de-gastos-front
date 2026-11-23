@@ -19,6 +19,214 @@ Este documento es la **fuente de consulta rápida y resumida** para el agente y 
 
 ## 🕒 Bitácora de Intervenciones Recientes
 
+### [2026-11-18 23:32] - Unificación de Conversión a Dólares en Saldo Estimado (`GraficoHistorico`)
+- **Problema / Solicitud**:
+  - En modo **Dólares (US$)** del **Gráfico Histórico Estimativo**, la curva **Saldo Estimado US$** mostraba un escalón plano en `US$ 4.687,50` durante todo 2024.
+- **Causa Raíz**:
+  - `dataEstimado` priorizaba `v.saldoUSD` cuando era mayor a 0 (campo histórico estático en 2024) en lugar de convertir `v.saldoPesos` con la cotización histórica oficial.
+- **Solución Técnica Aplicada**:
+  - Se unificó `dataEstimado` en `src/app/pages/estimativos/grafico-historico/grafico-historico.ts` para utilizar `convertir(v.saldoPesos, i)` con la misma tasa diaria oficial de `DolarService.obtenerTodasCotizaciones()` que el resto de las series.
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/grafico-historico/grafico-historico.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-18 23:25] - Corrección de Conversión Histórica a Dólares en `GraficoHistorico`
+- **Problema / Solicitud**:
+  - Al cambiar el **Gráfico Histórico Estimativo** a **Dólares (US$)**, aparecía un pico irreal de `US$ 41.891.016,53` en junio 2024.
+- **Causa Raíz**:
+  - La tasa diaria se infería dividiendo `saldoPesos / saldoUSD`; en días con saldo cercano a cero y redondeo a 2 decimales, el cociente daba una tasa cercana a `0,15`, multiplicando artificialmente la deuda en dólares.
+- **Solución Técnica Aplicada**:
+  - Se reemplazó la inferencia por `DolarService.obtenerTodasCotizaciones()` (mapa histórico oficial fecha -> cotización venta) con búsqueda hacia atrás de hasta 15 días para fines de semana/feriados y respaldo en `DolarService.obtenerDolar` para fechas futuras.
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/grafico-historico/grafico-historico.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-18 23:03] - Modernización de Gráfico Histórico Estimativo y Selector Pesos / Dólares (`grafico-historico`)
+- **Problema / Solicitud**:
+  - El usuario solicitó actualizar visualmente el **Gráfico Histórico Estimativo** para equipararlo con el **Gráfico Estimativo** mensual (pestañas tipo píldora `General | Saldos | Deudas` y estética moderna de curvas) e incorporar un selector para alternar entre **Pesos ($)** y **Dólares (US$)**.
+- **Causa Raíz**:
+  - `GraficoHistorico` no contaba con filtros de series (`General | Saldos | Deudas`), ni selector de moneda (`ARS | USD`), ni los estilos de cabecera tipo píldora de `GraficoEstimativo`.
+- **Solución Técnica Aplicada**:
+  - En `grafico-historico.html` y `grafico-historico.scss`, se incorporó la cabecera con selectores tipo píldora alineados a la paleta institucional `#4b5896` / `#706cd6` (`#7e79d6` en modo oscuro) para **Series** (`General`, `Saldos`, `Deudas`) y **Moneda** (`Pesos ($)`, `Dólares (US$)`).
+  - En `grafico-historico.ts`, se unificaron los colores, tensiones (`0.35`) y rellenos suaves (`Saldos` / `Deudas`) con `GraficoEstimativo`, y se implementó la conversión histórica a USD usando la tasa implícita diaria (`saldoPesos / saldoUSD`) con respaldo en `DolarService.obtenerDolar`, actualizando tooltips y eje Y dinámicamente entre `$` y `US$`.
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/pages/estimativos/grafico-historico/grafico-historico.ts`
+  - `src/app/pages/estimativos/grafico-historico/grafico-historico.html`
+  - `src/app/pages/estimativos/grafico-historico/grafico-historico.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-18 22:45] - Propagación Automática de Pagos Parciales y Compensaciones hacia Estimativos (`entity-payment.service.ts`)
+- **Problema / Solicitud**:
+  - Al registrar o eliminar un pago parcial en Mensual (ej. Febrero 2027), los ciclos de Estimativos ya generados no actualizaban automáticamente el **Saldo Estimado** del mes del pago ni la **Deuda / Deuda Real** trasladada a los meses posteriores.
+- **Causa Raíz**:
+  - `EntityPaymentService.registerPayment` y `deletePaymentRecord` solo actualizaban `real` / `deudaReal` puntual en el mes del pago y la compensación en `MonthlyItem` del mes siguiente (`syncCompensacionMesSiguiente`), sin propagar el `deltaRestante` hacia `MonthlyEstimateConfig` y `DailyEstimate`.
+- **Solución Técnica Aplicada**:
+  - Se agregó `propagarCambioPagoAEstimativos(year, mes, deltaRestante)` en `control-de-gastos-api/src/services/entity-payment.service.ts`, invocado tanto en `registerPayment` como en `deletePaymentRecord`.
+  - En el mes del pago (`year, mes`), ajusta `saldoInicial`, `saldoPesos` y `diferenciaSaldo` según la variación del efectivo abonado (`+deltaRestante`).
+  - En todos los meses posteriores ya creados (`> year/mes`), ajusta `deudaInicial`, `deuda`, `deudaReal` y `diferenciaDeuda` según el saldo impago trasladado, notificando vía `sseService.broadcast('DATA_UPDATED', { tipo: 'ESTIMATE_UPDATED' })`.
+- **Validación de Compilación**:
+  - `control-de-gastos-api` (`npx tsc --noEmit`): **Código 0, sin errores**.
+- **Archivos Afectados**:
+  - `../control-de-gastos-api/src/services/entity-payment.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-18 22:01] - Traslado de Compensaciones Impagas de Tarjetas al Mes Siguiente (`estimate.service.ts`)
+- **Problema / Solicitud**:
+  - En Enero 2027, el saldo impago de Master Card Galicia (`$ 2.682.886,79`, tras abonar `$ 900.000`) se sumaba a la deuda del propio Enero 2027 (`$ 21.531.020,08`) en lugar de trasladarse recién a Febrero 2027.
+- **Causa Raíz**:
+  - `EstimateService.getPreviewExpenses` sumaba `totalCompensacionesTarjetas` del mismo mes consultado (`year, mes`) al calcular `deudaSugerida`.
+- **Solución Técnica Aplicada**:
+  - Se modificó `getPreviewExpenses` en `control-de-gastos-api/src/services/estimate.service.ts` para calcular `compensacionesMesAnterior` a partir de `monthlyItem` y `entityPayment` del mes anterior (`yearAnterior, mesAnterior`).
+  - De este modo, en Enero 2027 la deuda sugerida baja a `20.046.872,73 - 1.198.739,44 = $ 18.848.133,29`, y los `$ 2.682.886,79` impagos pasan a sumarse recién en Febrero 2027.
+- **Validación de Compilación**:
+  - `control-de-gastos-api` (`npx tsc --noEmit`): **Código 0, sin errores**.
+- **Archivos Afectados**:
+  - `../control-de-gastos-api/src/services/estimate.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-18 21:26] - Ajuste de Deuda Inicial Proyectada desde Mes Anterior y Recálculo Secuencial 2027 (`control-de-gastos-api`)
+- **Problema / Solicitud**:
+  - Al configurar Enero 2027 partiendo del cierre de Diciembre 2026 (`$ 20.046.872,73` desde Google Sheets), `deudaSugerida` mostraba `$ 22.983.543,15` en lugar de `deudaMesAnterior - totalPrestamosMes + totalCompensacionesTarjetas` (`$ 21.531.020,08`), porque sumaba también las cuotas del propio mes que ya se descuentan el Día 1.
+- **Causa Raíz**:
+  - En `EstimateService.getPreviewExpenses` (`control-de-gastos-api/src/services/estimate.service.ts`), el piso `deudaTotalPrestamosDesdeMes` incluía `i.mes >= mes` y competía con `deudaSugeridaBase` aun cuando `deudaMesAnterior > 0`.
+- **Solución Técnica Aplicada**:
+  - Se ajustó `deudaTotalPrestamosDesdeMes` a cuotas estrictamente posteriores (`i.year > year || (i.year === year && i.mes > mes)`), ya que las cuotas del mes en curso se descuentan el Día 1.
+  - Cuando existe mes anterior (`deudaMesAnterior > 0`), `deudaSugerida` aplica `Math.max(0, deudaMesAnterior - totalPrestamosMes + totalCompensacionesTarjetas)`. Solo cuando `deudaMesAnterior <= 0` se usa el respaldo de préstamos posteriores + compensaciones.
+  - Además, se recalculó secuencialmente Febrero, Marzo y Abril 2027 en PostgreSQL desde Enero 2027, y al guardar cualquier mes (`upsertMonthlyConfig`) se propagan automáticamente las diferencias a los meses posteriores ya creados.
+- **Validación de Compilación**:
+  - `control-de-gastos-api` (`npx tsc --noEmit`): **Código 0, sin errores**.
+- **Archivos Afectados**:
+  - `../control-de-gastos-api/src/services/estimate.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-18 19:28] - Propagación Automática en Cascada de Saldo Estimado y Deuda en Estimativos (`control-de-gastos-api`)
+- **Problema / Solicitud**:
+  - Al agregar o editar un préstamo (o al modificar un mes ya generado en Estimativos), el cambio de cuotas/saldo de un mes no se propagaba automáticamente al `saldoInicial` ni a los saldos diarios (`saldoPesos`) de ese mes y los meses posteriores ya creados (ej. Febrero, Marzo y Abril 2027), obligando a borrar y recrear los meses siguientes.
+- **Causa Raíz**:
+  - `LoanService.sincronizarPrestamoConEstimativos` solo actualizaba `deudaInicial`/`deuda`/`deudaReal` sin descontar las cuotas acumuladas de `saldoInicial` y `saldoPesos`.
+  - `EstimateService.upsertMonthlyConfig` no propagaba las diferencias de saldo y deuda final hacia los ciclos posteriores existentes.
+- **Solución Técnica Aplicada**:
+  - En `control-de-gastos-api/src/services/loan.service.ts` (`sincronizarPrestamoConEstimativos`), además de actualizar la deuda restante (`>= cfg`), ahora se calcula `deltaSaldo = -factor * sumaAcumuladaCuotas (<= cfg)` actualizando `saldoInicial`, `saldoPesos` y `diferenciaSaldo` en todos los ciclos afectados en cascada.
+  - En `control-de-gastos-api/src/services/estimate.service.ts` (`upsertMonthlyConfig`), al guardar/recalcular un mes que ya existía, se calcula la diferencia de su saldo y deuda final respecto a la versión previa y se propaga automáticamente a todos los meses posteriores ya generados.
+  - Se ajustaron en PostgreSQL los saldos acumulados de `2027-01` a `2027-04` descontando las cuotas de `BN+ 9.8M` (`-912.448,86`, `-1.546.661,39`, `-2.180.873,92`, `-2.815.086,45`).
+- **Validación de Compilación**:
+  - `control-de-gastos-api` (`npx tsc --noEmit`): **Código 0, sin errores**.
+- **Archivos Afectados**:
+  - `../control-de-gastos-api/src/services/loan.service.ts`
+  - `../control-de-gastos-api/src/services/estimate.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-18 19:00] - Sincronización de Deuda 2027 en BD + Edición y Eliminación de Préstamos y Cuotas (`tabla-prestamos` y `modal-cargar-prestamo`)
+- **Problema / Solicitud**:
+  - Los ciclos de Estimativos ya generados para 2027 (`2027-01` a `2027-04`) conservaban los montos de deuda previos a la creación del préstamo de 30 cuotas (`BN+ 9.8M`), y no había forma de editar ni eliminar un préstamo o modificar sus cuotas una vez guardado.
+- **Causa Raíz**:
+  - `MonthlyEstimateConfig` y `DailyEstimate` de `2027-01`..`2027-04` habían sido creados antes de implementar `sincronizarPrestamoConEstimativos`, y `updateLoan` en la API tampoco propagaba cambios de cuotas hacia Estimativos.
+  - `TablaPrestamos` y `ModalCargarPrestamoComponent` solo soportaban alta (`createLoan`), sin acciones de edición (`updateLoan`) ni eliminación (`deleteLoan`).
+- **Solución Técnica Aplicada**:
+  - **Base de datos 2027**: Se sincronizaron directamente los registros existentes `2027-01` (`$ 20.300.656,36`), `2027-02` (`$ 19.101.916,92`), `2027-03` (`$ 18.045.983,05`) y `2027-04` (`$ 17.225.736,55`) con el saldo real de cuotas impagas de los préstamos activos en PostgreSQL.
+  - **Backend (`control-de-gastos-api/src/services/loan.service.ts`)**: `updateLoan` ahora preserva el estado de pago (`pagada`, `fechaPago`) por `numeroCuota` y sincroniza la diferencia de deuda con `MonthlyEstimateConfig` y `DailyEstimate`.
+  - **Frontend**:
+    - En `tabla-prestamos.html` / `.ts` / `.scss`, se agregó un botón de edición (ícono lápiz) en la cabecera de cada columna de préstamo registrado en BD.
+    - En `modal-cargar-prestamo.component.ts` / `.html` / `.scss`, se agregó soporte completo para `@Input() prestamoEditar: Loan | null` (precargando entidad, datos generales y todas las cuotas individuales para editarlas), guardado mediante `updateLoan` y botón **Eliminar Préstamo** con confirmación inline (`deleteLoan`).
+- **Validación de Compilación**:
+  - `control-de-gastos-api` (`npx tsc --noEmit`): **Código 0, sin errores**.
+  - `control-de-gastos-front` (`npx ng build --configuration development`): **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/pages/anual/tabla-prestamos/tabla-prestamos.ts`
+  - `src/app/pages/anual/tabla-prestamos/tabla-prestamos.html`
+  - `src/app/pages/anual/tabla-prestamos/tabla-prestamos.scss`
+  - `src/app/pages/anual/tabla-prestamos/modal-cargar-prestamo/modal-cargar-prestamo.component.ts`
+  - `src/app/pages/anual/tabla-prestamos/modal-cargar-prestamo/modal-cargar-prestamo.component.html`
+  - `src/app/pages/anual/tabla-prestamos/modal-cargar-prestamo/modal-cargar-prestamo.component.scss`
+  - `../control-de-gastos-api/src/services/loan.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-18 18:31] - Sincronización de Préstamos con Deuda de Estimativos y Corrección de Deuda Sugerida en Nuevo Mes (`control-de-gastos-api`)
+- **Problema / Solicitud**:
+  - Al agregar un nuevo préstamo (ej. 2027-2029), los ciclos de Estimativos ya creados (como Enero 2027) no actualizaban sus columnas `Deuda` y `Deuda Real`.
+  - Al abrir el modal de configuración de un mes nuevo sin mes anterior generado (ej. Junio 2027), el campo **Deuda Inicial Proyectada ($)** aparecía en negativo (`-634212,53`) porque restaba la cuota del mes sobre `deudaMesAnterior = 0`.
+- **Causa Raíz**:
+  - `LoanService.createLoan` y `deleteLoan` (`control-de-gastos-api/src/services/loan.service.ts`) no propagaban el saldo de cuotas impagas hacia `MonthlyEstimateConfig` y `DailyEstimate`.
+  - `EstimateService.getPreviewExpenses` (`control-de-gastos-api/src/services/estimate.service.ts`) calculaba `deudaSugerida = deudaMesAnterior - totalPrestamosMes + totalCompensacionesTarjetas` sin contemplar el piso real de cuotas remanentes de préstamos activos desde `(year, mes)` en adelante.
+- **Solución Técnica Aplicada**:
+  - En `control-de-gastos-api/src/services/loan.service.ts`, se agregó `sincronizarPrestamoConEstimativos(installments, factor)` invocada al crear (`+1`) y al eliminar (`-1`) un préstamo, actualizando `deudaInicial`, `deuda`, `deudaReal` y `diferenciaDeuda` en todos los ciclos de Estimativos existentes desde el primer mes del préstamo en adelante.
+  - En `control-de-gastos-api/src/services/estimate.service.ts`, se calculó `deudaTotalPrestamosDesdeMes` (sumatoria de cuotas impagas de préstamos activos con `year > anio || (year === anio && mes >= mes)`) y se aplicó `Math.max(0, deudaSugeridaBase, deudaTotalPrestamosDesdeMes + totalCompensacionesTarjetas)` para garantizar una deuda sugerida siempre positiva y consistente con los préstamos vigentes del mes.
+- **Validación de Compilación**:
+  - `control-de-gastos-api` (`npx tsc --noEmit`): **Código 0, sin errores**.
+- **Archivos Afectados**:
+  - `../control-de-gastos-api/src/services/loan.service.ts`
+  - `../control-de-gastos-api/src/services/estimate.service.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-18 18:00] - Deuda Total Multianual de Préstamos en Vista Anual (`anual.ts`)
+- **Problema / Solicitud**:
+  - En la tabla "Deuda total a pagar" de la pantalla Anual, cuando un préstamo tenía cuotas que se extendían a años posteriores (ej. 30 cuotas hasta 2028/2029), la columna **PRÉSTAMOS** y **DEUDA TOTAL** solo sumaba las cuotas del año consultado, ocultando el saldo restante de los años siguientes.
+- **Causa Raíz**:
+  - En `calcularDeudaTotalParaAnio(anio)` (`src/app/pages/anual/anual/anual.ts`), el cálculo de `totalPrestamosRestante` solo iteraba sobre `filasMeses` del año seleccionado (`anio`).
+- **Solución Técnica Aplicada**:
+  - En `calcularDeudaTotalParaAnio(anio)`, se consulta en paralelo `this.loansService.getLoans()` para obtener el cronograma completo de cuotas de cada préstamo y se indexan por nombre normalizado (`loansPorNombre`).
+  - Al calcular el saldo restante de cada préstamo activo en el mes `targetIdx`, además de sumar las cuotas restantes del año actual (`r >= targetIdx`), se suman todas sus cuotas con `inst.year > anio` (`monto > 0`), actualizando tanto el monto total como la cantidad de cuotas restantes en `desglosePrestamos` y `deudaTotal`.
+  - Se incrementó la versión de caché local a `deuda_total_meses_v5_${anio}` limpiando la versión `v4` previa.
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/pages/anual/anual/anual.ts`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-18 17:48] - Corrección de Renderizado de Inputs en Cronograma (`@for` / `@if`) y Aclaración de Porcentaje Opcional (`modal-cargar-prestamo`)
+- **Problema / Solicitud**:
+  - Al seleccionar "Personalizar por Cuota", en el cronograma seguía renderizándose el texto `$ 0,00` de cuotas fijas en lugar de los `<input>` editables de cada cuota.
+  - Además, el campo "Reducción % entre cuotas" no dejaba explícito que es completamente opcional.
+- **Causa Raíz**:
+  - En `modal-cargar-prestamo.component.html`, los `<ng-container *ngIf="tipoCuotas() === ...">` dentro de `*ngFor` con `trackBy` no estaban alternando la vista del monto al cambiar el signal `tipoCuotas` en tiempo real.
+- **Solución Técnica Aplicada**:
+  - Se migró el listado de cuotas en `modal-cargar-prestamo.component.html` a control flow nativo `@for (cuota of cuotasDetalle(); track cuota.numeroCuota; let idx = $index)` y `@if (tipoCuotas() === 'fijas') { ... } @else { ... }`, garantizando la conmutación inmediata entre texto fijo e `<input>` editable y conservando el `track` estable por `numeroCuota`.
+  - Se rotuló explícitamente **Reducción % entre cuotas (Opcional)** tanto en la etiqueta como en el placeholder y texto de ayuda, dejando en claro que si se deja vacío se cargan todas las cuotas manualmente.
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/pages/anual/tabla-prestamos/modal-cargar-prestamo/modal-cargar-prestamo.component.html`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-18 16:50] - Reducción Porcentual Automática entre Cuotas desde la Cuota #2 (`modal-cargar-prestamo`)
+- **Problema / Solicitud**:
+  - En el modo "Personalizar por Cuota", el usuario solicitó poder indicar un porcentaje de reducción entre cuota y cuota para calcular automáticamente las cuotas siguientes tomando como base la **Cuota #2** (dejando la **Cuota #1** independiente por posibles variaciones de días entre la fecha de toma y el primer vencimiento).
+- **Causa Raíz**:
+  - El modal solo permitía editar cada cuota personalizada manualmente una por una.
+- **Solución Técnica Aplicada**:
+  - Se agregó el signal `porcentajeReduccion` y el helper `aplicarReduccionDesdeCuota2` en `modal-cargar-prestamo.component.ts`.
+  - Al ingresar o modificar el porcentaje de reducción (0% a 99.99%), o al editar la Cuota #2 (`index === 1`), o al recalcular el cronograma con un porcentaje activo, las cuotas desde la #3 en adelante se calculan automáticamente reduciendo cada una respecto a la anterior (`montoAnterior * (1 - porcentaje / 100)`, redondeado a 2 decimales), sin alterar la Cuota #1.
+  - Se incorporó el campo **Reducción % entre cuotas (Base: Cuota #2)** en `modal-cargar-prestamo.component.html` cuando `tipoCuotas() === 'variables'`, con estilos en `modal-cargar-prestamo.component.scss` (modo claro y oscuro) alineados a la paleta institucional `#4b5896` / `#706cd6`.
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/pages/anual/tabla-prestamos/modal-cargar-prestamo/modal-cargar-prestamo.component.ts`
+  - `src/app/pages/anual/tabla-prestamos/modal-cargar-prestamo/modal-cargar-prestamo.component.html`
+  - `src/app/pages/anual/tabla-prestamos/modal-cargar-prestamo/modal-cargar-prestamo.component.scss`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
+### [2026-11-18 16:43] - Corrección de Pérdida de Foco en Cuotas Personalizadas (`modal-cargar-prestamo`)
+- **Problema / Solicitud**:
+  - En la pantalla Anual, al cargar un préstamo con modalidad "Personalizar por Cuota", cada vez que se ingresaba o editaba un dígito en el campo de monto de una cuota, el `<input>` perdía el foco y obligaba a hacer clic nuevamente para seguir escribiendo.
+- **Causa Raíz**:
+  - En `modal-cargar-prestamo.component.html`, el `*ngFor="let cuota of cuotasDetalle(); let idx = index"` no tenía `trackBy`. Como `actualizarMontoCuotaIndividual` reemplaza inmutablemente el objeto de la cuota en el signal `cuotasDetalle`, Angular detectaba una nueva referencia de objeto en cada pulsación y destruía/recreaba la fila del DOM (y su `<input>`).
+  - Además, al vaciar el campo numérico, se forzaba inmediatamente `0` en `monto`, dificultando la edición.
+- **Solución Técnica Aplicada**:
+  - Se agregó `trackByCuota(_index: number, cuota: CuotaEditable)` (retornando `cuota.numeroCuota`) en `modal-cargar-prestamo.component.ts` y se conectó con `trackBy: trackByCuota` en el `*ngFor` de `modal-cargar-prestamo.component.html`.
+  - Se permitió `monto: number | null` en `CuotaEditable` y en `actualizarMontoCuotaIndividual` cuando el campo queda vacío (`null` o `''`), agregando `placeholder="0"` al `<input>` para permitir borrar y escribir valores cómodamente sin perder el foco ni reinsertar `0` delante del cursor.
+- **Validación de Compilación**:
+  - `npx ng build --configuration development`: **Código 0, 100% exitoso, 0 errores, 0 advertencias**.
+- **Archivos Afectados**:
+  - `src/app/pages/anual/tabla-prestamos/modal-cargar-prestamo/modal-cargar-prestamo.component.ts`
+  - `src/app/pages/anual/tabla-prestamos/modal-cargar-prestamo/modal-cargar-prestamo.component.html`
+  - `REGISTRO_ACCIONES_FRONT.md`
+
 ### [2026-11-05 14:15] - Configuración de Estimativos: Cálculo Automático Fiel al Excel Tildado por Defecto
 - **Problema / Solicitud**:
   - En el modal "Configurar Ciclo Estimativo" (`modal-config-estimativo`), la opción "Cálculo Automático Fiel al Excel" aparecía destildada (en modo manual) por defecto al abrir o editar un ciclo existente, mostrando el campo de texto manual en vez del cálculo automático contable.

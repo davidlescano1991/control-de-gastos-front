@@ -320,6 +320,55 @@
   }
 }
 
+/* Reducción % automática entre cuotas */
+.reduccion-auto-box {
+  background: #f8fafc;
+  border: 1px solid #c4c8df;
+  border-radius: 10px;
+  padding: 10px 12px;
+
+  .badge-base-cuota {
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: #eaecf4;
+    border: 1px solid #c4c8df;
+    color: #4b5896;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+
+  .input-percent-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+
+    .form-control-percent {
+      padding-right: 30px;
+      font-weight: 700;
+      color: #1e293b;
+
+      &:focus {
+        border-color: #706cd6;
+      }
+    }
+
+    .percent-symbol {
+      position: absolute;
+      right: 12px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #4b5896;
+      pointer-events: none;
+    }
+  }
+
+  .reduccion-hint {
+    font-size: 0.73rem;
+    line-height: 1.35;
+    color: #64748b;
+  }
+}
+
 /* Preview Column */
 .preview-column {
   display: flex;
@@ -573,6 +622,87 @@
   padding: 16px 24px;
   background: #fafafc;
   border-top: 1px solid #f1f5f9;
+
+  &.modal-footer-between {
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .footer-left-actions,
+  .footer-right-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .btn-eliminar-prestamo {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid #fca5a5;
+    color: #dc2626;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    &:hover:not(:disabled) {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: #ef4444;
+    }
+  }
+
+  .confirm-delete-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    padding: 6px 10px;
+    border-radius: 8px;
+
+    .confirm-delete-text {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #ef4444;
+    }
+
+    .btn-confirmar-eliminar {
+      background: #dc2626;
+      border: none;
+      color: #ffffff;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+
+      &:hover:not(:disabled) {
+        background: #b91c1c;
+      }
+    }
+
+    .btn-cancelar-mini {
+      background: transparent;
+      border: 1px solid #94a3b8;
+      color: #64748b;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+  }
 
   .btn-cancelar {
     background: #ffffff;
@@ -886,6 +1016,35 @@
 
     .info-icon {
       color: #60a5fa;
+    }
+  }
+
+  .reduccion-auto-box {
+    background: rgba(75, 88, 150, 0.12);
+    border-color: rgba(126, 121, 214, 0.35);
+
+    .badge-base-cuota {
+      background: rgba(112, 108, 214, 0.22);
+      border-color: rgba(126, 121, 214, 0.45);
+      color: #c7d2fe;
+    }
+
+    .input-percent-wrapper {
+      .form-control-percent {
+        color: #f8fafc;
+
+        &:focus {
+          border-color: #7e79d6;
+        }
+      }
+
+      .percent-symbol {
+        color: #a5b4fc;
+      }
+    }
+
+    .reduccion-hint {
+      color: #94a3b8;
     }
   }
 
